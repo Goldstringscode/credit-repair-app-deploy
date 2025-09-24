@@ -56,10 +56,12 @@ export const POST = withRateLimit(
         console.log('📄 Creating invoice for:', validatedData.customer.email)
 
         // const invoice = await invoiceGenerator.createInvoice({
-        const invoice = { id: 'mock-invoice', status: 'created' } // Mock response
+        const invoice = { 
+          id: 'mock-invoice', 
+          status: 'created',
           ...validatedData,
           status: 'draft'
-        })
+        } // Mock response
 
         return NextResponse.json({
           success: true,
