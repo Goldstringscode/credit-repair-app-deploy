@@ -164,7 +164,8 @@ export class InvoiceGenerator {
       console.log(`📄 Generating PDF for invoice ${invoice.number}`)
       
       // Dynamic import to avoid issues in environments where Puppeteer isn't available
-      const puppeteer = await import('puppeteer').catch(() => null)
+      // Mock PDF generation for deployment
+      const puppeteer = null
       
       if (!puppeteer) {
         console.log('📄 Puppeteer not available, using mock PDF')
