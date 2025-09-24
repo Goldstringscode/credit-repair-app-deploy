@@ -1,0 +1,46 @@
+const { UltimateCreditParserWorking } = require('./lib/ultimate-credit-parser-working.ts');
+
+async function testParser() {
+  try {
+    const testData = `EXPERIAN CREDIT REPORT
+Credit Score: 720
+
+ACCOUNTS:
+1. Chase Bank Credit Card
+   Balance: $2,500
+   Credit Limit: $10,000
+   Status: Open
+   Opened: 01/2020
+
+2. Wells Fargo Mortgage
+   Balance: $250,000
+   Credit Limit: $300,000
+   Status: Open
+   Opened: 03/2018
+
+NEGATIVE ITEMS:
+1. Late Payment - Chase Bank
+   Date: 12/2022
+   Amount: $50
+   Status: Paid
+
+INQUIRIES:
+1. Bank of America - 02/2023
+2. Capital One - 01/2023`;
+
+    console.log('🧪 Testing Ultimate Parser...');
+    console.log(`📄 Test data length: ${testData.length} characters`);
+    
+    const parser = new UltimateCreditParserWorking(testData);
+    const result = await parser.parse();
+    
+    console.log('✅ Parser test successful!');
+    console.log('📊 Results:', JSON.stringify(result, null, 2));
+    
+  } catch (error) {
+    console.error('❌ Parser test failed:', error);
+  }
+}
+
+testParser();
+

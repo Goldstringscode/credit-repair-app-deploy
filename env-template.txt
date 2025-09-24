@@ -1,0 +1,85 @@
+
+
+
+
+# Supabase Configuration
+# Get these values from your Supabase project dashboard
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url_here
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+
+# Database Configuration
+DATABASE_URL=your_database_connection_string_here
+
+# OpenAI Configuration (for AI letter generation)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Other Configuration
+NODE_ENV=development
+
+# App Configuration
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Optional: Additional database URLs for fallbacks
+NEON_NEON_DATABASE_URL=postgresql://username:password@hostname:port/database
+NEON_NEON_NEON_DATABASE_URL=postgresql://username:password@hostname:port/database
+
+# File Upload Limits
+MAX_FILE_SIZE=10485760  # 10MB in bytes
+
+# Analysis Configuration
+ANALYSIS_CONFIDENCE_THRESHOLD=0.7
+MAX_ACCOUNTS_PER_REPORT=20
+MAX_NEGATIVE_ITEMS_PER_REPORT=10
+
+# Security
+JWT_SECRET=your-jwt-secret-at-least-32-characters-long
+ENCRYPTION_MASTER_KEY=your-encryption-master-key-at-least-32-characters
+
+# Security Configuration
+ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
+BLOCKED_IPS=192.168.1.100,10.0.0.50
+API_KEYS=your-api-key-1,your-api-key-2
+
+# Logging Configuration
+AUDIT_LOGGING_ENABLED=true
+LOGGING_SERVICE_URL=https://your-logging-service.com/api/logs
+LOGGING_SERVICE_TOKEN=your-logging-token
+
+# Monitoring Configuration
+SENTRY_DSN=https://your-sentry-dsn@sentry.io/project-id
+
+# Rate Limiting Configuration
+RATE_LIMIT_REDIS_URL=redis://localhost:6379
+
+# Feature Flags
+ENABLE_AI_ANALYSIS=true
+ENABLE_SUPERIOR_PARSER=true
+ENABLE_NOTIFICATIONS=true
+ENABLE_AUDIT_LOGGING=true
+
+# Compliance Settings
+GDPR_ENABLED=true
+FCRA_ENABLED=true
+CCPA_ENABLED=true
+DATA_RETENTION_ENABLED=true
+COMPLIANCE_AUDIT_INTERVAL=30
+DATA_RETENTION_REDIS_URL=redis://localhost:6379
+COMPLIANCE_WEBHOOK_URL=https://your-compliance-webhook.com
+
+# Stripe Configuration
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
+STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key_here
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+STRIPE_BASIC_PRICE_ID=price_basic_monthly
+STRIPE_PREMIUM_PRICE_ID=price_premium_monthly
+STRIPE_ENTERPRISE_PRICE_ID=price_enterprise_monthly
+STRIPE_BASIC_PRODUCT_ID=prod_basic
+STRIPE_PREMIUM_PRODUCT_ID=prod_premium
+STRIPE_ENTERPRISE_PRODUCT_ID=prod_enterprise
+
+# USPS API Configuration (for Certified Mail)
+USPS_API_KEY=your_usps_api_key_here
+USPS_USER_ID=your_usps_user_id_here
+USPS_BASE_URL=https://secure.shippingapis.com/ShippingAPI.dll
+USPS_WEBHOOK_SECRET=your_usps_webhook_secret_here

@@ -1,0 +1,141 @@
+// Direct progress synchronization system
+// This provides a more reliable way to sync progress across components
+
+import { progressTrackingService } from './progress-tracking'
+
+// Custom event for progress updates
+export class ProgressUpdateEvent extends CustomEvent<{
+  lessonId: string
+  completed: boolean
+  currentTime: number
+}> {
+  constructor(lessonId: string, completed: boolean, currentTime: number) {
+    super('progressUpdate', {
+      detail: { lessonId, completed, currentTime }
+    })
+  }
+}
+
+// Progress synchronization manager
+export class ProgressSyncManager {
+  private static instance: ProgressSyncManager
+  private listeners: Set<(event: ProgressUpdateEvent) => void> = new Set()
+
+  static getInstance(): ProgressSyncManager {
+    if (!ProgressSyncManager.instance) {
+      ProgressSyncManager.instance = new ProgressSyncManager()
+    }
+    return ProgressSyncManager.instance
+  }
+
+  // Subscribe to progress updates
+  subscribe(callback: (event: ProgressUpdateEvent) => void): () => void {
+    this.listeners.add(callback)
+    
+    // Return unsubscribe function
+    return () => {
+      this.listeners.delete(callback)
+    }
+  }
+
+  // Emit progress update
+  emit(lessonId: string, completed: boolean, currentTime: number): void {
+    const event = new ProgressUpdateEvent(lessonId, completed, currentTime)
+    this.listeners.forEach(callback => callback(event))
+    
+    // Also dispatch to window for cross-component communication
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(event)
+    }
+  }
+
+  // Update lesson progress and emit event
+  updateLessonProgress(lessonId: string, currentTime: number, completed: boolean = false): void {
+    try {
+      // Update in progress tracking service
+      progressTrackingService.updateLessonProgress(lessonId, currentTime, completed)
+      
+      // Emit the update event
+      this.emit(lessonId, completed, currentTime)
+      
+      console.log(`ProgressSyncManager: Updated lesson ${lessonId}`, { completed, currentTime })
+    } catch (error) {
+      console.error('ProgressSyncManager: Error updating lesson progress:', error)
+    }
+  }
+
+  // Get lesson completion status
+  getLessonCompletionStatus(lessonId: string): boolean {
+    try {
+      const userProgress = progressTrackingService.getUserProgress()
+      const lessonProgress = userProgress.lessons.find((l: any) => l.lessonId === lessonId)
+      return lessonProgress?.completed || false
+    } catch (error) {
+      console.error('ProgressSyncManager: Error getting lesson completion status:', error)
+      return false
+    }
+  }
+
+  // Get all progress data
+  getUserProgress(): any {
+    try {
+      return progressTrackingService.getUserProgress()
+    } catch (error) {
+      console.error('ProgressSyncManager: Error getting user progress:', error)
+      return null
+    }
+  }
+}
+
+// Export singleton instance
+export const progressSyncManager = ProgressSyncManager.getInstance()
+
+// React hook for progress synchronization
+export function useProgressSync() {
+  const [progressData, setProgressData] = React.useState<any>(null)
+  const [refreshTrigger, setRefreshTrigger] = React.useState(0)
+
+  React.useEffect(() => {
+    // Load initial progress
+    const loadProgress = () => {
+      const progress = progressSyncManager.getUserProgress()
+      setProgressData(progress)
+    }
+    
+    loadProgress()
+
+    // Subscribe to progress updates
+    const unsubscribe = progressSyncManager.subscribe((event) => {
+      console.log('ProgressSync: Received update event:', event.detail)
+      setRefreshTrigger(prev => prev + 1)
+      loadProgress() // Reload progress data
+    })
+
+    // Also listen to window events for cross-component communication
+    const handleWindowEvent = (event: any) => {
+      if (event.type === 'progressUpdate') {
+        console.log('ProgressSync: Received window event:', event.detail)
+        setRefreshTrigger(prev => prev + 1)
+        loadProgress()
+      }
+    }
+
+    window.addEventListener('progressUpdate', handleWindowEvent)
+
+    return () => {
+      unsubscribe()
+      window.removeEventListener('progressUpdate', handleWindowEvent)
+    }
+  }, [])
+
+  return {
+    progressData,
+    refreshTrigger,
+    updateLessonProgress: progressSyncManager.updateLessonProgress.bind(progressSyncManager),
+    getLessonCompletionStatus: progressSyncManager.getLessonCompletionStatus.bind(progressSyncManager),
+    getUserProgress: progressSyncManager.getUserProgress.bind(progressSyncManager)
+  }
+}
+
+// Import React for the hook
+import React from 'react'

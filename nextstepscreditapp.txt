@@ -1,0 +1,2 @@
+mark at complete works but the system needs to show it as marked as complete throughout the entire training system, also on the coure lesson sidebar and in the other parts of the training system especially in the lesson part. 
+So there needs to be something that keeps track of all of the lessons and keeps track of where you left off on each lessons video and if its completed or not and how much of the lesson and course is completed.
