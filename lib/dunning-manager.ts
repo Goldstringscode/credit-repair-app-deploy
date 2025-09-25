@@ -486,6 +486,13 @@ export class DunningManager {
   }
 
   /**
+   * Get a specific dunning event by ID
+   */
+  async getEvent(eventId: string): Promise<DunningEvent | null> {
+    return this.events.get(eventId) || null
+  }
+
+  /**
    * Get dunning analytics
    */
   async getDunningAnalytics(): Promise<{
