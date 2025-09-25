@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const startTime = Date.now();
     
     // Try to get channels (simple query to test connection)
-    const channels = await communicationDatabaseService.getUserChannels('test-user');
+    const channels = await communicationDatabaseService.getChannels();
     const responseTime = Date.now() - startTime;
     
     return NextResponse.json({
