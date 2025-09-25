@@ -9,17 +9,16 @@ const retryPaymentSchema = z.object({
 })
 
 export const POST = withRateLimit(
-  withValidation(
-    async (request: NextRequest, { params }: { params: { id: string } }) => {
+  withValidation({
+    body: retryPaymentSchema
+  })(
+    async (request: NextRequest, validatedData?: any, { params }: { params: { id: string } } = { params: { id: '' } }) => {
       try {
         const eventId = params.id
-        const body = await request.json()
-        const validatedData = retryPaymentSchema.parse(body)
-
         console.log('💳 Retrying payment for dunning event:', eventId)
 
         // Get the dunning event
-        const event = dunningManager.getEvent(eventId)
+        const event = await dunningManager.getEvent(eventId)
         if (!event) {
           return NextResponse.json({
             success: false,
@@ -53,8 +52,7 @@ export const POST = withRateLimit(
           message: error.message
         }, { status: 500 })
       }
-    },
-    retryPaymentSchema
+    }
   )
 )
 
