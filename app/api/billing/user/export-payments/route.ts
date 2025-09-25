@@ -17,7 +17,7 @@ export const POST = withRateLimit(
         // Generate PDF content using the PDF generator
         const pdfContent = await pdfGenerator.generatePaymentHistory(payments, user)
         
-        return new NextResponse(pdfContent.buffer.slice(0), {
+        return new NextResponse(new Uint8Array(pdfContent), {
           headers: {
             'Content-Type': 'application/pdf',
             'Content-Disposition': `attachment; filename="payment-history-${new Date().toISOString().split('T')[0]}.pdf"`
