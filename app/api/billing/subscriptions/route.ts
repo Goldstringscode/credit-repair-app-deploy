@@ -73,8 +73,7 @@ export const POST = withRateLimit(
           details: error.stack
         }, { status: 500 })
       }
-    },
-    createSubscriptionSchema
+    }
   )
 )
 
