@@ -82,6 +82,22 @@ export class NotificationService {
     
     // TODO: Implement actual email sending
   }
+
+  async notifyDisputeSubmitted(dispute: any): Promise<void> {
+    console.log('Dispute submitted notification:', dispute);
+    
+    // Add notification to UI
+    this.addNotification({
+      id: `dispute-submitted-${Date.now()}`,
+      type: 'success',
+      title: 'Dispute Submitted!',
+      message: `Your dispute for ${dispute.itemDescription || 'credit item'} has been submitted successfully`,
+      timestamp: new Date().toISOString(),
+      data: dispute
+    });
+    
+    // TODO: Implement actual email sending
+  }
 }
 
 export const notificationService = new NotificationService();
