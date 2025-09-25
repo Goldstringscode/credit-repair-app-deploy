@@ -66,13 +66,12 @@ export const GET = withRateLimit(
 )
 
 export const PATCH = withRateLimit(
-  withValidation(
-    async (request: NextRequest, { params }: { params: { id: string } }) => {
+  withValidation({
+    body: updatePaymentMethodSchema
+  })(
+    async (request: NextRequest, validatedData?: any, { params }: { params: { id: string } } = { params: { id: '' } }) => {
       try {
         const paymentMethodId = params.id
-        const body = await request.json()
-        const validatedData = updatePaymentMethodSchema.parse(body)
-
         console.log('💳 Updating payment method:', paymentMethodId)
 
         // Note: Stripe doesn't allow updating payment method details directly
@@ -95,8 +94,7 @@ export const PATCH = withRateLimit(
           message: error.message
         }, { status: 500 })
       }
-    },
-    updatePaymentMethodSchema
+    }
   )
 )
 
@@ -126,13 +124,12 @@ export const DELETE = withRateLimit(
 
 // Set as default payment method
 export const PUT = withRateLimit(
-  withValidation(
-    async (request: NextRequest, { params }: { params: { id: string } }) => {
+  withValidation({
+    body: setDefaultSchema
+  })(
+    async (request: NextRequest, validatedData?: any, { params }: { params: { id: string } } = { params: { id: '' } }) => {
       try {
         const paymentMethodId = params.id
-        const body = await request.json()
-        const validatedData = setDefaultSchema.parse(body)
-
         console.log('💳 Setting default payment method:', paymentMethodId)
 
         // Note: In a real implementation, you would update the customer's default payment method in Stripe
@@ -150,8 +147,7 @@ export const PUT = withRateLimit(
           message: error.message
         }, { status: 500 })
       }
-    },
-    setDefaultSchema
+    }
   )
 )
 
