@@ -148,3 +148,4 @@ export class CommunicationService {
 }
 
 export const communicationService = new CommunicationService();
+export const communicationDatabaseService = communicationService;

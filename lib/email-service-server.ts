@@ -426,6 +426,182 @@ export const sendTaskCompletionEmail = async (data: any) => {
   return { messageId: 'mock-task' }
 }
 
+export const sendPasswordResetEmail = async (email: string, name: string, resetToken: string) => {
+  try {
+    console.log('📧 Sending Password Reset Email:')
+    console.log(`   To: ${email}`)
+    console.log(`   Name: ${name}`)
+    console.log(`   Reset Token: ${resetToken}`)
+    
+    const transporter = await createTransporter()
+    const config = getEmailConfig()
+    
+    const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`
+    
+    const mailOptions = {
+      from: `"${config.from.name}" <${config.from.email}>`,
+      to: email,
+      subject: 'Password Reset Request - CreditAI Pro',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 28px;">🔐 Password Reset Request</h1>
+          </div>
+          
+          <div style="padding: 30px; background: #f8f9fa;">
+            <p style="font-size: 18px; color: #333; margin-bottom: 20px;">Hello ${name},</p>
+            
+            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
+              We received a request to reset your password for your CreditAI Pro account. 
+              If you made this request, click the button below to reset your password.
+            </p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetLink}" 
+                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        color: white; 
+                        padding: 15px 30px; 
+                        text-decoration: none; 
+                        border-radius: 25px; 
+                        font-weight: bold; 
+                        font-size: 16px;
+                        display: inline-block;">
+                🔑 Reset Password
+              </a>
+            </div>
+            
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; color: #856404;">
+                ⏰ <strong>Important:</strong> This link expires in 1 hour for security reasons.
+              </p>
+            </div>
+            
+            <p style="color: #666; font-size: 14px; margin-top: 30px;">
+              If you didn't request this password reset, please ignore this email. Your password will remain unchanged.
+            </p>
+            
+            <p style="color: #666; font-size: 12px; margin-top: 20px;">
+              If the button doesn't work, copy and paste this link into your browser:<br>
+              <a href="${resetLink}" style="color: #667eea;">${resetLink}</a>
+            </p>
+          </div>
+          
+          <div style="background: #333; color: white; padding: 20px; text-align: center; font-size: 12px;">
+            <p style="margin: 0;">© 2024 CreditAI Pro. All rights reserved.</p>
+          </div>
+        </div>
+      `
+    }
+    
+    // Send the email
+    const info = await transporter.sendMail(mailOptions)
+    console.log('✅ Password reset email sent successfully:', info.messageId)
+    
+    return { success: true, messageId: info.messageId }
+  } catch (error) {
+    console.error('❌ Failed to send password reset email:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const sendBillingNotification = async (user: any, type: string, data: any) => {
+  try {
+    console.log('📧 Sending Billing Notification:')
+    console.log(`   To: ${user.email}`)
+    console.log(`   Type: ${type}`)
+    console.log(`   Data:`, data)
+    
+    const transporter = await createTransporter()
+    const config = getEmailConfig()
+    
+    let subject = 'Billing Notification - CreditAI Pro'
+    let html = ''
+    
+    switch (type) {
+      case 'subscription_created':
+        subject = 'Welcome to CreditAI Pro - Subscription Created'
+        html = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white;">
+              <h1 style="margin: 0; font-size: 28px;">🎉 Welcome to CreditAI Pro!</h1>
+            </div>
+            
+            <div style="padding: 30px; background: #f8f9fa;">
+              <p style="font-size: 18px; color: #333; margin-bottom: 20px;">Hello ${user.first_name || user.email},</p>
+              
+              <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
+                Your subscription has been successfully created! Welcome to the CreditAI Pro family.
+              </p>
+              
+              <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <h3 style="color: #333; margin-top: 0;">Subscription Details:</h3>
+                <p><strong>Plan:</strong> ${data.planName || 'Demo Plan'}</p>
+                <p><strong>Billing Cycle:</strong> ${data.billingCycle || 'Monthly'}</p>
+                <p><strong>Next Billing Date:</strong> ${data.nextBillingDate || 'N/A'}</p>
+              </div>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" 
+                   style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                          color: white; 
+                          padding: 15px 30px; 
+                          text-decoration: none; 
+                          border-radius: 25px; 
+                          font-weight: bold; 
+                          font-size: 16px;
+                          display: inline-block;">
+                  🚀 Access Dashboard
+                </a>
+              </div>
+            </div>
+            
+            <div style="background: #333; color: white; padding: 20px; text-align: center; font-size: 12px;">
+              <p style="margin: 0;">© 2024 CreditAI Pro. All rights reserved.</p>
+            </div>
+          </div>
+        `
+        break
+      default:
+        subject = 'Billing Notification - CreditAI Pro'
+        html = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white;">
+              <h1 style="margin: 0; font-size: 28px;">📧 Billing Notification</h1>
+            </div>
+            
+            <div style="padding: 30px; background: #f8f9fa;">
+              <p style="font-size: 18px; color: #333; margin-bottom: 20px;">Hello ${user.first_name || user.email},</p>
+              
+              <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
+                This is a billing notification regarding your CreditAI Pro account.
+              </p>
+            </div>
+            
+            <div style="background: #333; color: white; padding: 20px; text-align: center; font-size: 12px;">
+              <p style="margin: 0;">© 2024 CreditAI Pro. All rights reserved.</p>
+            </div>
+          </div>
+        `
+    }
+    
+    const mailOptions = {
+      from: `"${config.from.name}" <${config.from.email}>`,
+      to: user.email,
+      subject,
+      html
+    }
+    
+    // Send the email
+    const info = await transporter.sendMail(mailOptions)
+    console.log('✅ Billing notification sent successfully:', info.messageId)
+    
+    return { success: true, messageId: info.messageId }
+  } catch (error) {
+    console.error('❌ Failed to send billing notification:', error)
+    return { success: false, error: error.message }
+  }
+}
+
 // Mock email service for client-side compatibility
 export const emailService = {
   sendInvitationEmail,
@@ -441,7 +617,9 @@ export const emailService = {
   sendNewTeamMemberEmail,
   sendPayoutProcessedEmail,
   sendTrainingCompletionEmail,
-  sendTaskCompletionEmail
+  sendTaskCompletionEmail,
+  sendPasswordResetEmail,
+  sendBillingNotification
 }
 
 export class EmailService {

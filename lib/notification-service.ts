@@ -66,6 +66,22 @@ export class NotificationService {
     
     // TODO: Implement actual email sending
   }
+
+  async notifyTaskCompleted(taskTitle: string, planName: string): Promise<void> {
+    console.log('Task completed notification:', { taskTitle, planName });
+    
+    // Add notification to UI
+    this.addNotification({
+      id: `task-completed-${Date.now()}`,
+      type: 'success',
+      title: 'Task Completed!',
+      message: `"${taskTitle}" in ${planName} has been completed successfully`,
+      timestamp: new Date().toISOString(),
+      data: { taskTitle, planName }
+    });
+    
+    // TODO: Implement actual email sending
+  }
 }
 
 export const notificationService = new NotificationService();

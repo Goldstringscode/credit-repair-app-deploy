@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { verifyToken, extractTokenFromHeader, isTokenExpired } from './jwt'
 import { database } from './database-config'
@@ -111,7 +111,7 @@ export async function getCurrentUser(request: NextRequest): Promise<AuthResult> 
 /**
  * Require authentication for API routes
  */
-export function requireAuth(handler: (request: NextRequest, user: User) => Promise<Response>) {
+export function requireAuth(handler: (request: NextRequest, user: User) => Promise<Response | NextResponse>) {
   return async (request: NextRequest) => {
     const authResult = await getCurrentUser(request)
     

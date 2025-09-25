@@ -41,6 +41,7 @@
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
     "@neondatabase/serverless": "^1.0.1",
+    "@paypal/checkout-server-sdk": "^1.0.3",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "latest",
     "@radix-ui/react-aspect-ratio": "1.1.1",
@@ -96,6 +97,7 @@
     "openai": "^5.19.1",
     "pdf-parse": "^1.1.1",
     "pg": "^8.16.3",
+    "pnpm": "^10.17.1",
     "react": "^18",
     "react-day-picker": "latest",
     "react-dom": "^18",
@@ -107,6 +109,7 @@
     "shipengine": "^1.0.0",
     "sonner": "^1.7.1",
     "stripe": "^18.5.0",
+    "supports-color": "^10.2.2",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "twilio": "^5.9.0",

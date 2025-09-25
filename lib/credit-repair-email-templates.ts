@@ -99,6 +99,23 @@ export const creditRepairEmailTemplates: CreditRepairEmailTemplate[] = [
 ]
 
 // Additional templates would continue here...
+export const additionalCreditRepairTemplates: CreditRepairEmailTemplate[] = [
+  {
+    id: 'follow-up-dispute',
+    name: 'Follow-up Dispute',
+    subject: 'Follow-up on Your Dispute - {{disputeType}}',
+    category: 'follow-up',
+    description: 'Follow-up email for dispute letters',
+    htmlContent: '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Follow-up Dispute</title></head><body><h1>Follow-up on Your Dispute</h1><p>Hello {{userName}},</p><p>This is a follow-up on your {{disputeType}} dispute.</p></body></html>',
+    textContent: 'Follow-up on Your Dispute\n\nHello {{userName}},\n\nThis is a follow-up on your {{disputeType}} dispute.',
+    variables: ['userName', 'disputeType'],
+    tags: ['follow-up', 'dispute'],
+    isActive: true,
+    createdAt: '2024-01-01',
+    usageCount: 0
+  }
+]
+
 export const getTemplatesByCategory = (category: string) => {
   return creditRepairEmailTemplates.filter(template => template.category === category)
 }

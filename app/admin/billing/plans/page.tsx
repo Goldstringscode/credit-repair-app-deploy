@@ -485,7 +485,7 @@ function PlanForm({
         </div>
         <div>
           <Label htmlFor="interval">Interval</Label>
-          <Select value={formData.interval} onValueChange={(value) => setFormData(prev => ({ ...prev, interval: value }))}>
+          <Select value={formData.interval} onValueChange={(value) => setFormData(prev => ({ ...prev, interval: value as 'day' | 'week' | 'month' | 'year' }))}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>

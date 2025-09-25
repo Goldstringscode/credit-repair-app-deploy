@@ -32,3 +32,6 @@ export const createSupabaseClient = () => {
   }
   return supabase
 }
+
+// Export createClient for compatibility
+export { createSupabaseClient as createClient }
