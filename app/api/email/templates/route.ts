@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
         category: template.category,
         isDefault: true,
         createdAt: "2024-01-01",
+        lastUsed: "2024-01-01",
         usageCount: 0,
         content: {
           html: template.htmlContent,
@@ -102,6 +103,7 @@ export async function POST(request: NextRequest) {
       category,
       isDefault: false,
       createdAt: new Date().toISOString().split('T')[0],
+      lastUsed: new Date().toISOString().split('T')[0],
       usageCount: 0,
       content: content || {
         html: "<h1>New Template</h1><p>Content will be added here...</p>",
