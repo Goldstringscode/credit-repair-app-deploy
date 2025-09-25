@@ -59,7 +59,6 @@ export async function POST(request: NextRequest) {
       personalInfo,
       disputeItems,
       letterType,
-      letterTier,
       creditBureau,
       additionalContext
     )
