@@ -25,7 +25,7 @@ export const GET = withRateLimit(
       
       return NextResponse.json({
         success: true,
-        payments: payments.map(payment => ({
+        payments: payments.map((payment: any) => ({
           id: payment.id,
           amount: payment.amount,
           status: payment.status,
