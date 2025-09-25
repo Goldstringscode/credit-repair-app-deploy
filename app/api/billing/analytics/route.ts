@@ -226,10 +226,7 @@ export const POST = withRateLimit(
           message: error.message
         }, { status: 500 })
       }
-    },
-    z.object({
-      action: z.string().min(1)
-    })
+    }
   )
 )
 
