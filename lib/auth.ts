@@ -111,22 +111,16 @@ export async function getCurrentUser(request: NextRequest): Promise<AuthResult> 
 /**
  * Require authentication for API routes
  */
-export function requireAuth(handler: (request: NextRequest, user: User) => Promise<Response | NextResponse>) {
+export function requireAuth(handler: (request: NextRequest, user: User) => Promise<NextResponse>) {
   return async (request: NextRequest) => {
     const authResult = await getCurrentUser(request)
     
     if (!authResult.isAuthenticated || !authResult.user) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Authentication required',
-          message: authResult.error || 'Please log in to access this resource'
-        }),
-        { 
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
+      return NextResponse.json({
+        success: false,
+        error: 'Authentication required',
+        message: authResult.error || 'Please log in to access this resource'
+      }, { status: 401 })
     }
     
     return handler(request, authResult.user)
