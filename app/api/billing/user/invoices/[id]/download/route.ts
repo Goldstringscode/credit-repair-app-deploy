@@ -3,9 +3,11 @@ import { requireAuth } from '@/lib/auth'
 import { withRateLimit } from '@/lib/rate-limiter'
 
 export const GET = withRateLimit(
-  requireAuth(async (request: NextRequest, { params }: { params: { id: string } }, user) => {
+  requireAuth(async (request: NextRequest, user) => {
     try {
-      const invoiceId = params.id
+      const url = new URL(request.url)
+      const pathParts = url.pathname.split('/')
+      const invoiceId = pathParts[pathParts.length - 2] // Get the ID from the URL path
       
       // Generate a sample PDF invoice
       const invoiceData = {
