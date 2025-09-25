@@ -44,8 +44,10 @@ export const POST = withRateLimit(
 
         // Create payment method
         const paymentMethod = await stripePaymentService.createPaymentMethod({
-          type: validatedData.type,
-          card: validatedData.card,
+          number: validatedData.card.number,
+          exp_month: validatedData.card.exp_month,
+          exp_year: validatedData.card.exp_year,
+          cvc: validatedData.card.cvc,
           billing_details: validatedData.billing_details
         })
 
