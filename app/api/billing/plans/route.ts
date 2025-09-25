@@ -203,15 +203,53 @@ export const GET = withRateLimit(
 )
 
 export const POST = withRateLimit(
-  withValidation(
-    async (request: NextRequest) => {
+  withValidation({
+    body: z.union([
+      z.object({
+        action: z.literal('create_plan'),
+        name: z.string().min(1),
+        description: z.string().min(1),
+        amount: z.number().min(0),
+        currency: z.string().length(3),
+        interval: z.enum(['day', 'week', 'month', 'year']),
+        intervalCount: z.number().min(1),
+        trialPeriodDays: z.number().min(0).optional(),
+        features: z.array(z.string()).min(1),
+        isActive: z.boolean().default(true),
+        isPopular: z.boolean().default(false),
+        sortOrder: z.number().min(0).default(0),
+        metadata: z.record(z.any()).optional()
+      }),
+      z.object({
+        action: z.literal('create_promotion'),
+        planId: z.string().min(1),
+        name: z.string().min(1),
+        description: z.string().min(1),
+        discountType: z.enum(['percentage', 'fixed_amount']),
+        discountValue: z.number().min(0),
+        startDate: z.string(),
+        endDate: z.string(),
+        isActive: z.boolean().default(true),
+        maxUses: z.number().min(1).optional(),
+        conditions: z.array(z.object({
+          field: z.enum(['customer_type', 'subscription_count', 'signup_date', 'referral_source']),
+          operator: z.enum(['equals', 'not_equals', 'greater_than', 'less_than', 'contains']),
+          value: z.any()
+        })).optional(),
+        metadata: z.record(z.any()).optional()
+      }),
+      z.object({
+        action: z.literal('calculate_price'),
+        planId: z.string().min(1),
+        customerData: z.any()
+      })
+    ])
+  })(
+    async (request: NextRequest, validatedData?: any) => {
       try {
-        const body = await request.json()
-        const action = body.action
+        const action = validatedData.action
 
         if (action === 'create_plan') {
-          const validatedData = createPlanSchema.parse(body)
-          
           console.log('📊 Creating pricing plan:', validatedData.name)
           const plan = await pricingPlanManager.createPlan(validatedData)
 
@@ -238,8 +276,6 @@ export const POST = withRateLimit(
         }
 
         if (action === 'create_promotion') {
-          const validatedData = createPromotionSchema.parse(body)
-          
           console.log('📊 Creating promotional pricing:', validatedData.name)
           const promotion = await pricingPlanManager.createPromotionalPricing(validatedData)
 
@@ -266,10 +302,8 @@ export const POST = withRateLimit(
         }
 
         if (action === 'calculate_price') {
-          const { planId, customerData } = body
-          
-          console.log('📊 Calculating effective price for plan:', planId)
-          const pricing = pricingPlanManager.calculateEffectivePrice(planId, customerData)
+          console.log('📊 Calculating effective price for plan:', validatedData.planId)
+          const pricing = pricingPlanManager.calculateEffectivePrice(validatedData.planId, validatedData.customerData)
 
           return NextResponse.json({
             success: true,
@@ -290,10 +324,7 @@ export const POST = withRateLimit(
           message: error.message
         }, { status: 500 })
       }
-    },
-    z.object({
-      action: z.string().min(1)
-    })
+    }
   )
 )
 
