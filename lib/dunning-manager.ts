@@ -463,10 +463,6 @@ export class DunningManager {
   /**
    * Cancel subscription
    */
-  private async cancelSubscription(subscriptionId: string): Promise<void> {
-    console.log(`❌ Canceling subscription ${subscriptionId}`)
-    // In a real implementation, this would cancel the subscription
-  }
 
   /**
    * Get all dunning events
