@@ -35,12 +35,11 @@ const attachPaymentMethodSchema = z.object({
 })
 
 export const POST = withRateLimit(
-  withValidation(
-    async (request: NextRequest) => {
+  withValidation({
+    body: createPaymentMethodSchema
+  })(
+    async (request: NextRequest, validatedData?: any) => {
       try {
-        const body = await request.json()
-        const validatedData = createPaymentMethodSchema.parse(body)
-
         console.log('💳 Creating payment method for customer:', validatedData.customerId)
 
         // Create payment method
@@ -80,8 +79,7 @@ export const POST = withRateLimit(
           message: error.message
         }, { status: 500 })
       }
-    },
-    createPaymentMethodSchema
+    }
   )
 )
 
@@ -130,12 +128,11 @@ export const GET = withRateLimit(
 )
 
 export const PUT = withRateLimit(
-  withValidation(
-    async (request: NextRequest) => {
+  withValidation({
+    body: attachPaymentMethodSchema
+  })(
+    async (request: NextRequest, validatedData?: any) => {
       try {
-        const body = await request.json()
-        const validatedData = attachPaymentMethodSchema.parse(body)
-
         console.log('💳 Attaching payment method to customer:', validatedData.customerId)
 
         const paymentMethod = await stripePaymentService.attachPaymentMethod(
@@ -170,8 +167,7 @@ export const PUT = withRateLimit(
           message: error.message
         }, { status: 500 })
       }
-    },
-    attachPaymentMethodSchema
+    }
   )
 )
 
