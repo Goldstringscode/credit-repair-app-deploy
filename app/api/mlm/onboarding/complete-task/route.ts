@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sendTaskCompletionEmail, sendTrainingCompletionEmail } from "@/lib/email-service"
+import { sendTaskCompletionEmail, sendTrainingCompletionEmail } from "@/lib/email-service-server"
 import { mlmCommissionEngine } from "@/lib/mlm/commission-engine"
 
 interface TaskCompletion {

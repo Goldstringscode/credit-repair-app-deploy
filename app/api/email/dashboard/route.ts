@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { sendInvitationEmail, sendWelcomeEmail, sendCreditRepairEmail } from '@/lib/email-service'
+import { sendInvitationEmail, sendWelcomeEmail, sendCreditRepairEmail } from '@/lib/email-service-server'
 
 // GET /api/email/dashboard - Get email dashboard data
 export async function GET(request: NextRequest) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { sendCreditRepairTemplateEmail } from '@/lib/email-service'
+import { sendCreditRepairTemplateEmail } from '@/lib/email-service-server'
 
 // Mock data - in production, this would come from a database
 let campaigns = [

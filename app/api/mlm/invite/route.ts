@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { mlmDatabaseService } from "@/lib/mlm/database-service"
 import { mlmNotificationSystem } from "@/lib/mlm/notification-system"
 import { withRateLimit } from "@/lib/rate-limiter"
-import { sendInvitationEmail } from "@/lib/email-service"
+import { sendInvitationEmail } from "@/lib/email-service-server"
 
 export const POST = withRateLimit(async (request: NextRequest) => {
   try {

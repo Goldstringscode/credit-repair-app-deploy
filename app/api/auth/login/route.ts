@@ -3,7 +3,7 @@ import { withRateLimit } from '@/lib/rate-limiter'
 import { withValidation } from '@/lib/validation-middleware'
 import { generateTokenPair, createTokenCookies } from '@/lib/jwt'
 import { database } from '@/lib/database-config'
-import { emailService } from '@/lib/email-service'
+import { emailService } from '@/lib/email-service-server'
 import { auditLogger } from '@/lib/audit-logger'
 import { z } from 'zod'
 
