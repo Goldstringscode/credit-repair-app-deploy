@@ -67,13 +67,12 @@ export const GET = withRateLimit(
 )
 
 export const PATCH = withRateLimit(
-  withValidation(
-    async (request: NextRequest, { params }: { params: { id: string } }) => {
+  withValidation({
+    body: updatePlanSchema
+  })(
+    async (request: NextRequest, validatedData?: any, { params }: { params: { id: string } } = { params: { id: '' } }) => {
       try {
         const planId = params.id
-        const body = await request.json()
-        const validatedData = updatePlanSchema.parse(body)
-
         console.log('📊 Updating pricing plan:', planId)
 
         const plan = await pricingPlanManager.updatePlan(planId, validatedData)
@@ -107,8 +106,7 @@ export const PATCH = withRateLimit(
           message: error.message
         }, { status: 500 })
       }
-    },
-    updatePlanSchema
+    }
   )
 )
 
