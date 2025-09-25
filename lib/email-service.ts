@@ -104,7 +104,7 @@ export interface TaskCompletionEmailData {
 }
 
 // Create a transporter for sending emails
-const createTransporter = () => {
+const createTransporter = async () => {
   const config = getEmailConfig()
   const service = getEmailService()
   
@@ -135,7 +135,7 @@ export async function sendInvitationEmail(data: InvitationEmailData): Promise<an
     console.log(`   Invitation Code: ${data.invitationCode}`)
     console.log(`   Invitation Link: ${data.invitationLink}`)
     
-    const transporter = createTransporter()
+    const transporter = await createTransporter()
     const config = getEmailConfig()
     const template = EMAIL_TEMPLATES.MLM_INVITATION
     
@@ -221,7 +221,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<any> {
     console.log(`   Team Code: ${data.teamCode}`)
     console.log(`   Dashboard Link: ${data.dashboardLink}`)
     
-    const transporter = createTransporter()
+    const transporter = await createTransporter()
     const config = getEmailConfig()
     
     const mailOptions = {
@@ -307,7 +307,7 @@ export async function sendTeamUpdateEmail(data: {
     console.log(`   Update Type: ${data.updateType}`)
     console.log(`   Details:`, data.details)
     
-    const transporter = createTransporter()
+    const transporter = await createTransporter()
     const config = getEmailConfig()
     
     const mailOptions = {
@@ -352,7 +352,7 @@ export async function sendCreditRepairEmail(data: CreditRepairEmailData): Promis
     console.log(`   Name: ${data.name}`)
     console.log(`   Type: ${data.type}`)
     
-    const transporter = createTransporter()
+    const transporter = await createTransporter()
     const config = getEmailConfig()
     
     const template = data.type === 'welcome' ? EMAIL_TEMPLATES.CREDIT_REPAIR_WELCOME :
@@ -406,7 +406,7 @@ export async function sendCreditRepairTemplateEmail(data: {
     console.log(`   To: ${data.to}`)
     console.log(`   Subject: ${data.subject}`)
     
-    const transporter = createTransporter()
+    const transporter = await createTransporter()
     const config = getEmailConfig()
     
     const mailOptions = {
@@ -435,7 +435,7 @@ export async function sendAdminEmail(data: AdminEmailData): Promise<any> {
     console.log(`   Subject: ${data.subject}`)
     console.log(`   Type: ${data.type}`)
     
-    const transporter = createTransporter()
+    const transporter = await createTransporter()
     const config = getEmailConfig()
     
     const mailOptions = {
@@ -480,7 +480,7 @@ export async function sendTeamJoinEmail(data: TeamJoinEmailData): Promise<any> {
     console.log(`   Team Code: ${data.teamCode}`)
     console.log(`   Sponsor: ${data.sponsorName}`)
     
-    const transporter = createTransporter()
+    const transporter = await createTransporter()
     const config = getEmailConfig()
     
     const mailOptions = {
@@ -545,7 +545,7 @@ export async function sendTeamCreationEmail(data: TeamCreationEmailData): Promis
     console.log(`   Name: ${data.name}`)
     console.log(`   Team Code: ${data.teamCode}`)
     
-    const transporter = createTransporter()
+    const transporter = await createTransporter()
     const config = getEmailConfig()
     
     const mailOptions = {
@@ -617,7 +617,7 @@ export async function sendCommissionEarnedEmail(data: CommissionEarnedEmailData)
     console.log(`   Amount: $${data.amount}`)
     console.log(`   Type: ${data.type}`)
     
-    const transporter = createTransporter()
+    const transporter = await createTransporter()
     const config = getEmailConfig()
     
     const mailOptions = {
@@ -685,7 +685,7 @@ export async function sendRankAdvancementEmail(data: RankAdvancementEmailData): 
     console.log(`   Old Rank: ${data.oldRank}`)
     console.log(`   New Rank: ${data.newRank}`)
     
-    const transporter = createTransporter()
+    const transporter = await createTransporter()
     const config = getEmailConfig()
     
     const mailOptions = {
@@ -756,7 +756,7 @@ export async function sendNewTeamMemberEmail(data: NewTeamMemberEmailData): Prom
     console.log(`   Sponsor: ${data.sponsorName}`)
     console.log(`   New Member: ${data.newMemberName}`)
     
-    const transporter = createTransporter()
+    const transporter = await createTransporter()
     const config = getEmailConfig()
     
     const mailOptions = {
@@ -829,7 +829,7 @@ export async function sendPayoutProcessedEmail(data: PayoutProcessedEmailData): 
     console.log(`   Amount: $${data.amount}`)
     console.log(`   Method: ${data.method}`)
     
-    const transporter = createTransporter()
+    const transporter = await createTransporter()
     const config = getEmailConfig()
     
     const mailOptions = {
@@ -895,7 +895,7 @@ export async function sendTrainingCompletionEmail(data: TrainingCompletionEmailD
     console.log(`   Course: ${data.courseName}`)
     console.log(`   Points: ${data.pointsEarned}`)
     
-    const transporter = createTransporter()
+    const transporter = await createTransporter()
     const config = getEmailConfig()
     
     const mailOptions = {
@@ -968,7 +968,7 @@ export async function sendTaskCompletionEmail(data: TaskCompletionEmailData): Pr
     console.log(`   Task: ${data.taskName}`)
     console.log(`   Points: ${data.pointsEarned}`)
     
-    const transporter = createTransporter()
+    const transporter = await createTransporter()
     const config = getEmailConfig()
     
     const mailOptions = {
