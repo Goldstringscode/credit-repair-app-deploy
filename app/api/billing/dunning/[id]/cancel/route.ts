@@ -10,7 +10,7 @@ export const POST = withRateLimit(
       console.log('❌ Canceling subscription for dunning event:', eventId)
 
       // Get the dunning event
-      const event = dunningManager.getEvent(eventId)
+      const event = await dunningManager.getEvent(eventId)
       if (!event) {
         return NextResponse.json({
           success: false,
