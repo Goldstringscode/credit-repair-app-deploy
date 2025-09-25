@@ -12,7 +12,7 @@ export const GET = withRateLimit(
       const severity = searchParams.get('severity')
       const type = searchParams.get('type')
       
-      let alerts = await CreditMonitoringService.getAllAlerts(user.id, since)
+      let alerts = await CreditMonitoringService.getAllAlerts(user.id, since || undefined)
       
       // Filter by bureau if specified
       if (bureau && bureau !== 'all') {
