@@ -1,5 +1,5 @@
 // Comprehensive email service for Credit Repair App
-import nodemailer from 'nodemailer'
+// Dynamic import to avoid browser compatibility issues
 import { getEmailConfig, EMAIL_TEMPLATES, getEmailService } from './email-config'
 
 export interface InvitationEmailData {
@@ -111,7 +111,10 @@ const createTransporter = () => {
   console.log(`📧 Using email service: ${service}`)
   console.log(`📧 SMTP Host: ${config.host}:${config.port}`)
   
-  return nodemailer.createTransport({
+  // Dynamic import to avoid browser compatibility issues
+  const nodemailer = await import('nodemailer')
+  
+  return nodemailer.default.createTransport({
     host: config.host,
     port: config.port,
     secure: config.secure,
@@ -199,7 +202,8 @@ export async function sendInvitationEmail(data: InvitationEmailData): Promise<an
     // Only show preview URL for test services
     const service = getEmailService()
     if (service === 'gmail' && process.env.NODE_ENV === 'development') {
-      console.log('📧 Preview URL:', nodemailer.getTestMessageUrl(info))
+      const nodemailer = await import('nodemailer')
+      console.log('📧 Preview URL:', nodemailer.default.getTestMessageUrl(info))
     }
     
     return info
