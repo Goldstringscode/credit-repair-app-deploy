@@ -163,40 +163,9 @@ export class InvoiceGenerator {
     try {
       console.log(`📄 Generating PDF for invoice ${invoice.number}`)
       
-      // Dynamic import to avoid issues in environments where Puppeteer isn't available
       // Mock PDF generation for deployment
-      const puppeteer = null
-      
-      if (!puppeteer) {
-        console.log('📄 Puppeteer not available, using mock PDF')
-        const mockPDF = Buffer.from(`PDF content for invoice ${invoice.number}`)
-        return mockPDF
-      }
-      
-      const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      })
-      
-      const page = await browser.newPage()
-      
-      // Generate HTML content for the invoice
-      const htmlContent = this.generateInvoiceHTML(invoice)
-      
-      await page.setContent(htmlContent, { waitUntil: 'networkidle0' })
-      
-      const pdfBuffer = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: {
-          top: '20mm',
-          right: '20mm',
-          bottom: '20mm',
-          left: '20mm'
-        }
-      })
-      
-      await browser.close()
+      console.log('📄 Using mock PDF generation for deployment')
+      const mockPDF = Buffer.from(`PDF content for invoice ${invoice.number}`)
       
       // Log PDF generation
       try {
@@ -221,7 +190,7 @@ export class InvoiceGenerator {
         console.log('Audit logging failed (non-critical):', error)
       }
       
-      return pdfBuffer
+      return mockPDF
     } catch (error: any) {
       console.error('❌ PDF generation failed:', error)
       // Fallback to mock PDF if real generation fails
