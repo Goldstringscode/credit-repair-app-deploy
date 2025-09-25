@@ -53,7 +53,7 @@ export const POST = withRateLimit(
         message: 'Tokens refreshed successfully'
       }, {
         headers: {
-          'Set-Cookie': [tokenCookies.accessToken, tokenCookies.refreshToken]
+          'Set-Cookie': `${tokenCookies.accessToken}; ${tokenCookies.refreshToken}`
         }
       })
 

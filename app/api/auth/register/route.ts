@@ -80,7 +80,7 @@ export const POST = withRateLimit(
           message: 'Registration successful'
         }, {
           headers: {
-            'Set-Cookie': [cookies.accessToken, cookies.refreshToken]
+            'Set-Cookie': `${cookies.accessToken}; ${cookies.refreshToken}`
           }
         })
 
