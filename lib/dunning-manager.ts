@@ -452,13 +452,6 @@ export class DunningManager {
     // In a real implementation, this would send HTTP requests to configured webhooks
   }
 
-  /**
-   * Suspend subscription
-   */
-  private async suspendSubscription(subscriptionId: string): Promise<void> {
-    console.log(`⏸️ Suspending subscription ${subscriptionId}`)
-    // In a real implementation, this would update the subscription status
-  }
 
   /**
    * Cancel subscription
