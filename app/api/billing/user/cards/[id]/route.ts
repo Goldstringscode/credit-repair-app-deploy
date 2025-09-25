@@ -4,9 +4,11 @@ import { database } from '@/lib/database'
 import { withRateLimit } from '@/lib/rate-limiter'
 
 export const PATCH = withRateLimit(
-  requireAuth(async (request: NextRequest, user, { params }) => {
+  requireAuth(async (request: NextRequest, user) => {
     try {
-      const { id } = params
+      const url = new URL(request.url)
+      const pathParts = url.pathname.split('/')
+      const id = pathParts[pathParts.length - 1] // Get the ID from the URL path
       const body = await request.json()
 
       // Verify the card belongs to the user
@@ -51,9 +53,11 @@ export const PATCH = withRateLimit(
 )
 
 export const DELETE = withRateLimit(
-  requireAuth(async (request: NextRequest, user, { params }) => {
+  requireAuth(async (request: NextRequest, user) => {
     try {
-      const { id } = params
+      const url = new URL(request.url)
+      const pathParts = url.pathname.split('/')
+      const id = pathParts[pathParts.length - 1] // Get the ID from the URL path
 
       // Verify the card belongs to the user
       const cards = await database.getCards(user.id)
