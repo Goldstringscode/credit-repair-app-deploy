@@ -47,12 +47,11 @@ const createInvoiceSchema = z.object({
 })
 
 export const POST = withRateLimit(
-  withValidation(
-    async (request: NextRequest) => {
+  withValidation({
+    body: createInvoiceSchema
+  })(
+    async (request: NextRequest, validatedData?: any) => {
       try {
-        const body = await request.json()
-        const validatedData = createInvoiceSchema.parse(body)
-
         console.log('📄 Creating invoice for:', validatedData.customer.email)
 
         // const invoice = await invoiceGenerator.createInvoice({
@@ -85,8 +84,7 @@ export const POST = withRateLimit(
           message: error.message
         }, { status: 500 })
       }
-    },
-    createInvoiceSchema
+    }
   )
 )
 
