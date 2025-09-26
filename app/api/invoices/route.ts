@@ -109,7 +109,7 @@ export const GET = withRateLimit(
 
       return NextResponse.json({
         success: true,
-        invoices: invoices.map(invoice => ({
+        invoices: invoices.invoices.map(invoice => ({
           id: invoice.id,
           number: invoice.number,
           date: invoice.date,
