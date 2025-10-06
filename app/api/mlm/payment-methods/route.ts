@@ -74,8 +74,8 @@ export async function GET(request: NextRequest) {
         type: 'bank',
         bank: {
           bankName: (ba as any).bank_name || 'Unknown Bank',
-          last4: ba.last4 || '',
-          accountType: ba.account_holder_type || 'individual',
+          last4: (ba as any).last4 || '',
+          accountType: (ba as any).account_holder_type || 'individual',
         },
         isDefault: false,
         isExpired: false,
