@@ -127,7 +127,7 @@ function generatePDF(teamData: any[], user: any): Buffer {
   // For now, return a simple text representation
   const textData = `Team Genealogy Report\n\n` +
     `Generated: ${new Date().toLocaleString()}\n` +
-    `Team Leader: ${user.firstName} ${user.lastName}\n\n` +
+    `Team Leader: ${user.mlmCode || 'Unknown'}\n\n` +
     `Total Members: ${teamData.length}\n\n` +
     `This is a placeholder for PDF generation. In a real implementation, ` +
     `this would generate a properly formatted PDF with team structure, ` +

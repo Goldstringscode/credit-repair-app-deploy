@@ -47,8 +47,8 @@ export const GET = withRateLimit(
           subscription,
           user: {
             id: mlmUser.userId,
-            name: `${mlmUser.firstName} ${mlmUser.lastName}`,
-            email: mlmUser.email,
+            name: mlmUser.mlmCode || 'Unknown',
+            email: '', // Personal info would come from user profile
             joinDate: mlmUser.joinDate,
             status: mlmUser.status
           }

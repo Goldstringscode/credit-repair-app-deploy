@@ -38,8 +38,8 @@ export const GET = withRateLimit(
         qualifiesFor1099,
         user: {
           id: mlmUser.userId,
-          name: `${mlmUser.firstName} ${mlmUser.lastName}`,
-          email: mlmUser.email,
+          name: mlmUser.mlmCode || 'Unknown',
+          email: '', // Personal info would come from user profile
           ssn: mlmUser.tax?.ssn ? '***-**-' + mlmUser.tax.ssn.slice(-4) : 'Not provided',
           address: mlmUser.billing?.address || 'Not provided'
         },

@@ -37,8 +37,8 @@ export const GET = withRateLimit(async (request: NextRequest) => {
 
             return {
               id: childUser.userId,
-              name: `${childUser.firstName || ''} ${childUser.lastName || ''}`.trim() || 'Unknown User',
-              email: childUser.email || '',
+              name: childUser.mlmCode || 'Unknown User',
+              email: '', // Personal info would come from user profile
               rank: childUser.rank.name,
               status: childUser.status,
               volume: childUser.personalVolume,
@@ -57,8 +57,8 @@ export const GET = withRateLimit(async (request: NextRequest) => {
 
       const genealogyTree = {
         id: mainUser.userId,
-        name: `${mainUser.firstName || ''} ${mainUser.lastName || ''}`.trim() || 'You',
-        email: mainUser.email || '',
+        name: mainUser.mlmCode || 'You',
+        email: '', // Personal info would come from user profile
         rank: mainUser.rank.name,
         status: mainUser.status,
         volume: mainUser.personalVolume,
