@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       const formattedCommissions = commissions.map(comm => ({
         id: comm.id,
         type: comm.type,
-        amount: comm.totalAmount,
+        amount: comm.amount,
         description: `${comm.type.replace('_', ' ')} commission`,
         date: comm.createdAt.toISOString(),
         status: comm.status
