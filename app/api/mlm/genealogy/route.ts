@@ -101,7 +101,7 @@ function getAllChildren(node: any): any[] {
   const children = node.children || []
   const allChildren = [...children]
   
-  children.forEach(child => {
+  children.forEach((child: any) => {
     allChildren.push(...getAllChildren(child))
   })
   
