@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
         isExpired: false,
         isMLMApproved: true,
         payoutEligible: true,
-        created: ba.created,
+        created: (ba as any).created,
       }))
     ]
 
