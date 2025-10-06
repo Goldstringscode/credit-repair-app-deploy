@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
             size: attachment.size,
             type: attachment.type,
             url: URL.createObjectURL(attachment),
-            duration: attachment.duration || 0
+            duration: 0
           }
         } else {
           // Handle processed attachment objects
