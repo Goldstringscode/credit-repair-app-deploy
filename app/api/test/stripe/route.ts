@@ -22,9 +22,7 @@ export async function GET() {
       })
     }
 
-    const stripe = new Stripe(stripeSecretKey, {
-      apiVersion: "2024-06-20"
-    })
+    const stripe = new Stripe(stripeSecretKey)
 
     // Test the API key by retrieving account information
     try {

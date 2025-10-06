@@ -8,7 +8,6 @@ export const stripeConfig = {
   webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || 'whsec_demo_secret_for_testing',
   
   // API version - use latest stable
-  apiVersion: '2024-06-20' as const,
   
   // App info for Stripe dashboard
   appInfo: {

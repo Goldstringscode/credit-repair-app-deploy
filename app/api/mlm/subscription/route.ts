@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js"
 import jwt from "jsonwebtoken"
 
 const stripe = process.env.STRIPE_SECRET_KEY 
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" })
+  ? new Stripe(process.env.STRIPE_SECRET_KEY)
   : null
 
 const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
