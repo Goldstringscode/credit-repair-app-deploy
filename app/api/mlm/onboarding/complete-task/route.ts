@@ -164,24 +164,14 @@ async function sendTaskCompletionNotification(userId: string, taskTitle: string,
   const { notificationService } = await import('@/lib/notification-service')
   
   try {
-    await notificationService.notifyCustom(
-      "Task Completed! 🎉",
-      `You've completed "${taskTitle}" and earned ${points} points! Keep up the great work!`,
-      "success",
-      "medium",
-      [
-        {
-          label: "View Progress",
-          action: "view_mlm_progress",
-          variant: "default"
-        },
-        {
-          label: "Next Task",
-          action: "view_next_task",
-          variant: "outline"
-        }
-      ]
-    )
+    notificationService.addNotification({
+      id: `task-completed-${Date.now()}`,
+      type: 'success',
+      title: "Task Completed! 🎉",
+      message: `You've completed "${taskTitle}" and earned ${points} points! Keep up the great work!`,
+      timestamp: new Date().toISOString(),
+      data: { taskTitle, points }
+    })
     
     console.log("MLM task completion notification sent successfully")
   } catch (error) {
