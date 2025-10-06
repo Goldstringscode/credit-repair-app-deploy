@@ -11,11 +11,11 @@ const sendInvoiceSchema = z.object({
 })
 
 export const POST = withRateLimit(
-  withValidation(
-    async (request: NextRequest) => {
+  withValidation({
+    body: sendInvoiceSchema
+  })(
+    async (request: NextRequest, validatedData?: any) => {
       try {
-        const body = await request.json()
-        const validatedData = sendInvoiceSchema.parse(body)
 
         console.log('📧 Sending invoice:', validatedData.invoiceId)
 
@@ -85,8 +85,7 @@ export const POST = withRateLimit(
           message: error.message
         }, { status: 500 })
       }
-    },
-    sendInvoiceSchema
+    }
   )
 )
 
