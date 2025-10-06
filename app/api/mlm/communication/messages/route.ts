@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
     debugLog("Message created and saved successfully", { 
       messageId: newMessage.id, 
       attachmentCount: processedAttachments.length,
-      hasVoiceMessage: processedAttachments.some(a => a.type === 'audio/webm')
+      hasVoiceMessage: processedAttachments.some((a: any) => a.type === 'audio/webm')
     });
     
     return NextResponse.json({
