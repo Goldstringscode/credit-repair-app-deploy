@@ -109,7 +109,16 @@ export async function POST(request: NextRequest) {
       isPrivate: isPrivate || false,
       createdBy: userId,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      lastMessage: {
+        content: "Channel created",
+        sender: {
+          id: userId,
+          name: "System",
+          avatar: "/avatars/system.png"
+        },
+        timestamp: new Date().toISOString()
+      }
     }
 
     // Add to mock channels
