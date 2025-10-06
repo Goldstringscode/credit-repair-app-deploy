@@ -29,7 +29,12 @@ export const GET = withRateLimit(
 
       // Get additional member details
       const teamStats = await mlmDatabaseService.getTeamStats(memberId, 30)
-      const commissions = await mlmDatabaseService.getCommissions(memberId, 'monthly')
+      
+      // Get commissions for the last 30 days
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      const commissions = await mlmDatabaseService.getCommissions(memberId, thirtyDaysAgo, new Date())
+      
       const notifications = await mlmDatabaseService.getNotifications(memberId, true)
 
       // Get sponsor information
