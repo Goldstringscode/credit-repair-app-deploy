@@ -184,24 +184,14 @@ async function sendRankAdvancementNotification(userId: string, newRank: string, 
   const { notificationService } = await import('@/lib/notification-service')
   
   try {
-    await notificationService.notifyCustom(
-      "Rank Advanced! 🏆",
-      `Congratulations! You've advanced to ${newRank} rank! You're making great progress in your MLM journey.`,
-      "success",
-      "high",
-      [
-        {
-          label: "View Rank",
-          action: "view_mlm_rank",
-          variant: "default"
-        },
-        {
-          label: "View Leaderboard",
-          action: "view_leaderboard",
-          variant: "outline"
-        }
-      ]
-    )
+    notificationService.addNotification({
+      id: `rank-advanced-${Date.now()}`,
+      type: 'success',
+      title: "Rank Advanced! 🏆",
+      message: `Congratulations! You've advanced to ${newRank} rank! You're making great progress in your MLM journey.`,
+      timestamp: new Date().toISOString(),
+      data: { newRank, pointsNeeded }
+    })
     
     console.log("MLM rank advancement notification sent successfully")
   } catch (error) {
