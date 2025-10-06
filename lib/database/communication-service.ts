@@ -11,6 +11,11 @@ export interface Message {
   content: string;
   sender_id: string;
   channel_id: string;
+  is_edited?: boolean;
+  is_deleted?: boolean;
+  is_pinned?: boolean;
+  is_flagged?: boolean;
+  is_starred?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -44,6 +49,21 @@ export class CommunicationService {
     }
 
     return data || [];
+  }
+
+  async getMessageById(messageId: string): Promise<Message | null> {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('id', messageId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching message by ID:', error);
+      return null;
+    }
+
+    return data;
   }
 
   async createMessage(message: Omit<Message, 'id' | 'created_at' | 'updated_at'>): Promise<Message | null> {
@@ -85,6 +105,55 @@ export class CommunicationService {
 
     if (error) {
       console.error('Error deleting message:', error);
+      return false;
+    }
+
+    return true;
+  }
+
+  async getChannelMessages(channelId: string, userId: string, limit = 50, offset = 0): Promise<Message[]> {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('channel_id', channelId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error('Error fetching channel messages:', error);
+      return [];
+    }
+
+    return data || [];
+  }
+
+  async addReaction(messageId: string, userId: string, emoji: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('message_reactions')
+      .insert([{
+        message_id: messageId,
+        user_id: userId,
+        emoji: emoji
+      }]);
+
+    if (error) {
+      console.error('Error adding reaction:', error);
+      return false;
+    }
+
+    return true;
+  }
+
+  async removeReaction(messageId: string, userId: string, emoji: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('message_reactions')
+      .delete()
+      .eq('message_id', messageId)
+      .eq('user_id', userId)
+      .eq('emoji', emoji);
+
+    if (error) {
+      console.error('Error removing reaction:', error);
       return false;
     }
 

@@ -60,12 +60,9 @@ export async function POST(request: NextRequest) {
       }
 
       const message = await communicationDatabaseService.createMessage({
-        channelId,
-        senderId,
-        content,
-        messageType: messageType || 'text',
-        parentMessageId,
-        attachments
+        channel_id: channelId,
+        sender_id: senderId,
+        content
       });
 
       return NextResponse.json({

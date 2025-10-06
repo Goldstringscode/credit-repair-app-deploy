@@ -54,11 +54,11 @@ export async function PUT(
 
       const message = await communicationDatabaseService.updateMessage(messageId, {
         content,
-        isEdited,
-        isDeleted,
-        isPinned,
-        isFlagged,
-        isStarred
+        is_edited: isEdited,
+        is_deleted: isDeleted,
+        is_pinned: isPinned,
+        is_flagged: isFlagged,
+        is_starred: isStarred
       });
 
       return NextResponse.json({
