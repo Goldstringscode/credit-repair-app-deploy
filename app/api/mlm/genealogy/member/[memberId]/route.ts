@@ -45,10 +45,10 @@ export const GET = withRateLimit(
 
       const memberDetails = {
         id: member.userId,
-        name: `${member.firstName || ''} ${member.lastName || ''}`.trim() || 'Unknown User',
-        email: member.email || '',
-        phone: member.phone || '',
-        location: member.location || '',
+        name: member.mlmCode || 'Unknown User',
+        email: '', // Personal info would come from user profile
+        phone: '', // Personal info would come from user profile
+        location: '', // Personal info would come from user profile
         rank: member.rank,
         status: member.status,
         joinDate: member.joinDate,
