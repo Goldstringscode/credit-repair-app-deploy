@@ -4,9 +4,19 @@ import { requireAuth } from "@/lib/auth"
 import { withRateLimit } from "@/lib/rate-limiter"
 
 export const GET = withRateLimit(
-  requireAuth(async (request: NextRequest, { params }: { params: { memberId: string } }) => {
+  requireAuth(async (request: NextRequest, user) => {
     try {
-      const { memberId } = params
+      // Extract memberId from the URL path
+      const url = new URL(request.url)
+      const pathParts = url.pathname.split('/')
+      const memberId = pathParts[pathParts.length - 1]
+      
+      if (!memberId) {
+        return NextResponse.json({ 
+          success: false,
+          error: "Member ID is required" 
+        }, { status: 400 })
+      }
 
       // Get member details
       const member = await mlmDatabaseService.getMLMUser(memberId)
