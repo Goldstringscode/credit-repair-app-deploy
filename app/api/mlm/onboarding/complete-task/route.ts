@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     // Send rank advancement notification if applicable
     if (rankAdvancement.advanced && rankAdvancement.newRank) {
-      await sendRankAdvancementNotification(userId, rankAdvancement.newRank, rankAdvancement.pointsNeeded)
+      await sendRankAdvancementNotification(userId, rankAdvancement.newRank, rankAdvancement.pointsNeeded || 0)
       
       // Process rank advancement with email
       try {
