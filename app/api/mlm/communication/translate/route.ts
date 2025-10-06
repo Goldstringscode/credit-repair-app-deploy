@@ -60,6 +60,11 @@ function detectLanguage(text: string): string {
   return 'en';
 }
 
+// Type guard to check if a string is a top-level language key in MOCK_TRANSLATIONS
+function isTopLevelLang(lang: string): lang is keyof typeof MOCK_TRANSLATIONS {
+  return Object.prototype.hasOwnProperty.call(MOCK_TRANSLATIONS, lang)
+}
+
 // Mock translation function
 function translateText(text: string, sourceLang: string, targetLang: string): { translatedText: string; confidence: number } {
   // If source and target are the same, return original
@@ -68,20 +73,26 @@ function translateText(text: string, sourceLang: string, targetLang: string): { 
   }
   
   // Check if we have a direct translation
-  if (MOCK_TRANSLATIONS[sourceLang as keyof typeof MOCK_TRANSLATIONS]?.[targetLang as keyof typeof MOCK_TRANSLATIONS[typeof sourceLang]]) {
-    return {
-      translatedText: MOCK_TRANSLATIONS[sourceLang as keyof typeof MOCK_TRANSLATIONS][targetLang as keyof typeof MOCK_TRANSLATIONS[typeof sourceLang]],
-      confidence: 0.95
-    };
+  if (isTopLevelLang(sourceLang)) {
+    const table = MOCK_TRANSLATIONS[sourceLang]
+    if (targetLang in table) {
+      return {
+        translatedText: table[targetLang as keyof typeof table],
+        confidence: 0.95
+      }
+    }
   }
   
   // Check if we have a reverse translation
-  if (MOCK_TRANSLATIONS[targetLang as keyof typeof MOCK_TRANSLATIONS]?.[sourceLang as keyof typeof MOCK_TRANSLATIONS[typeof targetLang]]) {
-    // This is a simplified reverse lookup - in reality, you'd need proper reverse translations
-    return {
-      translatedText: `[Translated from ${sourceLang} to ${targetLang}] ${text}`,
-      confidence: 0.7
-    };
+  if (isTopLevelLang(targetLang)) {
+    const reverseTable = MOCK_TRANSLATIONS[targetLang]
+    if (sourceLang in reverseTable) {
+      // This is a simplified reverse lookup - in reality, you'd need proper reverse translations
+      return {
+        translatedText: `[Translated from ${sourceLang} to ${targetLang}] ${text}`,
+        confidence: 0.7
+      }
+    }
   }
   
   // Fallback: return text with translation note
