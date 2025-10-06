@@ -185,7 +185,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Access denied' }, { status: 403 });
       }
 
-      let responseData = { ...team };
+      let responseData: any = { ...team };
       
       if (!includeHierarchy) {
         delete responseData.hierarchy;
@@ -206,7 +206,7 @@ export async function GET(request: NextRequest) {
       );
 
       let responseData = userTeams.map(team => {
-        let teamData = { ...team };
+        let teamData: any = { ...team };
         
         if (!includeHierarchy) {
           delete teamData.hierarchy;
