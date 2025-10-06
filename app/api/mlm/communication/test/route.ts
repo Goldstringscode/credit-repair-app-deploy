@@ -77,15 +77,17 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error("Database test failed:", error)
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    const anyError = error as any
     return NextResponse.json({
       success: false,
       error: "Database test failed",
       details: {
-        message: error.message,
-        code: error.code,
-        detail: error.detail,
-        hint: error.hint,
-        stack: error.stack
+        message,
+        code: anyError?.code,
+        detail: anyError?.detail,
+        hint: anyError?.hint,
+        stack: anyError?.stack
       }
     }, { status: 500 })
   }
