@@ -19,9 +19,9 @@ export const GET = withRateLimit(
 
       // Get team data for export
       const teamData = await mlmDatabaseService.getTeamStructure(targetUserId, 10)
-      const user = await mlmDatabaseService.getMLMUser(targetUserId)
+      const targetUser = await mlmDatabaseService.getMLMUser(targetUserId)
 
-      if (!user) {
+      if (!targetUser) {
         return NextResponse.json({ 
           success: false,
           error: "User not found" 
