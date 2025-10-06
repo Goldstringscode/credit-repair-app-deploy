@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   return withRateLimit(async (req) => {
     try {
       const body = await req.json();
-      const { name, type, description, createdBy, isPrivate, memberIds } = body;
+      const { name, type, description, createdBy, isPrivate, memberIds, scope } = body;
 
       if (!name || !type || !createdBy) {
         return NextResponse.json(
@@ -50,9 +50,10 @@ export async function POST(request: NextRequest) {
         name,
         type,
         description,
-        createdBy,
-        isPrivate,
-        memberIds
+        scope: scope || 'general',
+        created_by: createdBy,
+        is_private: isPrivate,
+        members: memberIds
       });
 
       return NextResponse.json({
