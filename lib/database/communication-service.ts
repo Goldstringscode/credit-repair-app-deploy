@@ -19,6 +19,11 @@ export interface Channel {
   id: string;
   name: string;
   description?: string;
+  type: string;
+  scope: string;
+  created_by: string;
+  members?: string[];
+  is_private?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -95,6 +100,21 @@ export class CommunicationService {
 
     if (error) {
       console.error('Error fetching channels:', error);
+      return [];
+    }
+
+    return data || [];
+  }
+
+  async getUserChannels(userId: string): Promise<Channel[]> {
+    const { data, error } = await supabase
+      .from('channels')
+      .select('*')
+      .or(`created_by.eq.${userId},members.cs.{${userId}}`)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching user channels:', error);
       return [];
     }
 
