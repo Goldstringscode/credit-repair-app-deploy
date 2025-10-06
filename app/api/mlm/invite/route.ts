@@ -44,7 +44,7 @@ export const POST = withRateLimit(async (request: NextRequest) => {
 
     // Get sponsor's team code
     const sponsor = await mlmDatabaseService.getMLMUser(userId)
-    const teamCode = sponsor?.teamCode || 'DEMO123'
+    const teamCode = sponsor?.mlmCode || 'DEMO123'
 
     // Send invitation email
     await sendInvitationEmail({
