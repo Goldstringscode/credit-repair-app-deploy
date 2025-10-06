@@ -62,8 +62,8 @@ export const GET = withRateLimit(
         directReferrals: teamStats.overview.directReferrals,
         sponsor: sponsor ? {
           id: sponsor.userId,
-          name: `${sponsor.firstName || ''} ${sponsor.lastName || ''}`.trim() || 'Unknown',
-          email: sponsor.email || '',
+          name: sponsor.mlmCode || 'Unknown',
+          email: '', // Personal info would come from user profile
           rank: sponsor.rank.name
         } : null,
         teamStats: {
