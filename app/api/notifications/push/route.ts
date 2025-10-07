@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
           )
         }
 
-        const notification = pushNotificationService.showNotification(title, {
+        await pushNotificationService.showNotification(title, {
           body: messageBody,
           ...options
         })
@@ -65,11 +65,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           success: true,
           message: 'Notification sent successfully',
-          notification: notification ? {
-            id: notification.tag || 'server-notification',
+          notification: {
+            id: options?.tag || 'server-notification',
             title,
             body: messageBody
-          } : null
+          }
         })
 
       case 'send-by-category':
