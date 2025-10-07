@@ -37,7 +37,7 @@ export const POST = withRateLimit(
       }
 
       // Calculate total payout amount
-      const totalAmount = pendingCommissions.reduce((sum, c) => sum + c.totalAmount, 0)
+      const totalAmount = pendingCommissions.reduce((sum, c) => sum + c.amount, 0)
       const commissionIdsToProcess = commissionIds.length > 0 
         ? commissionIds 
         : pendingCommissions.map(c => c.id)
