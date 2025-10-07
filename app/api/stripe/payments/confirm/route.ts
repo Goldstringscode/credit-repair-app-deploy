@@ -30,7 +30,7 @@ export const POST = withRateLimit(
             status: paymentIntent.status,
             amount: paymentIntent.amount,
             currency: paymentIntent.currency,
-            charges: paymentIntent.charges?.data
+            charges: (paymentIntent as any).charges?.data
           }
         })
 
