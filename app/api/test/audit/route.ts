@@ -9,18 +9,20 @@ export const POST = async (request: NextRequest) => {
     const logId = `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     
     // Log a test audit event
-    auditLogger.log({
-      id: logId,
-      ipAddress: request.headers.get('x-forwarded-for') || request.ip || 'unknown',
-      userAgent: request.headers.get('user-agent') || 'unknown',
-      action: `test_${action}`,
-      resource: 'test_audit',
-      method: request.method,
-      endpoint: request.nextUrl.pathname,
-      statusCode: 200,
-      severity: 'low',
-      category: 'system'
-    })
+    await auditLogger.log(
+      `test_${action}`,
+      'test_audit',
+      logId,
+      {
+        method: request.method,
+        endpoint: request.nextUrl.pathname,
+        statusCode: 200,
+        severity: 'low',
+        category: 'system'
+      },
+      { id: 'test_user', email: 'test@example.com' } as any, // Mock user for testing
+      request as any
+    )
     
     return NextResponse.json({ 
       success: true, 
