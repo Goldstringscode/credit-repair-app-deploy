@@ -52,11 +52,11 @@ export const GET = withRateLimit(
       })
     } catch (error) {
       console.error("MLM user fetch error:", error)
-      console.error("Error details:", error.message, error.stack)
+      console.error("Error details:", (error as Error)?.message, (error as Error)?.stack)
       return NextResponse.json({ 
         success: false,
         error: "Failed to fetch MLM user data",
-        details: error.message
+        details: (error as Error)?.message ?? 'Unknown error'
       }, { status: 500 })
     }
   }),
