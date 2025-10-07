@@ -149,14 +149,14 @@ async function processUserPayout(userId: string): Promise<any> {
   // Process payout for a specific user
   const pendingCommissions = await mlmDatabaseService.getCommissions(userId)
     .then(commissions => 
-      commissions.filter(c => c.status === 'pending' && c.totalAmount >= 50)
+      commissions.filter(c => c.status === 'pending' && c.amount >= 50)
     )
 
   if (pendingCommissions.length === 0) {
     throw new Error('No eligible commissions')
   }
 
-  const totalAmount = pendingCommissions.reduce((sum, c) => sum + c.totalAmount, 0)
+  const totalAmount = pendingCommissions.reduce((sum, c) => sum + c.amount, 0)
   
   return await mlmStripeService.processCommissionPayout({
     userId,
