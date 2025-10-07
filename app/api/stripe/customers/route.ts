@@ -21,20 +21,19 @@ const createCustomerSchema = z.object({
 })
 
 export const POST = withRateLimit(
-  withValidation(
-    async (request: NextRequest) => {
+  withValidation({
+    body: createCustomerSchema
+  })(
+    async (request: NextRequest, validatedData: any) => {
       try {
-        const body = await request.json()
-        const validatedData = createCustomerSchema.parse(body)
-
-        console.log('👤 Creating customer:', validatedData.email)
+        console.log('👤 Creating customer:', validatedData.body.email)
 
         const customer = await stripePaymentService.createCustomer({
-          email: validatedData.email,
-          name: validatedData.name,
-          phone: validatedData.phone,
-          address: validatedData.address,
-          metadata: validatedData.metadata
+          email: validatedData.body.email,
+          name: validatedData.body.name,
+          phone: validatedData.body.phone,
+          address: validatedData.body.address,
+          metadata: validatedData.body.metadata
         })
 
         return NextResponse.json({
@@ -57,7 +56,6 @@ export const POST = withRateLimit(
           message: error.message
         }, { status: 500 })
       }
-    },
-    createCustomerSchema
+    }
   )
 )
