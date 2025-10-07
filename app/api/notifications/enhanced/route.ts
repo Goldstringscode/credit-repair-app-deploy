@@ -231,7 +231,7 @@ async function handleGetPriorityRules() {
 async function handleGetUserProfile(userId: string) {
   try {
     const userProfile = notificationAnalyticsService.getUserEngagementProfile(userId)
-    const userContext = notificationPrioritySystem.getUserContext(userId)
+    const userContext = notificationPrioritySystem.getUserContextData(userId)
 
     return NextResponse.json({
       success: true,
