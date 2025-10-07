@@ -152,6 +152,28 @@ export class NotificationService {
       ]
     };
   }
+
+  // Tracking methods
+  async trackNotificationRead(notificationId: string, userId: string): Promise<void> {
+    console.log('Tracking notification read:', { notificationId, userId });
+    
+    // Placeholder implementation - in a real app, this would update the database
+    // to track that the user has read this notification
+  }
+
+  async trackNotificationClick(notificationId: string, actionType: string, userId: string): Promise<void> {
+    console.log('Tracking notification click:', { notificationId, actionType, userId });
+    
+    // Placeholder implementation - in a real app, this would track user interactions
+    // with notifications for analytics purposes
+  }
+
+  async trackNotificationDismiss(notificationId: string, userId: string): Promise<void> {
+    console.log('Tracking notification dismiss:', { notificationId, userId });
+    
+    // Placeholder implementation - in a real app, this would track when users
+    // dismiss notifications without reading them
+  }
 }
 
 export const notificationService = new NotificationService();
