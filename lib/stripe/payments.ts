@@ -78,6 +78,15 @@ export class StripePaymentService {
   async createCustomer(userData: {
     email: string
     name?: string
+    phone?: string
+    address?: {
+      line1: string
+      line2?: string
+      city: string
+      state: string
+      postal_code: string
+      country: string
+    }
     metadata?: Record<string, string>
   }): Promise<Stripe.Customer> {
     try {
@@ -88,6 +97,8 @@ export class StripePaymentService {
       const customer = await stripe.customers.create({
         email: userData.email,
         name: userData.name,
+        phone: userData.phone,
+        address: userData.address,
         metadata: userData.metadata || {}
       })
 
