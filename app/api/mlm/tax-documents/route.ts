@@ -40,8 +40,8 @@ export const GET = withRateLimit(
           id: mlmUser.userId,
           name: mlmUser.mlmCode || 'Unknown',
           email: '', // Personal info would come from user profile
-          ssn: mlmUser.tax?.ssn ? '***-**-' + mlmUser.tax.ssn.slice(-4) : 'Not provided',
-          address: mlmUser.billing?.address || 'Not provided'
+          ssn: 'Not provided', // Tax info would come from user profile
+          address: 'Not provided' // Billing info would come from user profile
         },
         earnings: {
           byMonth: getEarningsByMonth(paidCommissions, year),
