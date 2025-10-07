@@ -39,6 +39,15 @@ export async function GET(request: NextRequest) {
           }
 
           const supabase = createSupabaseClient()
+          if (!supabase) {
+            const errorMessage = `data: ${JSON.stringify({
+              type: 'error',
+              message: 'Database connection not available'
+            })}\n\n`
+            controller.enqueue(new TextEncoder().encode(errorMessage))
+            return
+          }
+          
           const { data: newNotifications, error } = await supabase
             .from('notifications')
             .select('*')
