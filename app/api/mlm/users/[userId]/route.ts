@@ -26,7 +26,7 @@ export async function GET(
 
       const userData = {
         id: mlmUser.id,
-        teamCode: mlmUser.teamCode || 'DEMO123',
+        teamCode: mlmUser.mlmCode || 'DEMO123',
         sponsorId: mlmUser.sponsorId,
         rank: {
           id: mlmUser.rank.id,
