@@ -98,7 +98,7 @@ export const POST = withRateLimit(
       headers.set('Content-Disposition', `attachment; filename="1099-${year}-${user.id}.pdf"`)
       headers.set('Content-Length', taxDocumentBuffer.length.toString())
 
-      return new NextResponse(taxDocumentBuffer, {
+      return new NextResponse(taxDocumentBuffer.buffer, {
         status: 200,
         headers
       })
