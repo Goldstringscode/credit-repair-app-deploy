@@ -581,6 +581,76 @@ class NotificationAnalyticsService {
   }
 
   /**
+   * Get notification insights
+   */
+  getNotificationInsights(): any {
+    const allAnalytics = Array.from(this.analytics.values())
+    const totalNotifications = allAnalytics.length
+    const readNotifications = allAnalytics.filter(a => a.readAt).length
+    const clickedNotifications = allAnalytics.filter(a => a.clickedAt).length
+    const dismissedNotifications = allAnalytics.filter(a => a.dismissedAt).length
+
+    const readRate = totalNotifications > 0 ? (readNotifications / totalNotifications) * 100 : 0
+    const clickRate = totalNotifications > 0 ? (clickedNotifications / totalNotifications) * 100 : 0
+    const dismissRate = totalNotifications > 0 ? (dismissedNotifications / totalNotifications) * 100 : 0
+
+    // Category analysis
+    const categoryStats = allAnalytics.reduce((acc, analytics) => {
+      if (!acc[analytics.category]) {
+        acc[analytics.category] = { total: 0, read: 0, clicked: 0, dismissed: 0 }
+      }
+      acc[analytics.category].total++
+      if (analytics.readAt) acc[analytics.category].read++
+      if (analytics.clickedAt) acc[analytics.category].clicked++
+      if (analytics.dismissedAt) acc[analytics.category].dismissed++
+      return acc
+    }, {} as Record<string, { total: number; read: number; clicked: number; dismissed: number }>)
+
+    // Type analysis
+    const typeStats = allAnalytics.reduce((acc, analytics) => {
+      if (!acc[analytics.type]) {
+        acc[analytics.type] = { total: 0, read: 0, clicked: 0, dismissed: 0 }
+      }
+      acc[analytics.type].total++
+      if (analytics.readAt) acc[analytics.type].read++
+      if (analytics.clickedAt) acc[analytics.type].clicked++
+      if (analytics.dismissedAt) acc[analytics.type].dismissed++
+      return acc
+    }, {} as Record<string, { total: number; read: number; clicked: number; dismissed: number }>)
+
+    return {
+      summary: {
+        totalNotifications,
+        readNotifications,
+        clickedNotifications,
+        dismissedNotifications,
+        readRate: Math.round(readRate * 100) / 100,
+        clickRate: Math.round(clickRate * 100) / 100,
+        dismissRate: Math.round(dismissRate * 100) / 100
+      },
+      categoryAnalysis: categoryStats,
+      typeAnalysis: typeStats,
+      insights: [
+        {
+          type: 'performance',
+          message: readRate > 70 ? 'Good read rate' : 'Read rate could be improved',
+          confidence: 0.8
+        },
+        {
+          type: 'engagement',
+          message: clickRate > 20 ? 'High engagement' : 'Consider improving call-to-action',
+          confidence: 0.7
+        }
+      ],
+      recommendations: [
+        readRate < 50 ? 'Consider improving notification timing and relevance' : null,
+        clickRate < 15 ? 'Review and optimize call-to-action buttons' : null,
+        dismissRate > 30 ? 'Reduce notification frequency or improve targeting' : null
+      ].filter(Boolean)
+    }
+  }
+
+  /**
    * Export analytics data
    */
   exportAnalytics(userId?: string): NotificationAnalytics[] {
