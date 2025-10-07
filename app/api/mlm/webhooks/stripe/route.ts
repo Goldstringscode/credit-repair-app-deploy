@@ -116,7 +116,7 @@ async function handleMLMPaymentFailed(paymentIntent: Stripe.PaymentIntent) {
 }
 
 async function handleMLMInvoicePaymentSuccess(invoice: Stripe.Invoice) {
-  const subscription = invoice.subscription as string
+  const subscription = (invoice as any).subscription as string
   const { userId, planType, userType } = invoice.metadata
 
   if (userType !== 'mlm') return
@@ -147,7 +147,7 @@ async function handleMLMInvoicePaymentSuccess(invoice: Stripe.Invoice) {
 }
 
 async function handleMLMInvoicePaymentFailed(invoice: Stripe.Invoice) {
-  const subscription = invoice.subscription as string
+  const subscription = (invoice as any).subscription as string
   const { userId, planType, userType } = invoice.metadata
 
   if (userType !== 'mlm') return
