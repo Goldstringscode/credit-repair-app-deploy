@@ -21,7 +21,7 @@ export const GET = async (request: NextRequest) => {
     return NextResponse.json({ 
       valid: false,
       error: 'Environment validation failed',
-      message: error.message 
+      message: (error as Error)?.message ?? 'Unknown error'
     }, { status: 500 })
   }
 }
