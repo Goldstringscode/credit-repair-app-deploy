@@ -510,7 +510,7 @@ async function handleCreateNotification(body: any, userId: string) {
     // Calculate smart priority if not provided
     let finalPriority = priority
     if (!priority || priority === 'auto') {
-      const context = notificationPrioritySystem.getUserContext(userId) || {
+      const context = notificationPrioritySystem.getUserContextData(userId) || {
         userId,
         userTier: 'premium',
         userEngagement: 75,
