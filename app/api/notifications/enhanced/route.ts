@@ -415,9 +415,9 @@ async function handleCalculatePriority(body: any, userId: string) {
       }
     }
 
-    const priorityResult = notificationPrioritySystem.calculateSmartPriority(
+    const priorityResult = notificationPrioritySystem.calculatePriority(
       notification,
-      userContext
+      userId
     )
 
     return NextResponse.json({
