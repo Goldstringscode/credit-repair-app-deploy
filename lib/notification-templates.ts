@@ -461,6 +461,35 @@ class NotificationTemplateService {
   }
 
   /**
+   * Validate template data
+   */
+  validateTemplateData(templateId: string, data: NotificationTemplateData = {}): {
+    valid: boolean
+    missing?: string[]
+  } {
+    const template = this.getTemplate(templateId)
+    if (!template) {
+      return { valid: false, missing: ['Template not found'] }
+    }
+
+    // Check if all required variables are provided
+    const missing: string[] = []
+    if (template.variables && template.variables.length > 0) {
+      template.variables.forEach(variable => {
+        if (!(variable in data)) {
+          missing.push(variable)
+        }
+      })
+    }
+
+    if (missing.length > 0) {
+      return { valid: false, missing }
+    }
+
+    return { valid: true }
+  }
+
+  /**
    * Generate a notification from a template
    */
   generateNotification(
