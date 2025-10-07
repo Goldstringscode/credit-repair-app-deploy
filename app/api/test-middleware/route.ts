@@ -8,16 +8,17 @@ const testSchema = z.object({
 })
 
 export const POST = withRateLimit(
-  withValidation(
-    async (request: NextRequest) => {
+  withValidation({
+    body: testSchema
+  })(
+    async (request: NextRequest, validatedData: any) => {
       try {
-        const body = await request.json()
-        console.log('Test middleware API received:', body)
+        console.log('Test middleware API received:', validatedData.body)
         
         return NextResponse.json({
           success: true,
           message: 'Middleware test working',
-          data: body
+          data: validatedData.body
         })
       } catch (error: any) {
         console.error('Test middleware error:', error)
@@ -27,7 +28,6 @@ export const POST = withRateLimit(
           stack: error.stack
         }, { status: 500 })
       }
-    },
-    testSchema
+    }
   )
 )
