@@ -66,6 +66,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "No active subscription" }, { status: 404 })
     }
 
+    if (!stripe) {
+      return NextResponse.json({ error: "Payment service not available" }, { status: 500 })
+    }
+
     // Get subscription from Stripe
     const subscription = await stripe.subscriptions.retrieve(mlmUser.subscription_id)
 
@@ -191,6 +195,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "No active subscription" }, { status: 404 })
     }
 
+    if (!stripe) {
+      return NextResponse.json({ error: "Payment service not available" }, { status: 500 })
+    }
+
     const subscription = await stripe.subscriptions.retrieve(mlmUser.subscription_id)
 
     if (action === 'cancel') {
@@ -264,6 +272,10 @@ export async function PUT(request: NextRequest) {
 
       if (planError || !newPlan) {
         return NextResponse.json({ error: "Invalid plan type" }, { status: 400 })
+      }
+
+      if (!stripe) {
+        return NextResponse.json({ error: "Payment service not available" }, { status: 500 })
       }
 
       // Create new price for the plan
@@ -363,6 +375,10 @@ export async function DELETE(request: NextRequest) {
 
     if (!mlmUser.subscription_id) {
       return NextResponse.json({ error: "No active subscription" }, { status: 404 })
+    }
+
+    if (!stripe) {
+      return NextResponse.json({ error: "Payment service not available" }, { status: 500 })
     }
 
     // Cancel subscription immediately
