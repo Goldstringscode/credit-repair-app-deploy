@@ -444,7 +444,7 @@ async function handleBulkOperations(body: any, userId: string) {
     if (!supabase) {
       return NextResponse.json({ error: "Database connection not available" }, { status: 500 })
     }
-    let result
+    let result: any
 
     switch (operation) {
       case 'mark_read':
@@ -491,7 +491,7 @@ async function handleBulkOperations(body: any, userId: string) {
     return NextResponse.json({
       success: true,
       message: `Bulk operation '${operation}' completed successfully`,
-      affectedCount: result.data?.length || notificationIds.length
+      affectedCount: (result.data && Array.isArray(result.data) ? result.data.length : 0) || notificationIds.length
     })
   } catch (error) {
     console.error('Error in bulk operations:', error)
