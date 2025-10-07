@@ -110,32 +110,23 @@ export async function POST(request: NextRequest) {
       try {
         if (teamCode) {
           // User joined existing team - send team join notification
-          await mlmNotificationService.sendTeamJoinNotification(
+          mlmNotificationService.createTeamJoinNotification(
             `${firstName} ${lastName}`,
-            mlmUser.teamCode,
-            50 // $50 referral bonus
+            mlmUser.rank?.name || 'Associate',
+            mlmUser.mlmCode
           )
-          
-          // Send new member notification to sponsor
-          if (teamInfo?.sponsorName) {
-            await mlmNotificationService.sendNewMemberNotification(
-              `${firstName} ${lastName}`,
-              email,
-              mlmUser.teamCode
-            )
-          }
         } else {
           // User created new team - send team creation notification
-          await mlmNotificationService.sendTeamCreationNotification(
-            mlmUser.teamCode,
-            `${firstName} ${lastName}`
+          mlmNotificationService.createInfoNotification(
+            "Team Created! 🎉",
+            `Welcome to your new team! Your team code is ${mlmUser.mlmCode}`
           )
         }
         
         // Always send welcome notification
-        await mlmNotificationService.sendWelcomeNotification(
-          `${firstName} ${lastName}`,
-          mlmUser.teamCode
+        mlmNotificationService.createInfoNotification(
+          "Welcome to MLM! 🚀",
+          `Welcome ${firstName} ${lastName}! Your MLM code is ${mlmUser.mlmCode}`
         )
       } catch (notificationError) {
         console.error('Failed to send notification:', notificationError)
@@ -149,7 +140,7 @@ export async function POST(request: NextRequest) {
         data: {
           userId,
           mlmUserId: mlmUser.id,
-          teamCode: mlmUser.teamCode,
+          teamCode: mlmUser.mlmCode,
           isTeamLeader: !teamCode // If no team code provided, they're the team leader
         }
       })
