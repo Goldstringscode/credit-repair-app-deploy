@@ -224,8 +224,8 @@ export async function PUT(request: NextRequest) {
         subscription: {
           id: updatedSubscription.id,
           status: updatedSubscription.status,
-          cancelAtPeriodEnd: updatedSubscription.cancel_at_period_end,
-          currentPeriodEnd: new Date(updatedSubscription.current_period_end * 1000).toISOString()
+          cancelAtPeriodEnd: (updatedSubscription as any).cancel_at_period_end,
+          currentPeriodEnd: new Date((updatedSubscription as any).current_period_end * 1000).toISOString()
         }
       })
     }
@@ -253,7 +253,7 @@ export async function PUT(request: NextRequest) {
         subscription: {
           id: updatedSubscription.id,
           status: updatedSubscription.status,
-          cancelAtPeriodEnd: updatedSubscription.cancel_at_period_end
+          cancelAtPeriodEnd: (updatedSubscription as any).cancel_at_period_end
         }
       })
     }
@@ -291,7 +291,7 @@ export async function PUT(request: NextRequest) {
       // Update subscription
       const updatedSubscription = await stripe.subscriptions.update(mlmUser.subscription_id, {
         items: [{
-          id: subscription.items.data[0].id,
+          id: (subscription as any).items.data[0].id,
           price: price.id,
         }],
         proration_behavior: 'create_prorations',
