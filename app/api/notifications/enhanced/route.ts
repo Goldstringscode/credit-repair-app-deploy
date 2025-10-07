@@ -400,7 +400,7 @@ async function handleCalculatePriority(body: any, userId: string) {
     }
 
     // Use provided context or get from system
-    const userContext = context || notificationPrioritySystem.getUserContext(userId) || {
+    const userContext = context || notificationPrioritySystem.getUserContextData(userId) || {
       userId,
       userTier: 'premium',
       userEngagement: 75,
