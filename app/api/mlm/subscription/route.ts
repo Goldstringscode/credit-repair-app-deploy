@@ -48,6 +48,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Get MLM user data
+    if (!supabase) {
+      return NextResponse.json({ error: "Database connection not available" }, { status: 500 })
+    }
+    
     const { data: mlmUser, error: mlmError } = await supabase
       .from("mlm_users")
       .select("*")
@@ -169,6 +173,10 @@ export async function PUT(request: NextRequest) {
     const { action, planType, paymentMethodId } = await request.json()
 
     // Get MLM user data
+    if (!supabase) {
+      return NextResponse.json({ error: "Database connection not available" }, { status: 500 })
+    }
+    
     const { data: mlmUser, error: mlmError } = await supabase
       .from("mlm_users")
       .select("*")
@@ -192,13 +200,15 @@ export async function PUT(request: NextRequest) {
       })
 
       // Update database
-      await supabase
-        .from("mlm_users")
-        .update({
-          cancel_at_period_end: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq("user_id", userId)
+      if (supabase) {
+        await supabase
+          .from("mlm_users")
+          .update({
+            cancel_at_period_end: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq("user_id", userId)
+      }
 
       return NextResponse.json({
         success: true,
@@ -219,13 +229,15 @@ export async function PUT(request: NextRequest) {
       })
 
       // Update database
-      await supabase
-        .from("mlm_users")
-        .update({
-          cancel_at_period_end: false,
-          updated_at: new Date().toISOString()
-        })
-        .eq("user_id", userId)
+      if (supabase) {
+        await supabase
+          .from("mlm_users")
+          .update({
+            cancel_at_period_end: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq("user_id", userId)
+      }
 
       return NextResponse.json({
         success: true,
@@ -240,6 +252,10 @@ export async function PUT(request: NextRequest) {
 
     if (action === 'change_plan' && planType) {
       // Change subscription plan
+      if (!supabase) {
+        return NextResponse.json({ error: "Database connection not available" }, { status: 500 })
+      }
+      
       const { data: newPlan, error: planError } = await supabase
         .from("mlm_plans")
         .select("*")
@@ -270,14 +286,16 @@ export async function PUT(request: NextRequest) {
       })
 
       // Update database
-      await supabase
-        .from("mlm_users")
-        .update({
-          plan_type: planType,
-          commission_rate: newPlan.commission_rate,
-          updated_at: new Date().toISOString()
-        })
-        .eq("user_id", userId)
+      if (supabase) {
+        await supabase
+          .from("mlm_users")
+          .update({
+            plan_type: planType,
+            commission_rate: newPlan.commission_rate,
+            updated_at: new Date().toISOString()
+          })
+          .eq("user_id", userId)
+      }
 
       return NextResponse.json({
         success: true,
@@ -329,6 +347,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Get MLM user data
+    if (!supabase) {
+      return NextResponse.json({ error: "Database connection not available" }, { status: 500 })
+    }
+    
     const { data: mlmUser, error: mlmError } = await supabase
       .from("mlm_users")
       .select("*")
@@ -347,14 +369,16 @@ export async function DELETE(request: NextRequest) {
     await stripe.subscriptions.cancel(mlmUser.subscription_id)
 
     // Update database
-    await supabase
-      .from("mlm_users")
-      .update({
-        status: 'inactive',
-        subscription_status: 'cancelled',
-        updated_at: new Date().toISOString()
-      })
-      .eq("user_id", userId)
+    if (supabase) {
+      await supabase
+        .from("mlm_users")
+        .update({
+          status: 'inactive',
+          subscription_status: 'cancelled',
+          updated_at: new Date().toISOString()
+        })
+        .eq("user_id", userId)
+    }
 
     return NextResponse.json({
       success: true,
