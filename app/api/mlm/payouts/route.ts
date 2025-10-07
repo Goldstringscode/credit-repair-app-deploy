@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     console.error("Payout request error:", error)
     return NextResponse.json({ 
       error: "Failed to process payout request",
-      details: error.message 
+      details: (error as Error)?.message ?? 'Unknown error' 
     }, { status: 500 })
   }
 }
