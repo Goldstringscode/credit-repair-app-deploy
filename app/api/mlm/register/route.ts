@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
         await sendWelcomeEmail({
           to: email,
           name: `${firstName} ${lastName}`,
-          teamCode: mlmUser.teamCode,
+          teamCode: mlmUser.mlmCode,
           dashboardLink: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/mlm/dashboard`
         })
       } catch (emailError) {
