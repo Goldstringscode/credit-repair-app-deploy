@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { testStripeConnection, validateStripeConfig } from '@/lib/stripe/config'
+import { testStripeConnection, validateStripeConfig, stripeConfig } from '@/lib/stripe/config'
 import { withRateLimit } from '@/lib/rate-limiter'
 
 export const GET = withRateLimit(
