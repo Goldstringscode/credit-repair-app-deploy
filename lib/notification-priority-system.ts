@@ -574,6 +574,13 @@ class NotificationPrioritySystem {
   }
 
   /**
+   * Get active (enabled) priority rules
+   */
+  getActiveRules(): PriorityRule[] {
+    return Array.from(this.rules.values()).filter(rule => rule.enabled)
+  }
+
+  /**
    * Get rules by priority level
    */
   getRulesByPriority(priority: 'low' | 'medium' | 'high'): PriorityRule[] {
