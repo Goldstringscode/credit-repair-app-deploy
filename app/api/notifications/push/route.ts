@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
         })
 
       case 'test-notification':
-        const testNotification = pushNotificationService.showNotification(
+        await pushNotificationService.showNotification(
           'Test Notification 🧪',
           'This is a test notification to verify your push notification setup.',
           {
@@ -129,11 +129,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           success: true,
           message: 'Test notification sent',
-          notification: testNotification ? {
+          notification: {
             id: 'test-notification',
             title: 'Test Notification 🧪',
             body: 'This is a test notification to verify your push notification setup.'
-          } : null
+          }
         })
 
       default:
