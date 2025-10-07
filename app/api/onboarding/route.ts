@@ -108,7 +108,15 @@ export async function POST(request: NextRequest) {
 
 function generateActionPlan(data: any) {
   const plan = {
-    steps: [],
+    steps: [] as Array<{
+      id: number;
+      title: string;
+      description: string;
+      status: string;
+      priority: string;
+      estimatedDays: number;
+      actions: string[];
+    }>,
     estimatedTimeframe: data.creditGoals.timeframe || "6-months",
     priority: data.creditGoals.urgency || "medium",
     goals: {
