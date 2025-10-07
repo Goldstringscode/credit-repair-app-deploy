@@ -15,21 +15,20 @@ const createPaymentIntentSchema = z.object({
 })
 
 export const POST = withRateLimit(
-  withValidation(
-    async (request: NextRequest) => {
+  withValidation({
+    body: createPaymentIntentSchema
+  })(
+    async (request: NextRequest, validatedData: any) => {
       try {
-        const body = await request.json()
-        const validatedData = createPaymentIntentSchema.parse(body)
-
-        console.log('💳 Creating payment intent:', validatedData)
+        console.log('💳 Creating payment intent:', validatedData.body)
 
         const paymentIntent = await stripePaymentService.createPaymentIntent({
-          amount: validatedData.amount,
-          currency: validatedData.currency,
-          customerId: validatedData.customerId,
-          paymentMethodId: validatedData.paymentMethodId,
-          description: validatedData.description,
-          metadata: validatedData.metadata
+          amount: validatedData.body.amount,
+          currency: validatedData.body.currency,
+          customerId: validatedData.body.customerId,
+          paymentMethodId: validatedData.body.paymentMethodId,
+          description: validatedData.body.description,
+          metadata: validatedData.body.metadata
         })
 
         return NextResponse.json({
@@ -51,7 +50,6 @@ export const POST = withRateLimit(
           message: error.message
         }, { status: 500 })
       }
-    },
-    createPaymentIntentSchema
+    }
   )
 )
