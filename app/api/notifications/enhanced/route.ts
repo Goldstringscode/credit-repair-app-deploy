@@ -89,6 +89,9 @@ async function handleGetNotifications(userId: string, searchParams: URLSearchPar
 
   try {
     const supabase = createClient()
+    if (!supabase) {
+      return NextResponse.json({ error: "Database connection not available" }, { status: 500 })
+    }
     let query = supabase
       .from('notifications')
       .select('*')
@@ -278,6 +281,9 @@ async function handleCreateFromTemplate(body: any, userId: string) {
     // Save to database
     try {
       const supabase = createClient()
+      if (!supabase) {
+        return NextResponse.json({ error: "Database connection not available" }, { status: 500 })
+      }
       const { data: notification, error } = await supabase
         .from('notifications')
         .insert({
@@ -435,6 +441,9 @@ async function handleBulkOperations(body: any, userId: string) {
     }
 
     const supabase = createClient()
+    if (!supabase) {
+      return NextResponse.json({ error: "Database connection not available" }, { status: 500 })
+    }
     let result
 
     switch (operation) {
@@ -525,6 +534,9 @@ async function handleCreateNotification(body: any, userId: string) {
 
     try {
       const supabase = createClient()
+      if (!supabase) {
+        return NextResponse.json({ error: "Database connection not available" }, { status: 500 })
+      }
       const { data: notification, error } = await supabase
         .from('notifications')
         .insert({
