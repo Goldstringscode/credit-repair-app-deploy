@@ -21,7 +21,7 @@ export const POST = withRateLimit(
       // Get user's pending commissions
       const pendingCommissions = await mlmDatabaseService.getCommissions(targetUserId)
         .then(commissions => 
-          commissions.filter(c => c.status === 'pending' && c.totalAmount >= minPayoutAmount)
+          commissions.filter(c => c.status === 'pending' && c.amount >= minPayoutAmount)
         )
 
       if (pendingCommissions.length === 0) {
