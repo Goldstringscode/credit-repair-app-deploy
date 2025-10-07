@@ -595,6 +595,40 @@ class NotificationPrioritySystem {
   }
 
   /**
+   * Import rules configuration
+   */
+  importRules(rulesJson: string): boolean {
+    try {
+      const rules = JSON.parse(rulesJson) as PriorityRule[]
+      
+      // Validate rules
+      if (!Array.isArray(rules)) {
+        console.error('Invalid rules format: not an array')
+        return false
+      }
+
+      // Clear existing rules and import new ones
+      this.rules.clear()
+      
+      for (const rule of rules) {
+        // Validate rule structure
+        if (!rule.id || !rule.name || !rule.priority || !rule.conditions) {
+          console.error('Invalid rule structure:', rule)
+          continue
+        }
+        
+        this.rules.set(rule.id, rule)
+      }
+
+      console.log(`🎯 Imported ${rules.length} priority rules`)
+      return true
+    } catch (error) {
+      console.error('Error importing rules:', error)
+      return false
+    }
+  }
+
+  /**
    * Get priority statistics
    */
   getPriorityStats(): {
