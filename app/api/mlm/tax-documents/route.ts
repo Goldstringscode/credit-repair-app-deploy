@@ -26,7 +26,7 @@ export const GET = withRateLimit(
       const commissions = await mlmDatabaseService.getCommissions(targetUserId, startDate, endDate)
       
       const paidCommissions = commissions.filter(c => c.status === 'paid')
-      const totalEarnings = paidCommissions.reduce((sum, c) => sum + c.totalAmount, 0)
+      const totalEarnings = paidCommissions.reduce((sum, c) => sum + c.amount, 0)
 
       // Check if user qualifies for 1099 (minimum $600)
       const qualifiesFor1099 = totalEarnings >= 600
@@ -120,7 +120,7 @@ function getEarningsByMonth(commissions: any[], year: number): any[] {
   
   commissions.forEach(commission => {
     const month = new Date(commission.createdAt).getMonth()
-    monthlyEarnings[month] += commission.totalAmount
+    monthlyEarnings[month] += commission.amount
   })
 
   return monthlyEarnings.map((amount, index) => ({
@@ -137,7 +137,7 @@ function getEarningsByType(commissions: any[]): any[] {
     if (!typeEarnings[commission.type]) {
       typeEarnings[commission.type] = { amount: 0, count: 0 }
     }
-    typeEarnings[commission.type].amount += commission.totalAmount
+    typeEarnings[commission.type].amount += commission.amount
     typeEarnings[commission.type].count += 1
   })
 
@@ -145,6 +145,6 @@ function getEarningsByType(commissions: any[]): any[] {
     type: type.replace('_', ' ').toUpperCase(),
     amount: Math.round(data.amount * 100) / 100,
     count: data.count,
-    percentage: Math.round((data.amount / commissions.reduce((sum, c) => sum + c.totalAmount, 0)) * 100)
+    percentage: Math.round((data.amount / commissions.reduce((sum, c) => sum + c.amount, 0)) * 100)
   }))
 }
