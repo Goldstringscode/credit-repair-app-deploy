@@ -200,6 +200,18 @@ class PushNotificationService {
   }
 
   /**
+   * Show notification (simple interface)
+   */
+  async showNotification(title: string, body: string, options?: Partial<PushNotificationPayload>): Promise<void> {
+    const payload: PushNotificationPayload = {
+      title,
+      body,
+      ...options
+    }
+    await this.sendNotification(payload)
+  }
+
+  /**
    * Send push notification
    */
   async sendNotification(payload: PushNotificationPayload): Promise<void> {
