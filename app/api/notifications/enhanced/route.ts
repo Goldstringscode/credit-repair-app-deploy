@@ -525,11 +525,11 @@ async function handleCreateNotification(body: any, userId: string) {
         }
       }
 
-      const priorityResult = notificationPrioritySystem.calculateSmartPriority(
+      const priorityResult = notificationPrioritySystem.calculatePriority(
         { title, message, type, category, priority: 'medium' },
-        context
+        userId
       )
-      finalPriority = priorityResult.calculatedPriority
+      finalPriority = priorityResult.priority
     }
 
     try {
