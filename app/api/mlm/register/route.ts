@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
           await sendTeamJoinEmail({
             to: email,
             name: `${firstName} ${lastName}`,
-            teamCode: mlmUser.teamCode,
+            teamCode: mlmUser.mlmCode,
             sponsorName: sponsorName,
             dashboardLink: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/mlm/dashboard`
           })
