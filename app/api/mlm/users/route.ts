@@ -82,7 +82,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: "MLM user data updated successfully",
-      data: { ...mockMLMUser, ...updates },
+      data: { userId, updates },
     })
   } catch (error) {
     console.error("MLM user update error:", error)
