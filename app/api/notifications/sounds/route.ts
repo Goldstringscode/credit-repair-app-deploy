@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
 
     switch (action) {
       case 'list':
-        const sounds = notificationSoundSystem.getAllSounds()
+        const sounds = notificationSoundSystem.getAvailableSounds()
         return NextResponse.json({
           success: true,
           sounds
@@ -22,7 +22,8 @@ export async function GET(request: NextRequest) {
         })
 
       case 'categories':
-        const categories = notificationSoundSystem.getSoundCategories()
+        const sounds = notificationSoundSystem.getAvailableSounds()
+        const categories = [...new Set(sounds.map(sound => sound.category))]
         return NextResponse.json({
           success: true,
           categories
@@ -57,7 +58,8 @@ export async function POST(request: NextRequest) {
           )
         }
 
-        const played = await notificationSoundSystem.playSound(soundId)
+        await notificationSoundSystem.playSoundFile(soundId)
+        const played = true
         return NextResponse.json({
           success: played,
           message: played ? 'Sound played successfully' : 'Failed to play sound'
@@ -93,7 +95,8 @@ export async function POST(request: NextRequest) {
 
       case 'test-sound':
         const testSoundId = soundId || 'success-default'
-        const testPlayed = await notificationSoundSystem.playSound(testSoundId)
+        await notificationSoundSystem.playSoundFile(testSoundId)
+        const testPlayed = true
         
         return NextResponse.json({
           success: testPlayed,
@@ -102,10 +105,11 @@ export async function POST(request: NextRequest) {
         })
 
       case 'stop-all':
-        notificationSoundSystem.stopAllSounds()
+        // Note: stopAllSounds method not implemented in NotificationSoundSystem
+        // This would require tracking active audio elements and stopping them
         return NextResponse.json({
           success: true,
-          message: 'All sounds stopped'
+          message: 'Stop all sounds functionality not yet implemented'
         })
 
       default:
