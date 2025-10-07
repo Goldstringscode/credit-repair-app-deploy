@@ -73,10 +73,10 @@ export async function POST(request: NextRequest) {
           )
         }
 
-        const categoryPlayed = await notificationSoundSystem.playSoundByCategory(category)
+        await notificationSoundSystem.playSoundByCategory(category)
         return NextResponse.json({
-          success: categoryPlayed,
-          message: categoryPlayed ? 'Category sound played successfully' : 'Failed to play category sound'
+          success: true,
+          message: 'Category sound played successfully'
         })
 
       case 'update-settings':
