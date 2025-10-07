@@ -24,6 +24,13 @@ export async function GET(request: NextRequest) {
     // Try to get from database first
     try {
       const supabase = createSupabaseClient()
+      if (!supabase) {
+        return NextResponse.json({
+          success: false,
+          error: 'Database connection not available'
+        }, { status: 500 })
+      }
+      
       const { data: dbNotifications, error } = await supabase
         .from('notifications')
         .select('*')
@@ -110,6 +117,13 @@ export async function POST(request: NextRequest) {
     // Try to save to database first
     try {
       const supabase = createSupabaseClient()
+      if (!supabase) {
+        return NextResponse.json({
+          success: false,
+          error: 'Database connection not available'
+        }, { status: 500 })
+      }
+      
       const { data: notification, error } = await supabase
         .from('notifications')
         .insert({
@@ -248,6 +262,13 @@ export async function PATCH(request: NextRequest) {
 
     // Update notification in Supabase
     const supabase = createSupabaseClient()
+    if (!supabase) {
+      return NextResponse.json({
+        success: false,
+        error: 'Database connection not available'
+      }, { status: 500 })
+    }
+    
     const { error } = await supabase
       .from('notifications')
       .update({ read: true })
