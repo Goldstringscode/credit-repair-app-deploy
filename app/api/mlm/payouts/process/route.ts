@@ -109,7 +109,7 @@ export const GET = withRateLimit(
           results.push({
             userId: user.id,
             success: false,
-            error: error.message
+            error: (error as Error)?.message ?? 'Unknown error'
           })
         }
       }
