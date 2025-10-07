@@ -14,20 +14,19 @@ const createSubscriptionSchema = z.object({
 })
 
 export const POST = withRateLimit(
-  withValidation(
-    async (request: NextRequest) => {
+  withValidation({
+    body: createSubscriptionSchema
+  })(
+    async (request: NextRequest, validatedData: any) => {
       try {
-        const body = await request.json()
-        const validatedData = createSubscriptionSchema.parse(body)
-
-        console.log('📋 Creating subscription:', validatedData.customerId)
+        console.log('📋 Creating subscription:', validatedData.body.customerId)
 
         const subscription = await stripeSubscriptionService.createSubscription({
-          customerId: validatedData.customerId,
-          priceId: validatedData.priceId,
-          paymentMethodId: validatedData.paymentMethodId,
-          trialPeriodDays: validatedData.trialPeriodDays,
-          metadata: validatedData.metadata
+          customerId: validatedData.body.customerId,
+          priceId: validatedData.body.priceId,
+          paymentMethodId: validatedData.body.paymentMethodId,
+          trialPeriodDays: validatedData.body.trialPeriodDays,
+          metadata: validatedData.body.metadata
         })
 
         return NextResponse.json({
@@ -35,12 +34,12 @@ export const POST = withRateLimit(
           subscription: {
             id: subscription.id,
             status: subscription.status,
-            current_period_start: subscription.current_period_start,
-            current_period_end: subscription.current_period_end,
-            trial_start: subscription.trial_start,
-            trial_end: subscription.trial_end,
+            current_period_start: (subscription as any).current_period_start,
+            current_period_end: (subscription as any).current_period_end,
+            trial_start: (subscription as any).trial_start,
+            trial_end: (subscription as any).trial_end,
             customer: subscription.customer,
-            items: subscription.items.data
+            items: (subscription as any).items?.data
           }
         })
 
@@ -52,8 +51,7 @@ export const POST = withRateLimit(
           message: error.message
         }, { status: 500 })
       }
-    },
-    createSubscriptionSchema
+    }
   )
 )
 
@@ -88,11 +86,11 @@ export const GET = withRateLimit(
         subscriptions: subscriptions.map(sub => ({
           id: sub.id,
           status: sub.status,
-          current_period_start: sub.current_period_start,
-          current_period_end: sub.current_period_end,
-          trial_start: sub.trial_start,
-          trial_end: sub.trial_end,
-          items: sub.items.data
+          current_period_start: (sub as any).current_period_start,
+          current_period_end: (sub as any).current_period_end,
+          trial_start: (sub as any).trial_start,
+          trial_end: (sub as any).trial_end,
+          items: (sub as any).items?.data
         }))
       })
 
