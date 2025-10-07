@@ -69,9 +69,9 @@ export async function GET(request: NextRequest) {
       subscription: {
         id: subscription.id,
         status: subscription.status,
-        currentPeriodStart: new Date(subscription.current_period_start * 1000).toISOString(),
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
-        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        currentPeriodStart: new Date((subscription as any).current_period_start * 1000).toISOString(),
+        currentPeriodEnd: new Date((subscription as any).current_period_end * 1000).toISOString(),
+        cancelAtPeriodEnd: (subscription as any).cancel_at_period_end,
         planType: mlmUser.plan_type,
         commissionRate: mlmUser.commission_rate,
         rank: mlmUser.rank,
