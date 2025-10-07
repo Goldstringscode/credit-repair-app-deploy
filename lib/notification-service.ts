@@ -98,6 +98,60 @@ export class NotificationService {
     
     // TODO: Implement actual email sending
   }
+
+  // Analytics methods
+  async getNotificationMetrics(userId: string): Promise<any> {
+    console.log('Getting notification metrics for user:', userId);
+    
+    // Placeholder implementation - in a real app, this would query the database
+    return {
+      totalNotifications: 0,
+      unreadCount: 0,
+      readRate: 0,
+      engagementRate: 0,
+      lastActivity: new Date().toISOString(),
+      notificationsByType: {
+        info: 0,
+        success: 0,
+        warning: 0,
+        error: 0
+      }
+    };
+  }
+
+  async getUserEngagementProfile(userId: string): Promise<any> {
+    console.log('Getting user engagement profile for user:', userId);
+    
+    // Placeholder implementation - in a real app, this would analyze user behavior
+    return {
+      userId,
+      engagementScore: 0,
+      preferredNotificationTypes: ['info', 'success'],
+      averageResponseTime: 0,
+      activeHours: [],
+      engagementTrend: []
+    };
+  }
+
+  async getNotificationInsights(userId: string): Promise<any> {
+    console.log('Getting notification insights for user:', userId);
+    
+    // Placeholder implementation - in a real app, this would provide AI insights
+    return {
+      userId,
+      insights: [
+        {
+          type: 'engagement',
+          message: 'User shows high engagement with success notifications',
+          confidence: 0.8
+        }
+      ],
+      recommendations: [
+        'Consider sending more success notifications',
+        'Reduce frequency of info notifications'
+      ]
+    };
+  }
 }
 
 export const notificationService = new NotificationService();
