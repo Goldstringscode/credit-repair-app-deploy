@@ -47,7 +47,7 @@ export const POST = async (request: NextRequest) => {
   } catch (error) {
     return NextResponse.json({ 
       error: 'File upload test failed',
-      message: error.message 
+      message: (error as Error)?.message ?? 'Unknown error'
     }, { status: 500 })
   }
 }
