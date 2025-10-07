@@ -122,7 +122,7 @@ export const POST = withRateLimit(
       return NextResponse.json({ 
         success: false,
         error: "Failed to create subscription",
-        details: error.message
+        details: (error as Error)?.message ?? 'Unknown error'
       }, { status: 500 })
     }
   }),
