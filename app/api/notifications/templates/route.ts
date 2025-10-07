@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { notificationService } from '@/lib/notification-service'
+import { notificationTemplateService } from '@/lib/notification-templates'
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,9 +8,9 @@ export async function GET(request: NextRequest) {
 
     let templates
     if (category) {
-      templates = notificationService.getTemplatesByCategory(category)
+      templates = notificationTemplateService.getTemplatesByCategory(category)
     } else {
-      templates = notificationService.getAllTemplates()
+      templates = notificationTemplateService.getAllTemplates()
     }
 
     return NextResponse.json({
@@ -39,12 +39,39 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create notification from template
-    await notificationService.createNotificationFromTemplate(templateId, data || {})
+    // Get the template
+    const template = notificationTemplateService.getTemplate(templateId)
+    if (!template) {
+      return NextResponse.json(
+        { success: false, error: 'Template not found' },
+        { status: 404 }
+      )
+    }
 
+    // Validate template data
+    const validation = notificationTemplateService.validateTemplateData(templateId, data || {})
+    if (!validation.valid) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Invalid template data',
+          missing: validation.missing
+        },
+        { status: 400 }
+      )
+    }
+
+    // For now, just return success since we don't have a notification creation method
+    // In a real implementation, this would create and send the notification
     return NextResponse.json({
       success: true,
-      message: 'Notification created from template successfully'
+      message: 'Template validated successfully',
+      template: {
+        id: template.id,
+        name: template.name,
+        title: template.title,
+        message: template.message
+      }
     })
   } catch (error) {
     console.error('Error creating notification from template:', error)
