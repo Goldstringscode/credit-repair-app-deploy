@@ -7,6 +7,7 @@ export interface NotificationAnalytics {
   type: string
   priority: string
   sentAt: Date
+  deliveredAt?: Date
   readAt?: Date
   clickedAt?: Date
   actionClicked?: string
@@ -185,6 +186,23 @@ class NotificationAnalyticsService {
     
     console.log(`📊 Tracked notification sent: ${analyticsId}`)
     return analyticsId
+  }
+
+  /**
+   * Track when a notification is delivered
+   */
+  trackNotificationDelivered(analyticsId: string): void {
+    const analytics = this.analytics.get(analyticsId)
+    if (!analytics) {
+      console.warn(`Analytics not found: ${analyticsId}`)
+      return
+    }
+
+    analytics.deliveredAt = new Date()
+    this.analytics.set(analyticsId, analytics)
+    this.updateUserProfile(analytics.userId, 'delivered')
+    
+    console.log(`📊 Tracked notification delivered: ${analyticsId}`)
   }
 
   /**
