@@ -12,7 +12,7 @@ export const POST = async (request: NextRequest) => {
     const key = crypto.scryptSync(secretKey, 'salt', 32)
     const iv = crypto.randomBytes(16)
     
-    const cipher = crypto.createCipher(algorithm, key)
+    const cipher = crypto.createCipheriv(algorithm, key, iv)
     let encrypted = cipher.update(testData, 'utf8', 'hex')
     encrypted += cipher.final('hex')
     
