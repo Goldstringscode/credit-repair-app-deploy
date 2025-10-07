@@ -18,6 +18,9 @@ export async function PUT(
     }
 
     const supabase = createClient()
+    if (!supabase) {
+      return NextResponse.json({ error: "Database connection not available" }, { status: 500 })
+    }
     const { data: notification, error } = await supabase
       .from('notifications')
       .update({ read })
@@ -66,6 +69,9 @@ export async function DELETE(
     const userId = searchParams.get('userId') || MOCK_USER_ID
 
     const supabase = createClient()
+    if (!supabase) {
+      return NextResponse.json({ error: "Database connection not available" }, { status: 500 })
+    }
     const { error } = await supabase
       .from('notifications')
       .delete()
