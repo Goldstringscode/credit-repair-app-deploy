@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
         })
 
       case 'categories':
-        const sounds = notificationSoundSystem.getAvailableSounds()
-        const categories = [...new Set(sounds.map(sound => sound.category))]
+        const allSounds = notificationSoundSystem.getAvailableSounds()
+        const categories = [...new Set(allSounds.map(sound => sound.category))]
         return NextResponse.json({
           success: true,
           categories
