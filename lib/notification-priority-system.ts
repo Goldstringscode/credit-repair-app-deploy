@@ -595,6 +595,14 @@ class NotificationPrioritySystem {
   }
 
   /**
+   * Set user context
+   */
+  setUserContext(userId: string, context: UserContext): void {
+    this.userContexts.set(userId, context)
+    console.log(`🎯 Updated user context for user: ${userId}`)
+  }
+
+  /**
    * Import rules configuration
    */
   importRules(rulesJson: string): boolean {
