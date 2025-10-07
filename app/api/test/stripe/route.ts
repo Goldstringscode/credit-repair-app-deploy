@@ -31,7 +31,7 @@ export async function GET() {
       return NextResponse.json({
         success: true,
         message: "Stripe connected successfully",
-        details: `Connected to Stripe account: ${account.display_name || account.id}`
+        details: `Connected to Stripe account: ${(account as any).display_name || account.id}`
       })
 
     } catch (stripeError: any) {
