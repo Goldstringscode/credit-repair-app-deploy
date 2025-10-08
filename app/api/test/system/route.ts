@@ -26,6 +26,7 @@ export async function GET() {
     const results = {
       timestamp: new Date().toISOString(),
       tests: {} as Record<string, any>,
+      overall: {} as any,
     }
 
   // Test 1: Environment Variables

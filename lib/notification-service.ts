@@ -99,6 +99,22 @@ export class NotificationService {
     // TODO: Implement actual email sending
   }
 
+  async notifyCustom(title: string, message: string, type: string = 'info', priority?: string, actions?: any[]): Promise<void> {
+    console.log('Custom notification:', { title, message, type, priority, actions });
+    
+    // Add notification to UI
+    this.addNotification({
+      id: `custom-${Date.now()}`,
+      type: type as any,
+      title,
+      message,
+      timestamp: new Date().toISOString(),
+      data: { priority, actions }
+    });
+    
+    // TODO: Implement actual email sending
+  }
+
   // Analytics methods
   async getNotificationMetrics(userId: string): Promise<any> {
     console.log('Getting notification metrics for user:', userId);

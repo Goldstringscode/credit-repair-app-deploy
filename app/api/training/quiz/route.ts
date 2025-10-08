@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { userId, quizId, courseId, answers } = body
+    const { userId, quizId, courseId, answers, timeTaken } = body
 
     if (!userId || !quizId || !courseId || !answers) {
       return NextResponse.json(
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = await trainingService.submitQuizAttempt(userId, quizId, courseId, answers)
+    const result = await trainingService.submitQuizAttempt(userId, quizId, courseId, answers, timeTaken || 0)
     
     if (!result) {
       return NextResponse.json(

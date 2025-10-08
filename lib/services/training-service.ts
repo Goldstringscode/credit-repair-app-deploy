@@ -488,6 +488,10 @@ export class TrainingService {
     }
   }
 
+  async getCourseQuizzes(courseId: string): Promise<TrainingQuiz[]> {
+    return this.getQuizzes(courseId)
+  }
+
   async getQuizQuestions(quizId: string): Promise<QuizQuestion[]> {
     if (!this.sql) return []
     
@@ -663,6 +667,164 @@ export class TrainingService {
         currentStreak: 0,
         averageScore: 0
       }
+    }
+  }
+
+  // ===== CERTIFICATES =====
+  async getCertificateById(certificateId: string): Promise<TrainingCertificate | null> {
+    if (!this.sql) return null
+    
+    try {
+      const result = await this.sql`
+        SELECT 
+          id, user_id as "userId", course_id as "courseId", certificate_number as "certificateNumber",
+          issued_at as "issuedAt", expires_at as "expiresAt", pdf_url as "pdfUrl",
+          verification_url as "verificationUrl", created_at as "createdAt"
+        FROM training_certificates
+        WHERE id = ${certificateId}
+      `
+      
+      return result.length > 0 ? result[0] : null
+    } catch (error) {
+      console.error("Failed to fetch certificate by ID:", error)
+      return null
+    }
+  }
+
+  async getUserCertificates(userId: string): Promise<TrainingCertificate[]> {
+    if (!this.sql) return []
+    
+    try {
+      const result = await this.sql`
+        SELECT 
+          id, user_id as "userId", course_id as "courseId", certificate_number as "certificateNumber",
+          issued_at as "issuedAt", expires_at as "expiresAt", pdf_url as "pdfUrl",
+          verification_url as "verificationUrl", created_at as "createdAt"
+        FROM training_certificates
+        WHERE user_id = ${userId}
+        ORDER BY issued_at DESC
+      `
+      
+      return result
+    } catch (error) {
+      console.error("Failed to fetch user certificates:", error)
+      return []
+    }
+  }
+
+  async generateCertificate(userId: string, courseId: string): Promise<TrainingCertificate | null> {
+    if (!this.sql) return null
+    
+    try {
+      // Check if user has completed the course
+      const courseProgress = await this.getUserCourseProgress(userId, courseId)
+      if (!courseProgress || !courseProgress.completedAt) {
+        return null // Course not completed
+      }
+
+      // Check if certificate already exists
+      const existingCertificates = await this.getUserCertificates(userId)
+      const existingCertificate = existingCertificates.find(cert => cert.courseId === courseId)
+      if (existingCertificate) {
+        return existingCertificate // Certificate already exists
+      }
+
+      // Generate certificate number
+      const certificateNumber = `CR-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+      
+      // Create certificate
+      const [certificate] = await this.sql`
+        INSERT INTO training_certificates (user_id, course_id, certificate_number, issued_at, expires_at)
+        VALUES (${userId}, ${courseId}, ${certificateNumber}, NOW(), NOW() + INTERVAL '2 years')
+        RETURNING 
+          id, user_id as "userId", course_id as "courseId", certificate_number as "certificateNumber",
+          issued_at as "issuedAt", expires_at as "expiresAt", pdf_url as "pdfUrl",
+          verification_url as "verificationUrl", created_at as "createdAt"
+      `
+      
+      return certificate
+    } catch (error) {
+      console.error("Failed to generate certificate:", error)
+      return null
+    }
+  }
+
+  // ===== ACHIEVEMENTS =====
+  async checkAndAwardAchievements(userId: string): Promise<UserAchievement[]> {
+    if (!this.sql) return []
+    
+    try {
+      // Get user stats
+      const stats = await this.getUserTrainingStats(userId)
+      
+      // Define achievement criteria
+      const achievements = [
+        {
+          id: 'first_quiz_pass',
+          name: 'First Quiz Pass',
+          description: 'Passed your first quiz',
+          criteriaType: 'perfect_scores' as const,
+          criteriaValue: 1
+        },
+        {
+          id: 'course_completion',
+          name: 'Course Completion',
+          description: 'Completed your first course',
+          criteriaType: 'courses_completed' as const,
+          criteriaValue: 1
+        },
+        {
+          id: 'perfect_score',
+          name: 'Perfect Score',
+          description: 'Achieved a perfect score on a quiz',
+          criteriaType: 'perfect_scores' as const,
+          criteriaValue: 1
+        }
+      ]
+      
+      const newAchievements: UserAchievement[] = []
+      
+      for (const achievement of achievements) {
+        // Check if user already has this achievement
+        const existing = await this.sql`
+          SELECT id FROM user_achievements 
+          WHERE user_id = ${userId} AND achievement_id = ${achievement.id}
+        `
+        
+        if (existing.length > 0) continue
+        
+        // Check if user meets criteria
+        let shouldAward = false
+        
+        switch (achievement.criteriaType) {
+          case 'courses_completed':
+            shouldAward = stats.completedCourses >= achievement.criteriaValue
+            break
+          case 'perfect_scores':
+            shouldAward = stats.perfectQuizScores >= achievement.criteriaValue
+            break
+          case 'lessons_completed':
+            shouldAward = stats.completedLessons >= achievement.criteriaValue
+            break
+        }
+        
+        if (shouldAward) {
+          // Award the achievement
+          const [newAchievement] = await this.sql`
+            INSERT INTO user_achievements (user_id, achievement_id, earned_at)
+            VALUES (${userId}, ${achievement.id}, NOW())
+            RETURNING id, user_id as "userId", achievement_id as "achievementId", earned_at as "earnedAt"
+          `
+          
+          newAchievement.achievement = achievement
+          newAchievements.push(newAchievement)
+        }
+      }
+      
+      return newAchievements
+    } catch (error) {
+      console.error("Failed to check and award achievements:", error)
+      return []
     }
   }
 

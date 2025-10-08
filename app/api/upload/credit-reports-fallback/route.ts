@@ -42,7 +42,7 @@ class CreditReportAnalyzer {
 
   analyze() {
     const analysis = {
-      credit_scores: [],
+      credit_scores: [] as any[],
       bureau_detected: "unknown",
       report_date: new Date().toISOString().split("T")[0],
       personal_info: {
@@ -51,9 +51,9 @@ class CreditReportAnalyzer {
         ssn_last_4: null,
         date_of_birth: null,
       },
-      accounts: [],
-      negative_items: [],
-      inquiries: [],
+      accounts: [] as any[],
+      negative_items: [] as any[],
+      inquiries: [] as any[],
       summary: {
         total_accounts: 0,
         open_accounts: 0,
@@ -67,7 +67,7 @@ class CreditReportAnalyzer {
         recent_inquiries_count: 0,
         payment_history_percentage: null,
       },
-      recommendations: [],
+      recommendations: [] as any[],
       data_completeness: {
         has_personal_info: false,
         has_accounts: false,
@@ -379,7 +379,7 @@ class CreditReportAnalyzer {
       {
         regex:
           /([A-Z][A-Z\s&\-.,']{4,50})\s+(?:\*{4,}|X{4,})(\d{4})\s+.*?Balance[:\s]*\$?([\d,]+\.?\d*)\s+.*?Limit[:\s]*\$?([\d,]+\.?\d*)/gi,
-        extract: (match) => ({
+        extract: (match: RegExpMatchArray) => ({
           creditor_name: this.cleanCreditorName(match[1]),
           account_number_last_4: match[2],
           balance: safeParseNumber(match[3]),

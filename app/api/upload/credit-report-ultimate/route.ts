@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
         },
         accounts: analysis.accounts.map(acc => ({
           creditor_name: acc.creditor,
-          account_number_last_4: acc.accountNumber.slice(-4),
+          account_number_last_4: acc.accountNumber ? acc.accountNumber.slice(-4) : null,
           balance: acc.balance,
           account_type: acc.accountType,
         })),
