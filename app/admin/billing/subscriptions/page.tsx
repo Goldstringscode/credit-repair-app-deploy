@@ -488,32 +488,20 @@ export default function AdminSubscriptionManagement() {
     
     // Payment method filter
     if (filters.paymentMethods && filters.paymentMethods.length > 0) {
-      console.log('🔍 Payment method filter:', filters.paymentMethods)
       filtered = filtered.filter(subscription => {
-        const paymentMethod = subscription.paymentMethod || (subscription.isExecutiveAccount ? 'Executive Account (Free)' : 'Unknown')
-        console.log('🔍 Subscription payment method:', paymentMethod, 'for subscription:', subscription.customerName)
-        const isIncluded = filters.paymentMethods.includes(paymentMethod)
-        console.log('🔍 Is included:', isIncluded)
-        return isIncluded
+        const paymentMethod = subscription.isExecutiveAccount ? 'Executive Account (Free)' : (subscription.paymentMethod || 'Unknown')
+        return filters.paymentMethods.includes(paymentMethod)
       })
-      console.log('🔍 After payment method filter:', filtered.length, 'subscriptions')
     }
     
     // Status filter
     if (filters.statuses && filters.statuses.length > 0) {
-      console.log('🔍 Status filter:', filters.statuses)
       filtered = filtered.filter(subscription => {
-        console.log('🔍 Subscription status:', subscription.status, 'for subscription:', subscription.customerName)
-        const isIncluded = filters.statuses.includes(subscription.status)
-        console.log('🔍 Is included:', isIncluded)
-        return isIncluded
+        return filters.statuses.includes(subscription.status)
       })
-      console.log('🔍 After status filter:', filtered.length, 'subscriptions')
     }
     
-    console.log('🔍 Final result: Filtered to', filtered.length, 'subscriptions')
     setFilteredSubscriptions(filtered)
-    console.log('🔍 Set filtered subscriptions')
   }
 
   const handleBulkEmail = () => {
