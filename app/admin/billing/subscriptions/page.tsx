@@ -123,10 +123,6 @@ export default function AdminSubscriptionManagement() {
     loadSubscriptions()
   }, [])
 
-  // Debug filtered subscriptions changes
-  useEffect(() => {
-    console.log('🔍 filteredSubscriptions changed:', filteredSubscriptions.length, 'subscriptions')
-  }, [filteredSubscriptions])
 
   // Reload when filters change
   useEffect(() => {
@@ -419,8 +415,6 @@ export default function AdminSubscriptionManagement() {
   }
 
   const handleApplyAdvancedFilters = (filters: any) => {
-    console.log('🔍 Applying advanced filters:', filters)
-    console.log('🔍 Current subscriptions count:', subscriptions.length)
     setAdvancedFilters(filters)
     // Apply filters to the subscription list
     applyAdvancedFilters(filters)
@@ -433,23 +427,17 @@ export default function AdminSubscriptionManagement() {
   }
 
   const applyAdvancedFilters = (filters: any) => {
-    console.log('🔍 applyAdvancedFilters called with:', filters)
-    console.log('🔍 Starting with', subscriptions.length, 'subscriptions')
-    
     let filtered = [...subscriptions]
-    console.log('🔍 Initial filtered count:', filtered.length)
     
     // Search filter
     if (filters.search && filters.search.trim()) {
       const searchTerm = filters.search.toLowerCase()
-      console.log('🔍 Applying search filter for:', searchTerm)
       filtered = filtered.filter(subscription => 
         subscription.customerName.toLowerCase().includes(searchTerm) ||
         subscription.customerEmail.toLowerCase().includes(searchTerm) ||
         subscription.id.toLowerCase().includes(searchTerm) ||
         subscription.planName.toLowerCase().includes(searchTerm)
       )
-      console.log('🔍 After search filter:', filtered.length, 'subscriptions')
     }
     
     // Date range filter
@@ -506,10 +494,7 @@ export default function AdminSubscriptionManagement() {
       })
     }
     
-    console.log(`🔍 Final result: Filtered ${subscriptions.length} subscriptions to ${filtered.length} results`)
-    console.log('🔍 Setting filtered subscriptions...')
     setFilteredSubscriptions(filtered)
-    console.log('🔍 Filtered subscriptions state updated')
   }
 
   const handleBulkEmail = () => {
