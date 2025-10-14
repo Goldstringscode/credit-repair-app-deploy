@@ -530,8 +530,7 @@ export default function AdminSubscriptionManagement() {
     setSelectedSubscriptions([])
   }
 
-  // Subscriptions are already filtered by the API
-  const filteredSubscriptions = subscriptions
+  // Subscriptions are filtered by the advanced filters state
 
   if (loading) {
     return (
