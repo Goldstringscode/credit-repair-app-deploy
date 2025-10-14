@@ -1,22 +1,23 @@
-import { NextResponse } from 'next/server'
+import { NextResponse } from "next/server"
+
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
     return NextResponse.json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
-      version: '1.0.0',
-      services: {
-        database: 'connected',
-        mlm: 'active',
-        payments: 'active'
-      }
+      environment: process.env.NODE_ENV,
+      resendApiKey: process.env.RESEND_API_KEY ? 'configured' : 'missing'
     })
   } catch (error) {
-    return NextResponse.json({
-      status: 'unhealthy',
-      timestamp: new Date().toISOString(),
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    return NextResponse.json(
+      { 
+        status: 'unhealthy',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      },
+      { status: 500 }
+    )
   }
 }

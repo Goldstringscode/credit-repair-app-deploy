@@ -141,14 +141,28 @@ export async function POST(request: NextRequest) {
   try {
     console.log('📧 Email API called')
     
-    const body = await request.json()
-    console.log('📧 Request body:', { 
-      to: body.to, 
-      subject: body.subject, 
-      hasBody: !!body.body,
-      template: body.template,
-      priority: body.priority
-    })
+    // Parse request body with error handling
+    let body
+    try {
+      body = await request.json()
+      console.log('📧 Request body parsed successfully:', { 
+        to: body.to, 
+        subject: body.subject, 
+        hasBody: !!body.body,
+        template: body.template,
+        priority: body.priority
+      })
+    } catch (parseError) {
+      console.error('❌ Failed to parse request body:', parseError)
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "Invalid JSON in request body",
+          details: parseError instanceof Error ? parseError.message : 'Unknown parse error'
+        },
+        { status: 400 }
+      )
+    }
     
     const { to, subject, body: emailBody, template, priority = 'normal' } = body
 
@@ -158,7 +172,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { 
           success: false, 
-          error: "Missing required fields: to, subject, body" 
+          error: "Missing required fields: to, subject, body",
+          details: {
+            to: to || 'missing',
+            subject: subject || 'missing', 
+            body: emailBody ? 'present' : 'missing'
+          }
         },
         { status: 400 }
       )
@@ -230,17 +249,70 @@ export async function POST(request: NextRequest) {
       subject: emailPayload.subject
     })
 
-    // Send email using Resend API
-    const resendResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(emailPayload)
-    })
+    // Send email using Resend API with comprehensive error handling
+    let resendResponse
+    let resendResult
+    
+    try {
+      console.log('📧 Sending to Resend API with payload:', {
+        from: emailPayload.from,
+        to: emailPayload.to,
+        subject: emailPayload.subject,
+        hasHtml: !!emailPayload.html
+      })
+      
+      resendResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(emailPayload)
+      })
 
-    const resendResult = await resendResponse.json()
+      console.log('📧 Resend API response received:', {
+        status: resendResponse.status,
+        ok: resendResponse.ok,
+        statusText: resendResponse.statusText
+      })
+
+      // Parse response with error handling
+      try {
+        resendResult = await resendResponse.json()
+        console.log('📧 Resend API result parsed:', resendResult)
+      } catch (jsonError) {
+        console.error('❌ Failed to parse Resend API response:', jsonError)
+        const responseText = await resendResponse.text()
+        console.error('❌ Raw response text:', responseText)
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: "Failed to parse Resend API response",
+            details: {
+              status: resendResponse.status,
+              statusText: resendResponse.statusText,
+              rawResponse: responseText,
+              parseError: jsonError instanceof Error ? jsonError.message : 'Unknown JSON parse error'
+            }
+          },
+          { status: 500 }
+        )
+      }
+
+    } catch (fetchError) {
+      console.error('❌ Failed to call Resend API:', fetchError)
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "Failed to call Resend API",
+          details: {
+            fetchError: fetchError instanceof Error ? fetchError.message : 'Unknown fetch error',
+            stack: fetchError instanceof Error ? fetchError.stack : undefined
+          }
+        },
+        { status: 500 }
+      )
+    }
 
     console.log('📧 Resend API response:', {
       status: resendResponse.status,
@@ -288,18 +360,20 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('❌ Error sending email:', error)
+    console.error('❌ Unexpected error in email API:', error)
     console.error('❌ Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
       name: error instanceof Error ? error.name : undefined
     })
+    
+    // Return a structured error response
     return NextResponse.json(
       { 
         success: false, 
-        error: "Failed to send email",
+        error: "Unexpected error occurred while sending email",
         details: {
-          message: error instanceof Error ? error.message : "Unknown error",
+          message: error instanceof Error ? error.message : 'Unknown error',
           type: error instanceof Error ? error.constructor.name : typeof error,
           stack: error instanceof Error ? error.stack : undefined
         }
