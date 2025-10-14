@@ -181,18 +181,33 @@ export default function PaymentMethodModal({
   const setDefaultPaymentMethod = async (methodId: string) => {
     setSaving(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Find the payment method to set as default
+      const method = paymentMethods.find(m => m.id === methodId)
+      if (!method || !subscription) {
+        alert('Payment method not found')
+        return
+      }
+
+      // Update the subscription with the new payment method
+      const newPaymentMethod = method.type === 'card' ? 
+        `${method.brand || 'Card'} •••• ${method.last4}` : 
+        method.type === 'bank_account' ? 
+        `Bank Account •••• ${method.last4}` : 
+        'PayPal'
+
+      // Call onUpdate to update the subscription
+      await onUpdate(subscription.id, newPaymentMethod)
       
       setPaymentMethods(prev => 
-        prev.map(method => ({
-          ...method,
-          isDefault: method.id === methodId
+        prev.map(m => ({
+          ...m,
+          isDefault: m.id === methodId
         }))
       )
       
       alert('Default payment method updated successfully!')
     } catch (error) {
+      console.error('Error updating payment method:', error)
       alert('Failed to update default payment method')
     } finally {
       setSaving(false)

@@ -567,11 +567,11 @@ export default function AdminSubscriptionManagement() {
                           {getStatusBadge(subscription.status, subscription)}
                         </div>
                         <div className="col-span-1">
-                          <p className={`font-medium ${subscription.amount === 0 ? 'text-green-600' : ''}`}>
-                            {subscription.amount === 0 ? 'FREE' : `$${subscription.amount}`}
+                          <p className={`font-medium ${(subscription.amount === 0 || subscription.isExecutiveAccount) ? 'text-green-600' : ''}`}>
+                            {(subscription.amount === 0 || subscription.isExecutiveAccount) ? 'FREE' : `$${subscription.amount}`}
                           </p>
                           <p className="text-xs text-gray-500">{subscription.currency.toUpperCase()}</p>
-                          {subscription.paymentMethod === 'Executive Account (Free)' && (
+                          {(subscription.paymentMethod === 'Executive Account (Free)' || subscription.isExecutiveAccount) && (
                             <Badge className="mt-1 bg-green-100 text-green-800 border-green-300 text-xs">
                               Executive
                             </Badge>
@@ -592,10 +592,20 @@ export default function AdminSubscriptionManagement() {
                       </p>
                     </div>
                     <div className="col-span-1">
-                      <p className="text-sm">{subscription.paymentMethod}</p>
-                      {subscription.lastPaymentDate && (
+                      <p className="text-sm">
+                        {subscription.paymentMethod === 'Executive Account (Free)' || subscription.isExecutiveAccount ? 
+                          'Executive Account (Free)' : 
+                          subscription.paymentMethod
+                        }
+                      </p>
+                      {subscription.lastPaymentDate && !subscription.isExecutiveAccount && (
                         <p className="text-xs text-gray-500">
                           Last: {new Date(subscription.lastPaymentDate).toLocaleDateString()}
+                        </p>
+                      )}
+                      {subscription.isExecutiveAccount && (
+                        <p className="text-xs text-green-600 font-medium">
+                          No payment required
                         </p>
                       )}
                     </div>
@@ -815,7 +825,7 @@ export default function AdminSubscriptionManagement() {
             const updateData = {
               ...selectedSubscription,
               paymentMethod: newPaymentMethod,
-              isExecutiveAccount: newPaymentMethod.includes('Executive') && !newPaymentMethod.includes('Remaining') && !newPaymentMethod.includes('Required')
+              isExecutiveAccount: newPaymentMethod === 'Executive Account (Free)' || (newPaymentMethod.includes('Executive') && !newPaymentMethod.includes('Remaining') && !newPaymentMethod.includes('Required'))
             }
             
             // Add grace period data if provided
@@ -832,6 +842,9 @@ export default function AdminSubscriptionManagement() {
               console.log('Successfully updated subscription in database')
               // Reload subscriptions to get updated data
               await loadSubscriptions()
+              // Close the modal after successful update
+              setIsPaymentMethodModalOpen(false)
+              setSelectedSubscription(null)
               alert(`Payment method updated successfully! The subscription has been updated.`)
             } else {
               console.error('Failed to update subscription:', response.error)
