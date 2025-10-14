@@ -34,6 +34,7 @@ import {
   CheckCircle,
   CreditCard,
   TrendingDown,
+  Upload,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -338,49 +339,98 @@ export default function AdminPage() {
         </TabsContent>
 
         <TabsContent value="email" className="space-y-6">
-          {/* Email System Overview */}
+          {/* Email Marketing Dashboard Header */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-3xl font-bold mb-2">Email Marketing Dashboard</h2>
+                <p className="text-gray-600">
+                  Manage email campaigns, templates, and subscriber lists
+                </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button variant="outline" className="flex items-center space-x-2">
+                  <Upload className="h-4 w-4" />
+                  <span>Import List</span>
+                </Button>
+                <Link href="/dashboard/email/analytics">
+                  <Button variant="outline" className="flex items-center space-x-2">
+                    <BarChart3 className="h-4 w-4" />
+                    <span>Analytics</span>
+                  </Button>
+                </Link>
+                <Link href="/dashboard/email/lists">
+                  <Button variant="outline" className="flex items-center space-x-2">
+                    <Users className="h-4 w-4" />
+                    <span>Lists</span>
+                  </Button>
+                </Link>
+                <Link href="/dashboard/email/templates/builder">
+                  <Button variant="outline" className="flex items-center space-x-2">
+                    <FileText className="h-4 w-4" />
+                    <span>Template Builder</span>
+                  </Button>
+                </Link>
+                <Link href="/dashboard/email/templates-test">
+                  <Button variant="outline" className="flex items-center space-x-2">
+                    <TestTube className="h-4 w-4" />
+                    <span>Test Templates</span>
+                  </Button>
+                </Link>
+                <Link href="/dashboard/email/campaigns/create">
+                  <Button className="flex items-center space-x-2">
+                    <Plus className="h-4 w-4" />
+                    <span>Create Campaign</span>
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Email Marketing Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Emails Sent</CardTitle>
-                <Send className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">15,420</div>
-                <p className="text-xs text-muted-foreground">+12.5% from last month</p>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <Mail className="h-8 w-8 text-blue-500" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Total Recipients</p>
+                    <p className="text-2xl font-bold">15,420</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
-
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Open Rate</CardTitle>
-                <Eye className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">24.8%</div>
-                <p className="text-xs text-muted-foreground">+2.1% from last month</p>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <Send className="h-8 w-8 text-green-500" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Emails Sent</p>
+                    <p className="text-2xl font-bold">12,847</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
-
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Click Rate</CardTitle>
-                <Target className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">8.2%</div>
-                <p className="text-xs text-muted-foreground">+1.3% from last month</p>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <Eye className="h-8 w-8 text-purple-500" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Open Rate</p>
+                    <p className="text-2xl font-bold">24.8%</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
-
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Campaigns</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">12</div>
-                <p className="text-xs text-muted-foreground">3 scheduled</p>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <Target className="h-8 w-8 text-orange-500" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Click Rate</p>
+                    <p className="text-2xl font-bold">8.2%</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
