@@ -4,11 +4,22 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('📧 Email API called')
+    
     const body = await request.json()
+    console.log('📧 Request body:', { 
+      to: body.to, 
+      subject: body.subject, 
+      hasBody: !!body.body,
+      template: body.template,
+      priority: body.priority
+    })
+    
     const { to, subject, body: emailBody, template, priority = 'normal' } = body
 
     // Validate required fields
     if (!to || !subject || !emailBody) {
+      console.log('❌ Missing required fields:', { to: !!to, subject: !!subject, body: !!emailBody })
       return NextResponse.json(
         { 
           success: false, 
@@ -140,11 +151,20 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ Error sending email:', error)
+    console.error('❌ Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined
+    })
     return NextResponse.json(
       { 
         success: false, 
         error: "Failed to send email",
-        details: error instanceof Error ? error.message : "Unknown error"
+        details: {
+          message: error instanceof Error ? error.message : "Unknown error",
+          type: error instanceof Error ? error.constructor.name : typeof error,
+          stack: error instanceof Error ? error.stack : undefined
+        }
       },
       { status: 500 }
     )

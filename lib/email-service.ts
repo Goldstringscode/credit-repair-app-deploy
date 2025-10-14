@@ -18,12 +18,19 @@ class EmailService {
   private baseUrl: string
 
   constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    // Use window.location.origin for client-side, fallback to env var for server-side
+    if (typeof window !== 'undefined') {
+      this.baseUrl = window.location.origin
+    } else {
+      this.baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    }
   }
 
   async sendEmail(emailData: EmailData): Promise<EmailResponse> {
     try {
       console.log('📧 EmailService: Sending email to', emailData.to)
+      console.log('📧 EmailService: Base URL', this.baseUrl)
+      console.log('📧 EmailService: Full URL', `${this.baseUrl}/api/admin/email/send`)
 
       const response = await fetch(`${this.baseUrl}/api/admin/email/send`, {
         method: 'POST',
@@ -40,7 +47,11 @@ class EmailService {
         })
       })
 
+      console.log('📧 EmailService: Response status', response.status)
+      console.log('📧 EmailService: Response ok', response.ok)
+
       const result = await response.json()
+      console.log('📧 EmailService: Response result', result)
 
       if (result.success) {
         console.log('📧 EmailService: Email sent successfully', result.data)
@@ -58,6 +69,11 @@ class EmailService {
       }
     } catch (error) {
       console.error('📧 EmailService: Email sending error', error)
+      console.error('📧 EmailService: Error details', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        baseUrl: this.baseUrl
+      })
       return {
         success: false,
         error: 'Failed to send email',
