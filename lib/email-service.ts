@@ -26,6 +26,30 @@ class EmailService {
     }
   }
 
+  // Get the appropriate welcome template based on subscription plan
+  getWelcomeTemplateForPlan(planName: string, isExecutiveAccount: boolean = false): string {
+    if (isExecutiveAccount) {
+      return 'executive_welcome'
+    }
+
+    const plan = planName.toLowerCase()
+    
+    if (plan.includes('basic')) {
+      return 'basic_welcome'
+    } else if (plan.includes('premium')) {
+      return 'premium_welcome'
+    } else if (plan.includes('pro')) {
+      return 'pro_welcome'
+    } else if (plan.includes('enterprise')) {
+      return 'enterprise_welcome'
+    } else if (plan.includes('executive')) {
+      return 'executive_welcome'
+    }
+    
+    // Default to basic welcome for unknown plans
+    return 'basic_welcome'
+  }
+
   async sendEmail(emailData: EmailData): Promise<EmailResponse> {
     try {
       console.log('📧 EmailService: Sending email to', emailData.to)
@@ -180,6 +204,108 @@ Your Executive Benefits:
 You can now access all premium features without any restrictions. Our executive support team is available to assist you with any questions or needs.
 
 Welcome to the executive tier!
+
+Best regards,
+The Credit Repair Team`
+      },
+      basic_welcome: {
+        subject: 'Welcome to Basic Plan - Get Started Today!',
+        body: `Hi {customerName},
+
+Welcome to our Basic Plan! We're excited to help you start your credit repair journey.
+
+Your Basic Plan includes:
+- Essential credit monitoring tools
+- Basic dispute letter templates
+- Monthly credit score tracking
+- Email support
+- Access to our knowledge base
+
+Your Subscription Details:
+- Plan: Basic Plan
+- Amount: {amount}
+- Billing Cycle: {billingCycle}
+- Next Billing: {nextBillingDate}
+
+You can upgrade to Premium or Executive plans anytime to unlock more features and priority support.
+
+Best regards,
+The Credit Repair Team`
+      },
+      premium_welcome: {
+        subject: 'Welcome to Premium Plan - Advanced Features Unlocked!',
+        body: `Hi {customerName},
+
+Welcome to our Premium Plan! You now have access to our advanced credit repair tools and features.
+
+Your Premium Plan includes:
+- Advanced credit monitoring and alerts
+- Premium dispute letter templates
+- Weekly credit score tracking
+- Priority email support
+- Advanced analytics and reporting
+- Custom credit repair strategies
+
+Your Subscription Details:
+- Plan: Premium Plan
+- Amount: {amount}
+- Billing Cycle: {billingCycle}
+- Next Billing: {nextBillingDate}
+
+You can upgrade to Executive plan anytime to unlock unlimited access and priority support.
+
+Best regards,
+The Credit Repair Team`
+      },
+      pro_welcome: {
+        subject: 'Welcome to Pro Plan - Professional Tools Activated!',
+        body: `Hi {customerName},
+
+Welcome to our Pro Plan! You now have access to professional-grade credit repair tools.
+
+Your Pro Plan includes:
+- Professional credit monitoring suite
+- Advanced dispute letter generation
+- Daily credit score tracking
+- Priority phone support
+- Advanced analytics dashboard
+- Professional credit repair strategies
+- Credit bureau dispute tracking
+
+Your Subscription Details:
+- Plan: Pro Plan
+- Amount: {amount}
+- Billing Cycle: {billingCycle}
+- Next Billing: {nextBillingDate}
+
+You can upgrade to Executive plan anytime to unlock unlimited access and executive support.
+
+Best regards,
+The Credit Repair Team`
+      },
+      enterprise_welcome: {
+        subject: 'Welcome to Enterprise Plan - Business Solutions Active!',
+        body: `Hi {customerName},
+
+Welcome to our Enterprise Plan! You now have access to our comprehensive business credit repair solutions.
+
+Your Enterprise Plan includes:
+- Enterprise-grade credit monitoring
+- Bulk dispute letter generation
+- Real-time credit score tracking
+- Dedicated account manager
+- Advanced business analytics
+- White-label solutions
+- API access for integrations
+- Custom reporting and dashboards
+
+Your Subscription Details:
+- Plan: Enterprise Plan
+- Amount: {amount}
+- Billing Cycle: {billingCycle}
+- Next Billing: {nextBillingDate}
+
+Your dedicated account manager will contact you within 24 hours to set up your enterprise features.
 
 Best regards,
 The Credit Repair Team`
