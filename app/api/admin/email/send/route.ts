@@ -59,26 +59,36 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'Credit Repair App <noreply@creditrepairapp.com>',
+        from: 'onboarding@resend.dev',
         to: [to],
         subject: subject,
-        html: emailBody,
-        // Add priority headers if needed
-        headers: {
-          'X-Priority': priority === 'urgent' ? '1' : priority === 'high' ? '2' : '3'
-        }
+        html: emailBody
       })
     })
 
     const resendResult = await resendResponse.json()
 
+    console.log('📧 Resend API response:', {
+      status: resendResponse.status,
+      ok: resendResponse.ok,
+      result: resendResult
+    })
+
     if (!resendResponse.ok) {
-      console.error('❌ Resend API error:', resendResult)
+      console.error('❌ Resend API error:', {
+        status: resendResponse.status,
+        statusText: resendResponse.statusText,
+        result: resendResult
+      })
       return NextResponse.json(
         { 
           success: false, 
-          error: `Email service error: ${resendResult.message || 'Unknown error'}`,
-          details: resendResult
+          error: `Email service error: ${resendResult.message || resendResult.error || 'Unknown error'}`,
+          details: {
+            status: resendResponse.status,
+            statusText: resendResponse.statusText,
+            resendError: resendResult
+          }
         },
         { status: 500 }
       )
