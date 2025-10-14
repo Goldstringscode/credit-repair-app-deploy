@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Mail, Send, Loader2, X } from 'lucide-react'
 import { Subscription } from '@/lib/subscription-service'
+import { emailService } from '@/lib/email-service'
 
 interface BulkEmailModalProps {
   isOpen: boolean
@@ -53,46 +54,32 @@ export default function BulkEmailModal({
     setResults({ sent: 0, failed: 0, errors: [] })
 
     try {
-      console.log('Sending bulk emails to', recipients.length, 'recipients')
+      console.log('📧 Sending bulk emails to', recipients.length, 'recipients')
       
-      // Simulate bulk email sending
-      let sent = 0
-      let failed = 0
-      const errors: string[] = []
+      // Prepare emails for bulk sending
+      const emails = recipients.map(subscription => ({
+        to: subscription.customerEmail,
+        subject: emailData.subject,
+        body: emailData.body
+      }))
 
-      for (let i = 0; i < recipients.length; i++) {
-        const subscription = recipients[i]
-        
-        try {
-          // Simulate individual email sending
-          await new Promise(resolve => setTimeout(resolve, 1000))
-          
-          console.log(`Sending email to ${subscription.customerEmail}: ${emailData.subject}`)
-          sent++
-        } catch (error) {
-          console.error(`Failed to send email to ${subscription.customerEmail}:`, error)
-          failed++
-          errors.push(`Failed to send to ${subscription.customerEmail}`)
-        }
-        
-        // Update progress
-        setProgress(Math.round(((i + 1) / recipients.length) * 100))
-      }
+      // Use the email service for bulk sending
+      const result = await emailService.sendBulkEmails(emails, emailData.priority as 'normal' | 'high' | 'urgent')
 
       setResults({
-        sent,
-        failed,
-        errors
+        sent: result.success,
+        failed: result.failed,
+        errors: result.errors
       })
 
-      if (sent > 0) {
-        alert(`Bulk email completed! ${sent} emails sent, ${failed} failed.`)
+      if (result.success > 0) {
+        alert(`Bulk email completed! ${result.success} emails sent, ${result.failed} failed.`)
       } else {
-        alert(`Failed to send bulk emails. ${errors.join(', ')}`)
+        alert(`Failed to send bulk emails. ${result.errors.join(', ')}`)
       }
 
     } catch (error) {
-      console.error('Error sending bulk emails:', error)
+      console.error('❌ Error sending bulk emails:', error)
       alert(`Error sending bulk emails: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setSending(false)

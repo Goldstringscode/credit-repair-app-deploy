@@ -30,16 +30,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // For now, we'll simulate email sending
-    // In a real implementation, you would integrate with:
-    // - SendGrid
-    // - AWS SES
-    // - Mailgun
-    // - Nodemailer with SMTP
-    // - Resend
-    // - Postmark
-    
-    console.log('📧 Email sending request:', {
+    // Check if Resend API key is available
+    const resendApiKey = process.env.RESEND_API_KEY
+    if (!resendApiKey) {
+      console.error('❌ RESEND_API_KEY not found in environment variables')
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "Email service not configured. Please contact support." 
+        },
+        { status: 500 }
+      )
+    }
+
+    console.log('📧 Sending email via Resend API:', {
       to,
       subject,
       template,
@@ -47,40 +51,56 @@ export async function POST(request: NextRequest) {
       bodyLength: emailBody.length
     })
 
-    // Simulate email sending delay
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    // Log the email for debugging (in production, this would be sent via email service)
-    console.log('📧 Email content:', {
-      to,
-      subject,
-      body: emailBody,
-      timestamp: new Date().toISOString()
+    // Send email using Resend API
+    const resendResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Credit Repair App <noreply@creditrepairapp.com>',
+        to: [to],
+        subject: subject,
+        html: emailBody,
+        // Add priority headers if needed
+        headers: {
+          'X-Priority': priority === 'urgent' ? '1' : priority === 'high' ? '2' : '3'
+        }
+      })
     })
 
-    // In a real implementation, you would call your email service here:
-    // const emailService = new EmailService()
-    // const result = await emailService.send({
-    //   to,
-    //   subject,
-    //   html: emailBody,
-    //   priority
-    // })
+    const resendResult = await resendResponse.json()
+
+    if (!resendResponse.ok) {
+      console.error('❌ Resend API error:', resendResult)
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: `Email service error: ${resendResult.message || 'Unknown error'}`,
+          details: resendResult
+        },
+        { status: 500 }
+      )
+    }
+
+    console.log('✅ Email sent successfully via Resend:', resendResult)
 
     return NextResponse.json({
       success: true,
       data: {
-        messageId: `email_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        messageId: resendResult.id,
         to,
         subject,
         timestamp: new Date().toISOString(),
-        status: 'sent'
+        status: 'sent',
+        service: 'resend'
       },
       message: `Email sent successfully to ${to}`
     })
 
   } catch (error) {
-    console.error('Error sending email:', error)
+    console.error('❌ Error sending email:', error)
     return NextResponse.json(
       { 
         success: false, 
