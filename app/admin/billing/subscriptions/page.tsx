@@ -16,8 +16,8 @@ import PaymentMethodModal from '@/components/payment-method-modal'
 import EmailComposerModal from '@/components/email-composer-modal'
 import InvoiceGeneratorModal from '@/components/invoice-generator-modal'
 import DeleteConfirmationModal from '@/components/delete-confirmation-modal'
-import AdvancedFiltersModal from '@/components/advanced-filters-modal'
-import BulkEmailModal from '@/components/bulk-email-modal'
+import AdvancedFiltersModal from '@/components/advanced-filters-modal-simple'
+import BulkEmailModal from '@/components/bulk-email-modal-simple'
 import { 
   CreditCard, 
   Search, 
