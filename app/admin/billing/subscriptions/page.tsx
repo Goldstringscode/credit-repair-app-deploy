@@ -415,9 +415,12 @@ export default function AdminSubscriptionManagement() {
   }
 
   const handleApplyAdvancedFilters = (filters: any) => {
+    console.log('🔍 Parent: Received filters:', filters)
+    console.log('🔍 Parent: Current subscriptions:', subscriptions.length)
     setAdvancedFilters(filters)
     // Apply filters to the subscription list
     applyAdvancedFilters(filters)
+    console.log('🔍 Parent: Applied filters')
   }
 
   const handleClearFilters = () => {
@@ -427,7 +430,10 @@ export default function AdminSubscriptionManagement() {
   }
 
   const applyAdvancedFilters = (filters: any) => {
+    console.log('🔍 applyAdvancedFilters called with:', filters)
+    console.log('🔍 Starting with', subscriptions.length, 'subscriptions')
     let filtered = [...subscriptions]
+    console.log('🔍 Initial filtered count:', filtered.length)
     
     // Search filter
     if (filters.search && filters.search.trim()) {
@@ -494,7 +500,9 @@ export default function AdminSubscriptionManagement() {
       })
     }
     
+    console.log('🔍 Final result: Filtered to', filtered.length, 'subscriptions')
     setFilteredSubscriptions(filtered)
+    console.log('🔍 Set filtered subscriptions')
   }
 
   const handleBulkEmail = () => {
