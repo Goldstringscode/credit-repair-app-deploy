@@ -79,7 +79,12 @@ class SubscriptionService {
   private baseUrl: string
 
   constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    // Use window.location.origin for client-side, fallback to env var for server-side
+    if (typeof window !== 'undefined') {
+      this.baseUrl = window.location.origin
+    } else {
+      this.baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    }
   }
 
   async getSubscriptions(filters: SubscriptionFilters = {}): Promise<SubscriptionResponse> {
@@ -193,6 +198,9 @@ class SubscriptionService {
 
   async createSubscription(subscriptionData: Omit<Subscription, 'id' | 'createdAt' | 'updatedAt'>): Promise<SubscriptionActionResponse> {
     try {
+      console.log('Creating subscription with data:', subscriptionData)
+      console.log('API URL:', `${this.baseUrl}/api/admin/subscriptions`)
+      
       const response = await fetch(`${this.baseUrl}/api/admin/subscriptions`, {
         method: 'POST',
         headers: {
@@ -204,14 +212,25 @@ class SubscriptionService {
         })
       })
 
+      console.log('Response status:', response.status)
+      console.log('Response ok:', response.ok)
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorText = await response.text()
+        console.error('API Error Response:', errorText)
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
       }
 
       const result = await response.json()
+      console.log('API Success Response:', result)
       return result
     } catch (error) {
       console.error('Error creating subscription:', error)
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        baseUrl: this.baseUrl
+      })
       return {
         success: false,
         data: {

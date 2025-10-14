@@ -158,7 +158,9 @@ export default function CreateSubscriptionModal({ isOpen, onClose, onSuccess }: 
       }
 
       // Call the real API
+      console.log('Calling subscription service with data:', subscriptionData)
       const response = await subscriptionService.createSubscription(subscriptionData)
+      console.log('Subscription service response:', response)
       
       if (response.success && response.data) {
         console.log('Created subscription:', response.data.subscription)
@@ -181,9 +183,11 @@ export default function CreateSubscriptionModal({ isOpen, onClose, onSuccess }: 
         })
         setStep(1)
         onClose()
+        alert('Subscription created successfully!')
       } else {
         console.error('Failed to create subscription:', response.error)
-        alert(`Failed to create subscription: ${response.error}`)
+        console.error('Full response:', response)
+        alert(`Failed to create subscription: ${response.error || 'Unknown error'}`)
       }
       
     } catch (error) {
