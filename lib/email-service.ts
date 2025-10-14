@@ -157,6 +157,32 @@ Please log into your account to update your payment method.
 
 Best regards,
 The Credit Repair Team`
+      },
+      executive_welcome: {
+        subject: 'Welcome to Executive Plan - Premium Access Granted!',
+        body: `Hi {customerName},
+
+🎉 Congratulations! You've been granted Executive Plan access to our Credit Repair App.
+
+As an Executive member, you now have:
+- Unlimited access to all premium features
+- Priority customer support
+- Advanced credit monitoring tools
+- Exclusive executive resources
+- No monthly fees - completely FREE
+
+Your Executive Benefits:
+- Plan: Executive Plan (FREE)
+- Status: Active
+- Access Level: Premium Executive
+- Support: Priority Executive Support
+
+You can now access all premium features without any restrictions. Our executive support team is available to assist you with any questions or needs.
+
+Welcome to the executive tier!
+
+Best regards,
+The Credit Repair Team`
       }
     }
 
