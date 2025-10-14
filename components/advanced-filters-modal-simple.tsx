@@ -79,6 +79,7 @@ export default function AdvancedFiltersModal({
   }
 
   const handleApplyFilters = () => {
+    console.log('🔍 Modal: handleApplyFilters called with filters:', filters)
     onApplyFilters(filters)
     onClose()
   }
