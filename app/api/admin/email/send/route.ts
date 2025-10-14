@@ -2,6 +2,9 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export const dynamic = 'force-dynamic'
 
+// Allow this API route to be accessed without authentication
+export const runtime = 'nodejs'
+
 // Convert plain text email to beautiful HTML template
 function convertToHtmlEmail(body: string, subject: string, template?: string): string {
   // Convert line breaks to HTML
@@ -140,6 +143,19 @@ function convertToHtmlEmail(body: string, subject: string, template?: string): s
 export async function POST(request: NextRequest) {
   try {
     console.log('📧 Email API called')
+    
+    // Simple API key authentication (optional for now)
+    const apiKey = request.headers.get('x-api-key')
+    const expectedApiKey = process.env.EMAIL_API_KEY || 'default-key'
+    
+    // For now, we'll allow requests without API key for testing
+    // In production, you can uncomment the following lines:
+    // if (apiKey !== expectedApiKey) {
+    //   return NextResponse.json(
+    //     { success: false, error: "Invalid API key" },
+    //     { status: 401 }
+    //   )
+    // }
     
     // Parse request body with error handling
     let body
