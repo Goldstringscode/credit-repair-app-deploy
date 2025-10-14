@@ -45,7 +45,19 @@ export function getStripeConfig() {
   }
 }
 
-export const stripeConfig = getStripeConfig()
-export const stripe = stripeConfig.stripe
-export const STRIPE_PUBLISHABLE_KEY = stripeConfig.publishableKey
-export const STRIPE_WEBHOOK_SECRET = stripeConfig.webhookSecret
+// Export lazy initialization functions instead of creating instances at module level
+export function getStripeConfigLazy() {
+  return getStripeConfig()
+}
+
+export function getStripeClientLazy() {
+  return getStripeConfig().stripe
+}
+
+export function getStripePublishableKeyLazy() {
+  return getStripeConfig().publishableKey
+}
+
+export function getStripeWebhookSecretLazy() {
+  return getStripeConfig().webhookSecret
+}

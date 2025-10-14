@@ -97,7 +97,7 @@ export const POST = withRateLimit(
       }
 
       // Create MLM subscription
-      const subscription = await mlmStripeService.createMLMSubscription({
+      const subscription = await mlmStripeService.instance.createMLMSubscription({
         userId: user.id,
         email: user.email,
         name: user.name,

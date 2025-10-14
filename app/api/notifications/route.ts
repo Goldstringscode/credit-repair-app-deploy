@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { isSupabaseAvailable, createSupabaseClient } from "@/lib/supabase"
 
+export const dynamic = 'force-dynamic'
+
 // Mock user ID - in real app, get from auth context
 const MOCK_USER_ID = "550e8400-e29b-41d4-a716-446655440000"
 
@@ -67,7 +69,12 @@ export async function GET(request: NextRequest) {
         hasMore: notifications.length === limit
       })
     } catch (dbError) {
-      console.error('Database connection error:', dbError)
+      console.error('Database connection error:', {
+        message: dbError.message,
+        details: dbError.toString(),
+        hint: '',
+        code: ''
+      })
       // Fall back to mock data if database connection fails
       return NextResponse.json({
         notifications: getMockNotifications(),

@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create the mail request
-    const mailResponse = await certifiedMailService.createMailRequest(mailRequest)
+    const mailResponse = await certifiedMailService.instance.createMailRequest(mailRequest)
 
     // Create payment intent
     const paymentRequest: MailPaymentRequest = {
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const paymentResponse = await stripeMailPayments.createPaymentIntent(paymentRequest)
+    const paymentResponse = await stripeMailPayments.instance.createPaymentIntent(paymentRequest)
 
     return NextResponse.json({
       success: true,

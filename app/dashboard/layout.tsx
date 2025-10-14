@@ -38,7 +38,7 @@ const navigation = [
   { name: "Training", href: "/dashboard/training", icon: GraduationCap },
   { name: "Attorneys", href: "/dashboard/attorneys", icon: Scale },
   { name: "MLM System", href: "/mlm/dashboard", icon: TrendingUp },
-  { name: "Compliance", href: "/compliance", icon: FileCheck },
+  { name: "Compliance", href: "/admin/compliance", icon: FileCheck },
   { name: "Notifications", href: "/dashboard/notifications", icon: Bell },
   { name: "Admin", href: "/admin", icon: UserCog },
 ]

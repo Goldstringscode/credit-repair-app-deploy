@@ -140,7 +140,7 @@ export default function TestBillingSummaryPage() {
         lastRun: '6 minutes ago',
         issues: [],
         icon: Shield,
-        href: '/test-compliance'
+        href: '/admin/compliance'
       }
     ]
     
@@ -401,7 +401,7 @@ export default function TestBillingSummaryPage() {
                 Test Dunning System
               </Button>
             </Link>
-            <Link href="/test-compliance">
+            <Link href="/admin/compliance">
               <Button className="w-full justify-start" variant="outline">
                 <Shield className="h-4 w-4 mr-2" />
                 Test Compliance

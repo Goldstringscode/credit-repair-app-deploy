@@ -3,7 +3,12 @@ import { createClient } from "@supabase/supabase-js"
 import { emailService } from "@/lib/email-service-server"
 import crypto from "crypto"
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+function getSupabaseClient() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Missing Supabase environment variables')
+  }
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,6 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find user by email
+    const supabase = getSupabaseClient()
     const { data: user, error: findError } = await supabase
       .from("users")
       .select("*")

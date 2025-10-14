@@ -3,7 +3,12 @@ import { createClient } from "@supabase/supabase-js"
 import jwt from "jsonwebtoken"
 import { notificationService } from "@/lib/notification-service"
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+function getSupabaseClient() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Missing Supabase environment variables')
+  }
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+}
 
 function verifyToken(request: NextRequest) {
   const token = request.cookies.get("auth-token")?.value
@@ -29,6 +34,7 @@ export async function POST(request: NextRequest) {
     const { stepId } = await request.json()
 
     // Get current action plan
+    const supabase = getSupabaseClient()
     const { data: actionPlan, error: fetchError } = await supabase
       .from("action_plans")
       .select("*")

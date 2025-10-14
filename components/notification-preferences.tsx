@@ -265,7 +265,7 @@ export function NotificationPreferencesComponent() {
                     </div>
                     <Switch
                       id={`sound-${category}`}
-                      checked={enabled}
+                      checked={Boolean(enabled)}
                       onCheckedChange={(checked) => handleSoundCategoryChange(category, checked)}
                     />
                   </div>

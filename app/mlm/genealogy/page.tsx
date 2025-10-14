@@ -301,7 +301,7 @@ export default function GenealogyPage() {
       return result
     }
 
-    const allMembers = flattenTeam(filteredTeamData)
+    const allMembers = flattenTeam(teamData)
 
     return (
       <div className="space-y-4">

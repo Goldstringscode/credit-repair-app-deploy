@@ -157,7 +157,8 @@ export default function NotificationPriorityPage() {
           message: `Calculated priority: ${result.priority.priority} (${result.priority.score}/100)`,
           type: "success",
           priority: "medium",
-          category: "system"
+          category: "system",
+          read: false
         })
       } else {
         addNotification({
@@ -165,7 +166,8 @@ export default function NotificationPriorityPage() {
           message: result.error || "Failed to calculate priority",
           type: "error",
           priority: "high",
-          category: "system"
+          category: "system",
+          read: false
         })
       }
     } catch (error) {
@@ -352,7 +354,7 @@ export default function NotificationPriorityPage() {
                                 <span className="font-medium capitalize">{priority} Priority</span>
                               </div>
                               <Badge className={getPriorityColor(priority)}>
-                                {count} rules
+                                {String(count)} rules
                               </Badge>
                             </div>
                             <Progress 

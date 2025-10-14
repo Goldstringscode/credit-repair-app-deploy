@@ -17,7 +17,7 @@ interface SubscriptionGateProps {
 }
 
 export function SubscriptionGate({ requiredTier, currentSubscription, feature, children }: SubscriptionGateProps) {
-  const tierHierarchy = { basic: 1, professional: 2, premium: 3 }
+  const tierHierarchy: Record<string, number> = { basic: 1, professional: 2, premium: 3 }
   const currentTierLevel = tierHierarchy[currentSubscription.tier]
   const requiredTierLevel = tierHierarchy[requiredTier]
 

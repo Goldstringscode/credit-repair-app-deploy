@@ -333,7 +333,7 @@ export default function ReportsPage() {
                       <p className="text-sm text-gray-500 mb-3">Updated {bureau.lastUpdated}</p>
                       <div className="space-y-1">
                         <p className="text-xs font-medium text-gray-600 mb-2">Score Factors:</p>
-                        {bureau.factors.map((factor, factorIndex) => (
+                        {bureau.factors.map((factor: any, factorIndex: number) => (
                           <div key={factorIndex} className="text-xs text-gray-500">
                             <span
                               className={`inline-block w-2 h-2 rounded-full mr-2 ${

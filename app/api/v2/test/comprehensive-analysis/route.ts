@@ -74,19 +74,19 @@ function comprehensiveAnalysis(text: string): any {
       date_of_birth: null,
     },
     credit_scores: {
-      experian: null,
-      equifax: null,
-      transunion: null,
-      primary_score: null,
-      score_date: null,
-      vantage_score: null,
-      fico_score: null,
-      generic_risk_score: null,
-      insight_score: null,
+      experian: null as number | null,
+      equifax: null as number | null,
+      transunion: null as number | null,
+      primary_score: null as number | null,
+      score_date: null as string | null,
+      vantage_score: null as number | null,
+      fico_score: null as number | null,
+      generic_risk_score: null as number | null,
+      insight_score: null as number | null,
       score_model: null,
     },
     bureau_info: {
-      primary_bureau: "unknown" as const,
+      primary_bureau: "unknown" as "unknown" | "experian" | "equifax" | "transunion",
       report_date: new Date().toISOString().split("T")[0],
       report_number: null,
     },
@@ -251,7 +251,7 @@ function comprehensiveAnalysis(text: string): any {
           if (validation.valid) {
             // Only set if not already set for this type
             if (!analysis.credit_scores[type as keyof typeof analysis.credit_scores]) {
-              analysis.credit_scores[type as keyof typeof analysis.credit_scores] = score
+              (analysis.credit_scores as any)[type] = score
             }
 
             debugInfo.processing_notes.push(

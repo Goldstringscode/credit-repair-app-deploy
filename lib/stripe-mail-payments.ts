@@ -472,8 +472,17 @@ class StripeMailPayments {
   }
 }
 
-// Export singleton instance
-export const stripeMailPayments = new StripeMailPayments()
+// Export singleton instance with lazy initialization
+let _stripeMailPayments: StripeMailPayments | null = null
+
+export const stripeMailPayments = {
+  get instance() {
+    if (!_stripeMailPayments) {
+      _stripeMailPayments = new StripeMailPayments()
+    }
+    return _stripeMailPayments
+  }
+}
 
 // Export types
 export type {

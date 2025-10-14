@@ -1,11 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import Stripe from "stripe"
-import { createClient } from "@supabase/supabase-js"
+import { getStripeClient } from "@/lib/stripe-client"
+import { getSupabaseClient } from "@/lib/supabase-client"
 import jwt from "jsonwebtoken"
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 // GET - Fetch user's payment methods
 export async function GET(request: NextRequest) {
@@ -26,6 +22,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user's Stripe customer ID
+    const supabase = getSupabaseClient()
     const { data: user, error: userError } = await supabase
       .from("users")
       .select("stripe_customer_id")
@@ -41,6 +38,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch payment methods from Stripe
+    const stripe = getStripeClient()
     const paymentMethods = await stripe.paymentMethods.list({
       customer: user.stripe_customer_id,
       type: 'card',
@@ -124,6 +122,7 @@ export async function POST(request: NextRequest) {
     const { type, card, bank, paypal, isDefault } = await request.json()
 
     // Get user's Stripe customer ID
+    const supabase = getSupabaseClient()
     const { data: user, error: userError } = await supabase
       .from("users")
       .select("stripe_customer_id, email")
@@ -138,6 +137,7 @@ export async function POST(request: NextRequest) {
 
     // Create customer if doesn't exist
     if (!customerId) {
+      const stripe = getStripeClient()
       const customer = await stripe.customers.create({
         email: user.email,
         metadata: {
@@ -264,6 +264,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update payment method in database
+    const supabase = getSupabaseClient()
     const { error: updateError } = await supabase
       .from("mlm_payment_methods")
       .update({ 
@@ -323,6 +324,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete payment method from database
+    const supabase = getSupabaseClient()
     const { error: deleteError } = await supabase
       .from("mlm_payment_methods")
       .delete()

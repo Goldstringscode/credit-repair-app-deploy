@@ -185,7 +185,8 @@ export default function DashboardPage() {
       message: `Great job completing "Understanding Your Credit Report" in Credit Basics & Fundamentals! You earned 50 points.`,
       type: "success",
       priority: "medium",
-      category: "training"
+      category: "training",
+      read: false
     })
   }
 
@@ -195,7 +196,8 @@ export default function DashboardPage() {
       message: `You scored 85% on "Credit Knowledge Quiz" - Excellent work!`,
       type: "success",
       priority: "medium",
-      category: "training"
+      category: "training",
+      read: false
     })
   }
 
@@ -205,7 +207,8 @@ export default function DashboardPage() {
       message: "First Steps Complete - You've completed your first 2 lessons in Credit Basics!",
       type: "success",
       priority: "high",
-      category: "milestone"
+      category: "milestone",
+      read: false
     })
   }
 
@@ -215,7 +218,8 @@ export default function DashboardPage() {
       message: "Congratulations! You've successfully completed Credit Basics & Fundamentals.",
       type: "success",
       priority: "high",
-      category: "training"
+      category: "training",
+      read: false
     })
   }
 
@@ -225,7 +229,8 @@ export default function DashboardPage() {
       message: "Review Credit Report completed in Credit Repair Action Plan",
       type: "success",
       priority: "medium",
-      category: "training"
+      category: "training",
+      read: false
     })
   }
 
@@ -433,11 +438,11 @@ export default function DashboardPage() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-bold ${getScoreColor(stats?.current_credit_score)}`}>
+              <div className={`text-2xl font-bold ${getScoreColor(stats?.current_credit_score || null)}`}>
                 {stats?.current_credit_score || "N/A"}
               </div>
-              <p className={`text-xs ${getChangeIndicator(stats?.score_change).color}`}>
-                {getChangeIndicator(stats?.score_change).text} from last report
+              <p className={`text-xs ${getChangeIndicator(stats?.score_change || null).color}`}>
+                {getChangeIndicator(stats?.score_change || null).text} from last report
               </p>
               {stats && (
                 <p className="text-xs text-muted-foreground mt-1">

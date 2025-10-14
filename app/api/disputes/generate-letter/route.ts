@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     const letter = await aiDisputeLetterGenerator.generateDisputeLetter(
       personalInfo,
       disputeItems,
-      letterType,
+      letterTier, // Use the tier (standard/enhanced/premium) for the generation method
       creditBureau,
       additionalContext
     )

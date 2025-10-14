@@ -1,14 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
-import Stripe from "stripe"
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-08-27.basil",
-})
+import { getStripeClient } from "@/lib/stripe-client"
 
 export async function POST(request: NextRequest) {
   try {
     const { action, subscriptionId, customerId, newPriceId } = await request.json()
 
+    const stripe = getStripeClient()
     switch (action) {
       case "cancel":
         const cancelledSubscription = await stripe.subscriptions.cancel(subscriptionId)

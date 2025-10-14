@@ -3,18 +3,19 @@ import { envValidator } from '@/lib/env-validation'
 
 export const GET = async (request: NextRequest) => {
   try {
-    const isValid = envValidator.isValid()
-    const errors = envValidator.getErrors()
+    const validator = envValidator.instance
+    const isValid = validator.isValid()
+    const errors = validator.getErrors()
     
     return NextResponse.json({ 
       valid: isValid,
       errors: errors,
       environment: process.env.NODE_ENV,
       features: {
-        aiAnalysis: envValidator.isFeatureEnabled('ai_analysis'),
-        superiorParser: envValidator.isFeatureEnabled('superior_parser'),
-        notifications: envValidator.isFeatureEnabled('notifications'),
-        auditLogging: envValidator.isFeatureEnabled('audit_logging')
+        aiAnalysis: validator.isFeatureEnabled('ai_analysis'),
+        superiorParser: validator.isFeatureEnabled('superior_parser'),
+        notifications: validator.isFeatureEnabled('notifications'),
+        auditLogging: validator.isFeatureEnabled('audit_logging')
       }
     })
   } catch (error) {

@@ -437,7 +437,6 @@ export default function TaxRemindersPage() {
                             <Switch
                               checked={reminder.isEnabled}
                               onCheckedChange={() => toggleReminderEnabled(reminder.id)}
-                              size="sm"
                             />
                           </div>
                         </div>

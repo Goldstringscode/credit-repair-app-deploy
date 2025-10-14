@@ -246,7 +246,7 @@ export default function AnalyticsPage() {
                     {analyticsData.data_quality.total_reports} Reports
                   </Badge>
                   <Badge variant="outline" className="text-xs">
-                    {analyticsData.data_quality.bureaus_covered.length}/3 Bureaus
+                    {analyticsData.data_quality.bureaus_covered?.length || 0}/3 Bureaus
                   </Badge>
                   {analyticsData.data_quality.average_confidence && (
                     <Badge

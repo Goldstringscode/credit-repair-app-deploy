@@ -81,7 +81,7 @@ export default function ComposeMailPage() {
       body: "",
       template: "",
     },
-    services: [],
+    services: [] as string[],
     attachments: [],
     priority: "standard",
     deliveryInstructions: "",

@@ -162,13 +162,11 @@ export default function PremiumDisputePage() {
 
     // Add notification
     addNotification({
-      id: `dispute-${Date.now()}`,
       title: "Premium Dispute Package Ready",
-      description: `Your attorney-reviewed dispute for ${disputeData.creditBureau} has been generated.`,
       type: "success",
-      icon: <Shield className="h-4 w-4" />,
-      date: new Date(),
       read: false,
+      priority: "medium",
+      message: `Your attorney-reviewed dispute for ${disputeData.creditBureau} has been generated.`,
     })
 
     toast({

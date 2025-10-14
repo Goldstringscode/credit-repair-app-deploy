@@ -117,7 +117,8 @@ export default function NotificationTemplatesPage() {
           message: `Successfully tested template: ${template.name}`,
           type: "success",
           priority: "medium",
-          category: "system"
+          category: "system",
+          read: false
         })
       } else {
         addNotification({
@@ -125,7 +126,8 @@ export default function NotificationTemplatesPage() {
           message: `Failed to test template: ${result.error}`,
           type: "error",
           priority: "high",
-          category: "system"
+          category: "system",
+          read: false
         })
       }
     } catch (error) {
@@ -135,7 +137,8 @@ export default function NotificationTemplatesPage() {
         message: "An error occurred while testing the template",
         type: "error",
         priority: "high",
-        category: "system"
+        category: "system",
+        read: false
       })
     }
   }

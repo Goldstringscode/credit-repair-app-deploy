@@ -1,11 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import Stripe from "stripe"
-import { createClient } from "@supabase/supabase-js"
+import { getStripeClient } from "@/lib/stripe-client"
+import { getSupabaseClient } from "@/lib/supabase-client"
 import jwt from "jsonwebtoken"
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 // MLM Plan pricing in cents
 const MLM_PLAN_PRICES = {
@@ -42,6 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user details
+    const supabase = getSupabaseClient()
     const { data: user, error: userError } = await supabase.from("users").select("*").eq("id", userId).single()
 
     if (userError || !user) {
@@ -65,6 +62,7 @@ export async function POST(request: NextRequest) {
     let customerId = user.stripe_customer_id
 
     if (!customerId) {
+      const stripe = getStripeClient()
       const customer = await stripe.customers.create({
         email: user.email,
         name: `${user.first_name} ${user.last_name}`,
@@ -81,6 +79,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create Stripe product and price for MLM plan
+    const stripe = getStripeClient()
     const product = await stripe.products.create({
       name: `MLM ${planType.replace('mlm_', '').charAt(0).toUpperCase() + planType.replace('mlm_', '').slice(1)} Plan`,
       description: `MLM ${planType.replace('mlm_', '')} subscription plan`,

@@ -132,8 +132,7 @@ export default function ImprovedEmailTestPage() {
         const newTemplate = await createTemplate({
           name: "Test Template",
           subject: "Test Email Subject",
-          category: "test",
-          content: "<h1>Test Email</h1><p>This is a test email template.</p>",
+          category: "transactional",
           tags: ["test", "automated"]
         })
         addTestResult("Template Creation", "success", `Template created: ${newTemplate.name}`, 800, "template")
@@ -192,7 +191,7 @@ export default function ImprovedEmailTestPage() {
           conversionRate: 0,
           createdAt: new Date().toISOString().split('T')[0],
           template: "test-template",
-          category: "test"
+          category: "transactional"
         })
         addTestResult("Campaign Creation", "success", `Campaign created: ${newCampaign.name}`, 700, "campaign")
       } catch (err) {
@@ -632,13 +631,14 @@ export default function ImprovedEmailTestPage() {
                   <Button
                     className="w-full justify-start"
                     variant="outline"
-                    onClick={() => runSingleTest("Template Creation", () => createTemplate({
-                      name: "Quick Test Template",
-                      subject: "Quick Test",
-                      category: "test",
-                      content: "<p>Quick test template</p>",
-                      tags: ["quick", "test"]
-                    }), "template")}
+                    onClick={() => runSingleTest("Template Creation", async () => {
+                      await createTemplate({
+                        name: "Quick Test Template",
+                        subject: "Quick Test",
+                        category: "transactional",
+                        tags: ["quick", "test"]
+                      })
+                    }, "template")}
                     disabled={isCreating}
                   >
                     <FileText className="h-4 w-4 mr-2" />

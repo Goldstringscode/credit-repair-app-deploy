@@ -2,7 +2,14 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import jwt from "jsonwebtoken"
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+export const dynamic = 'force-dynamic'
+
+function getSupabaseClient() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Missing Supabase environment variables')
+  }
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+}
 
 function verifyToken(request: NextRequest) {
   const token = request.cookies.get("auth-token")?.value
@@ -26,6 +33,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user's action plan
+    const supabase = getSupabaseClient()
     const { data: actionPlan, error } = await supabase
       .from("action_plans")
       .select("*")

@@ -743,36 +743,43 @@ _________________________________________
   async generateDisputeLetter(
     personalInfo: PersonalInfo,
     disputeItems: DisputeItem[],
-    letterType: "standard" | "enhanced" | "premium" | "attorney",
+    letterTier: "standard" | "enhanced" | "premium" | "attorney",
     creditBureau: string,
     additionalContext?: any
   ): Promise<GeneratedLetter> {
     try {
+      // Get the actual dispute type from additionalContext
+      const actualDisputeType = additionalContext?.letterPurpose || "dispute"
+      
       // Step 1: Generate unique dispute strategy with advanced analysis
-      const disputeStrategy = await this.generateAdvancedDisputeStrategy(disputeItems, letterType, personalInfo, additionalContext)
+      const disputeStrategy = await this.generateAdvancedDisputeStrategy(disputeItems, letterTier, personalInfo, additionalContext)
       
       // Step 2: Select unique writing style and personalization approach
-      const writingStyle = this.selectUniqueWritingStyle(personalInfo, disputeItems, letterType)
+      const writingStyle = this.selectUniqueWritingStyle(personalInfo, disputeItems, letterTier)
       const personalizationLevel = this.calculatePersonalizationLevel(personalInfo, disputeItems, additionalContext)
       
       // Step 3: Generate highly personalized letter content using AI + base template
+      const enhancedContext = {
+        ...additionalContext,
+        letterTier: letterTier // Add the tier to the context
+      }
       const letterContent = await this.generateAdvancedLetterContent(
         personalInfo,
         disputeItems,
         disputeStrategy,
-        letterType,
+        actualDisputeType, // Use the actual dispute type
         creditBureau,
         writingStyle,
         personalizationLevel,
-        additionalContext
+        enhancedContext
       )
       
       // Step 4: Apply advanced optimization and uniqueness
       const optimizedContent = await this.applyAdvancedOptimization(letterContent, disputeStrategy, writingStyle)
       
       // Step 5: Calculate advanced quality metrics
-      const qualityScore = await this.calculateAdvancedQualityScore(optimizedContent, disputeStrategy, personalizationLevel, letterType)
-      const uniquenessScore = await this.calculateUniquenessScore(optimizedContent, personalInfo, disputeItems, letterType)
+      const qualityScore = await this.calculateAdvancedQualityScore(optimizedContent, disputeStrategy, personalizationLevel, letterTier)
+      const uniquenessScore = await this.calculateUniquenessScore(optimizedContent, personalInfo, disputeItems, letterTier)
       
       // Step 6: Save to database (if available)
       const letterId = await this.saveGeneratedLetter(
@@ -780,7 +787,7 @@ _________________________________________
         disputeItems,
         optimizedContent,
         disputeStrategy,
-        letterType,
+        actualDisputeType, // Use the actual dispute type
         creditBureau
       )
       
@@ -788,7 +795,8 @@ _________________________________________
         id: letterId,
         content: optimizedContent,
         metadata: {
-          letterType,
+          letterType: actualDisputeType, // Return the actual dispute type
+          letterTier: letterTier, // Also include the tier
           disputeStrategy,
           qualityScore,
           legalCompliance: this.getAdvancedLegalCompliance(optimizedContent),
@@ -1082,7 +1090,7 @@ _________________________________________
     personalInfo: PersonalInfo,
     disputeItems: DisputeItem[],
     strategy: DisputeStrategy,
-    letterType: string,
+    disputeType: string, // The actual dispute type (dispute, goodwill, etc.)
     creditBureau: string,
     writingStyle: string,
     personalizationLevel: string,
@@ -1107,12 +1115,14 @@ _________________________________________
     }
     
     // Fallback to template-based generation with tier-specific enhancements
-         let content = this.letterTemplates.get("dispute") || ""
+    // Get the correct template based on the dispute type and fill it with data
+    let content = this.fillBaseTemplate(personalInfo, disputeItems, strategy, creditBureau, additionalContext)
     
-    // Apply tier-specific enhancements
-    if (letterType.toLowerCase() === "enhanced") {
+    // Apply tier-specific enhancements (get tier from additionalContext)
+    const letterTier = additionalContext?.letterTier || "standard"
+    if (letterTier.toLowerCase() === "enhanced") {
       content = this.applyEnhancedFeatures(content, disputeItems, strategy)
-    } else if (letterType.toLowerCase() === "premium") {
+    } else if (letterTier.toLowerCase() === "premium") {
       content = this.applyPremiumFeatures(content, disputeItems, strategy, personalInfo)
     }
     
@@ -1403,6 +1413,8 @@ Generate the complete letter with all the same sections but completely rewritten
     creditBureau: string,
     additionalContext?: any
   ): string {
+    // Get the dispute type from additionalContext
+    const disputeType = additionalContext?.letterPurpose || "dispute"
     const currentDate = new Date().toLocaleDateString('en-US', { 
       year: 'numeric', 
       month: 'long', 
@@ -1427,7 +1439,7 @@ Generate the complete letter with all the same sections but completely rewritten
     const contactIndex = (personalInfo.phone.length + disputeItems.length) % uniqueContactVariations.length
     const closingIndex = (personalInfo.state.length + disputeItems.length) % uniqueClosingVariations.length
     
-         let letter = this.letterTemplates.get("dispute") || ""
+    let letter = this.letterTemplates.get(disputeType) || this.letterTemplates.get("dispute") || ""
     
     // Replace template variables with actual data
     letter = letter.replace(/{client_first_name}/g, personalInfo.firstName)
@@ -1469,6 +1481,12 @@ Generate the complete letter with all the same sections but completely rewritten
     ]
     const signatureIndex = (personalInfo.firstName.length + personalInfo.lastName.length) % signatureVariations.length
     letter = letter.replace("Sincerely yours,", signatureVariations[signatureIndex])
+    
+    // Clean up any remaining placeholders
+    letter = letter.replace(/{client_signature}/g, "")
+    letter = letter.replace(/{CONTACT PERSON}/g, "a customer service representative")
+    letter = letter.replace(/{CONTACT NUMBER}/g, personalInfo.phone)
+    letter = letter.replace(/{DATE}/g, currentDate)
     
     return letter
   }
@@ -1959,6 +1977,7 @@ Generate the complete letter with all the same sections but completely rewritten
     creditBureau: string
   ): Promise<string> {
     if (!this.sql) {
+      console.log("📝 Database not available, using generated ID")
       return `letter_${Date.now()}`
     }
 
@@ -1978,9 +1997,11 @@ Generate the complete letter with all the same sections but completely rewritten
         ) RETURNING id
       `
       
+      console.log("✅ Letter saved to database with ID:", result[0]?.id)
       return result[0]?.id || `letter_${Date.now()}`
     } catch (error) {
-      console.error("Failed to save letter to database:", error)
+      console.warn("⚠️ Failed to save letter to database (continuing without database save):", error.message)
+      // Don't throw error, just return a generated ID
       return `letter_${Date.now()}`
     }
   }

@@ -1,11 +1,9 @@
 import Stripe from 'stripe'
-import { stripe } from '@/lib/stripe-config'
+import { getStripeClientLazy } from '@/lib/stripe-config'
 
 export class MLMStripeService {
-  private stripe: Stripe
-
-  constructor() {
-    this.stripe = stripe
+  private get stripe(): Stripe {
+    return getStripeClientLazy()
   }
 
   async createMLMSubscription(data: any): Promise<any> {
@@ -70,4 +68,14 @@ export class MLMStripeService {
   }
 }
 
-export const mlmStripeService = new MLMStripeService()
+// Export singleton instance with lazy initialization
+let _mlmStripeService: MLMStripeService | null = null
+
+export const mlmStripeService = {
+  get instance() {
+    if (!_mlmStripeService) {
+      _mlmStripeService = new MLMStripeService()
+    }
+    return _mlmStripeService
+  }
+}

@@ -1,13 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
-import Stripe from "stripe"
+import { getStripeClient } from "@/lib/stripe-client"
 import { createClient } from "@supabase/supabase-js"
 import jwt from "jsonwebtoken"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-08-27.basil",
-})
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+function getSupabaseClient() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Missing Supabase environment variables')
+  }
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+}
 
 // Plan pricing in cents
 const PLAN_PRICES = {
@@ -40,6 +41,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user details
+    const supabase = getSupabaseClient()
     const { data: user, error: userError } = await supabase.from("users").select("*").eq("id", userId).single()
 
     if (userError || !user) {
@@ -52,6 +54,7 @@ export async function POST(request: NextRequest) {
     let customerId = user.stripe_customer_id
 
     if (!customerId) {
+      const stripe = getStripeClient()
       const customer = await stripe.customers.create({
         email: user.email,
         name: `${user.first_name} ${user.last_name}`,
@@ -67,6 +70,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create payment intent
+    const stripe = getStripeClient()
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency: "usd",

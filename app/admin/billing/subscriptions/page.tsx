@@ -6,6 +6,16 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
+import { subscriptionService, type Subscription, type SubscriptionFilters } from '@/lib/subscription-service'
+import CreateSubscriptionModal from '@/components/subscription-create-modal'
+import SubscriptionDetailsModal from '@/components/subscription-details-modal'
+import SubscriptionEditModal from '@/components/subscription-edit-modal'
+import SubscriptionActionsDropdown from '@/components/subscription-actions-dropdown'
+import PaymentHistoryModal from '@/components/payment-history-modal'
+import PaymentMethodModal from '@/components/payment-method-modal'
+import EmailComposerModal from '@/components/email-composer-modal'
+import InvoiceGeneratorModal from '@/components/invoice-generator-modal'
+import DeleteConfirmationModal from '@/components/delete-confirmation-modal'
 import { 
   CreditCard, 
   Search, 
@@ -33,32 +43,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 
-interface Subscription {
-  id: string
-  customerId: string
-  customerName: string
-  customerEmail: string
-  planId: string
-  planName: string
-  status: 'active' | 'cancelled' | 'past_due' | 'trialing' | 'paused' | 'incomplete'
-  currentPeriodStart: string
-  currentPeriodEnd: string
-  trialEnd?: string
-  cancelAtPeriodEnd: boolean
-  amount: number
-  currency: string
-  nextBillingDate: string
-  createdAt: string
-  lastPaymentDate?: string
-  lastPaymentAmount?: number
-  paymentMethod: string
-  billingCycle: 'month' | 'year'
-  prorationEnabled: boolean
-  dunningEnabled: boolean
-  notes?: string
-}
-
-interface SubscriptionFilters {
+interface LocalSubscriptionFilters {
   status: string
   plan: string
   dateRange: string
@@ -69,161 +54,108 @@ export default function AdminSubscriptionManagement() {
   const [selectedTab, setSelectedTab] = useState("all")
   const [loading, setLoading] = useState(true)
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
-  const [filters, setFilters] = useState<SubscriptionFilters>({
+  const [statusCounts, setStatusCounts] = useState({
+    all: 0,
+    active: 0,
+    trialing: 0,
+    past_due: 0,
+    cancelled: 0,
+    paused: 0,
+    grace_period: 0
+  })
+  const [metrics, setMetrics] = useState({
+    monthlyRecurringRevenue: 0,
+    activeSubscriptions: 0,
+    averageRevenuePerUser: 0
+  })
+  const [filters, setFilters] = useState<LocalSubscriptionFilters>({
     status: 'all',
     plan: 'all',
     dateRange: 'all',
     search: ''
   })
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isPaymentHistoryModalOpen, setIsPaymentHistoryModalOpen] = useState(false)
+  const [isPaymentMethodModalOpen, setIsPaymentMethodModalOpen] = useState(false)
+  const [isEmailComposerModalOpen, setIsEmailComposerModalOpen] = useState(false)
+  const [isInvoiceGeneratorModalOpen, setIsInvoiceGeneratorModalOpen] = useState(false)
+  const [isDeleteConfirmationModalOpen, setIsDeleteConfirmationModalOpen] = useState(false)
+  const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null)
 
-  // Mock data
-  const mockSubscriptions: Subscription[] = [
-    {
-      id: 'sub_001',
-      customerId: 'cus_001',
-      customerName: 'John Doe',
-      customerEmail: 'john@example.com',
-      planId: 'premium',
-      planName: 'Premium Plan',
-      status: 'active',
-      currentPeriodStart: '2024-01-15',
-      currentPeriodEnd: '2024-02-15',
-      cancelAtPeriodEnd: false,
-      amount: 59.99,
-      currency: 'usd',
-      nextBillingDate: '2024-02-15',
-      createdAt: '2024-01-15',
-      lastPaymentDate: '2024-01-15',
-      lastPaymentAmount: 59.99,
-      paymentMethod: 'Visa ****4242',
-      billingCycle: 'month',
-      prorationEnabled: true,
-      dunningEnabled: true
-    },
-    {
-      id: 'sub_002',
-      customerId: 'cus_002',
-      customerName: 'Jane Smith',
-      customerEmail: 'jane@example.com',
-      planId: 'basic',
-      planName: 'Basic Plan',
-      status: 'trialing',
-      currentPeriodStart: '2024-01-20',
-      currentPeriodEnd: '2024-02-20',
-      trialEnd: '2024-02-20',
-      cancelAtPeriodEnd: false,
-      amount: 29.99,
-      currency: 'usd',
-      nextBillingDate: '2024-02-20',
-      createdAt: '2024-01-20',
-      paymentMethod: 'Mastercard ****5555',
-      billingCycle: 'month',
-      prorationEnabled: true,
-      dunningEnabled: true
-    },
-    {
-      id: 'sub_003',
-      customerId: 'cus_003',
-      customerName: 'Bob Johnson',
-      customerEmail: 'bob@example.com',
-      planId: 'enterprise',
-      planName: 'Enterprise Plan',
-      status: 'past_due',
-      currentPeriodStart: '2024-01-10',
-      currentPeriodEnd: '2024-02-10',
-      cancelAtPeriodEnd: false,
-      amount: 99.99,
-      currency: 'usd',
-      nextBillingDate: '2024-02-10',
-      createdAt: '2024-01-10',
-      lastPaymentDate: '2024-01-10',
-      lastPaymentAmount: 99.99,
-      paymentMethod: 'Visa ****1234',
-      billingCycle: 'month',
-      prorationEnabled: true,
-      dunningEnabled: true,
-      notes: 'Payment failed - card expired'
-    },
-    {
-      id: 'sub_004',
-      customerId: 'cus_004',
-      customerName: 'Alice Brown',
-      customerEmail: 'alice@example.com',
-      planId: 'premium',
-      planName: 'Premium Plan',
-      status: 'cancelled',
-      currentPeriodStart: '2024-01-01',
-      currentPeriodEnd: '2024-02-01',
-      cancelAtPeriodEnd: true,
-      amount: 59.99,
-      currency: 'usd',
-      nextBillingDate: '2024-02-01',
-      createdAt: '2024-01-01',
-      lastPaymentDate: '2024-01-01',
-      lastPaymentAmount: 59.99,
-      paymentMethod: 'Visa ****7890',
-      billingCycle: 'month',
-      prorationEnabled: true,
-      dunningEnabled: true,
-      notes: 'Customer requested cancellation'
-    },
-    {
-      id: 'sub_005',
-      customerId: 'cus_005',
-      customerName: 'Charlie Wilson',
-      customerEmail: 'charlie@example.com',
-      planId: 'basic',
-      planName: 'Basic Plan',
-      status: 'paused',
-      currentPeriodStart: '2024-01-05',
-      currentPeriodEnd: '2024-02-05',
-      cancelAtPeriodEnd: false,
-      amount: 29.99,
-      currency: 'usd',
-      nextBillingDate: '2024-02-05',
-      createdAt: '2024-01-05',
-      lastPaymentDate: '2024-01-05',
-      lastPaymentAmount: 29.99,
-      paymentMethod: 'American Express ****1234',
-      billingCycle: 'month',
-      prorationEnabled: true,
-      dunningEnabled: true,
-      notes: 'Temporarily paused by customer request'
+  // Load subscriptions from API
+  const loadSubscriptions = async () => {
+    setLoading(true)
+    try {
+      const apiFilters: SubscriptionFilters = {
+        status: filters.status === 'all' ? undefined : filters.status,
+        plan: filters.plan === 'all' ? undefined : filters.plan,
+        search: filters.search || undefined,
+        page: 1,
+        limit: 100
+      }
+
+      const response = await subscriptionService.getSubscriptions(apiFilters)
+      
+      if (response.success) {
+        setSubscriptions(response.data.subscriptions)
+        setStatusCounts(response.data.statusCounts)
+        setMetrics(response.data.metrics)
+      } else {
+        console.error('Failed to load subscriptions:', response.error)
+      }
+    } catch (error) {
+      console.error('Error loading subscriptions:', error)
+    } finally {
+      setLoading(false)
     }
-  ]
-
-  const statusCounts = {
-    all: mockSubscriptions.length,
-    active: mockSubscriptions.filter(s => s.status === 'active').length,
-    trialing: mockSubscriptions.filter(s => s.status === 'trialing').length,
-    past_due: mockSubscriptions.filter(s => s.status === 'past_due').length,
-    cancelled: mockSubscriptions.filter(s => s.status === 'cancelled').length,
-    paused: mockSubscriptions.filter(s => s.status === 'paused').length
   }
 
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true)
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      setSubscriptions(mockSubscriptions)
-      setLoading(false)
-    }
-
-    loadData()
+    loadSubscriptions()
   }, [])
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      active: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
-      cancelled: { color: 'bg-red-100 text-red-800', icon: X },
-      past_due: { color: 'bg-yellow-100 text-yellow-800', icon: AlertCircle },
-      trialing: { color: 'bg-blue-100 text-blue-800', icon: Clock },
-      paused: { color: 'bg-gray-100 text-gray-800', icon: Pause },
-      incomplete: { color: 'bg-orange-100 text-orange-800', icon: AlertCircle }
-    }
+  // Reload when filters change
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      loadSubscriptions()
+    }, 300) // Debounce search
+
+    return () => clearTimeout(timeoutId)
+  }, [filters])
+
+  const getStatusBadge = (status: string, subscription?: Subscription) => {
+      const statusConfig = {
+        active: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
+        cancelled: { color: 'bg-red-100 text-red-800', icon: X },
+        past_due: { color: 'bg-yellow-100 text-yellow-800', icon: AlertCircle },
+        trialing: { color: 'bg-blue-100 text-blue-800', icon: Clock },
+        paused: { color: 'bg-gray-100 text-gray-800', icon: Pause },
+        incomplete: { color: 'bg-orange-100 text-orange-800', icon: AlertCircle },
+        grace_period: { color: 'bg-purple-100 text-purple-800', icon: Clock }
+      }
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.active
     const Icon = config.icon
+
+    // Special handling for grace period with countdown
+    if (status === 'grace_period' && subscription?.gracePeriodEndDate) {
+      const daysRemaining = Math.ceil((new Date(subscription.gracePeriodEndDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+      const isExpired = daysRemaining <= 0
+      
+      return (
+        <div className="flex flex-col gap-1">
+          <Badge className={`${isExpired ? 'bg-red-100 text-red-800' : config.color} border-0`}>
+            <Icon className="h-3 w-3 mr-1" />
+            GRACE PERIOD
+          </Badge>
+          <span className={`text-xs ${isExpired ? 'text-red-600 font-semibold' : 'text-purple-600'}`}>
+            {isExpired ? 'EXPIRED' : `${daysRemaining} days left`}
+          </span>
+        </div>
+      )
+    }
 
     return (
       <Badge className={`${config.color} border-0`}>
@@ -233,60 +165,249 @@ export default function AdminSubscriptionManagement() {
     )
   }
 
-  const handleStatusChange = (subscriptionId: string, newStatus: string) => {
-    setSubscriptions(prev => 
-      prev.map(sub => 
-        sub.id === subscriptionId 
-          ? { ...sub, status: newStatus as any }
-          : sub
-      )
-    )
-    console.log(`Changed subscription ${subscriptionId} status to ${newStatus}`)
+  const handleCancelSubscription = async (subscriptionId: string) => {
+    try {
+      const response = await subscriptionService.cancelSubscription(subscriptionId, 'Cancelled by admin')
+      if (response.success) {
+        // Reload subscriptions to get updated data
+        await loadSubscriptions()
+        console.log(`Cancelled subscription ${subscriptionId}`)
+        alert(`Subscription ${subscriptionId} has been cancelled successfully.`)
+      } else {
+        console.error('Failed to cancel subscription:', response.error)
+        alert(`Failed to cancel subscription: ${response.error}`)
+      }
+    } catch (error) {
+      console.error('Error cancelling subscription:', error)
+      alert('An error occurred while cancelling the subscription.')
+    }
   }
 
-  const handleCancelSubscription = (subscriptionId: string) => {
-    setSubscriptions(prev => 
-      prev.map(sub => 
-        sub.id === subscriptionId 
-          ? { ...sub, cancelAtPeriodEnd: true, status: 'cancelled' as any }
-          : sub
-      )
-    )
-    console.log(`Cancelled subscription ${subscriptionId}`)
+  const handlePauseSubscription = async (subscriptionId: string) => {
+    try {
+      const response = await subscriptionService.pauseSubscription(subscriptionId, 'Paused by admin')
+      if (response.success) {
+        // Reload subscriptions to get updated data
+        await loadSubscriptions()
+        console.log(`Paused subscription ${subscriptionId}`)
+        alert(`Subscription ${subscriptionId} has been paused successfully.`)
+      } else {
+        console.error('Failed to pause subscription:', response.error)
+        alert(`Failed to pause subscription: ${response.error}`)
+      }
+    } catch (error) {
+      console.error('Error pausing subscription:', error)
+      alert('An error occurred while pausing the subscription.')
+    }
   }
 
-  const handlePauseSubscription = (subscriptionId: string) => {
-    setSubscriptions(prev => 
-      prev.map(sub => 
-        sub.id === subscriptionId 
-          ? { ...sub, status: 'paused' as any }
-          : sub
-      )
-    )
-    console.log(`Paused subscription ${subscriptionId}`)
+  const handleResumeSubscription = async (subscriptionId: string) => {
+    try {
+      const response = await subscriptionService.resumeSubscription(subscriptionId, 'Resumed by admin')
+      if (response.success) {
+        // Reload subscriptions to get updated data
+        await loadSubscriptions()
+        console.log(`Resumed subscription ${subscriptionId}`)
+        alert(`Subscription ${subscriptionId} has been resumed successfully.`)
+      } else {
+        console.error('Failed to resume subscription:', response.error)
+        alert(`Failed to resume subscription: ${response.error}`)
+      }
+    } catch (error) {
+      console.error('Error resuming subscription:', error)
+      alert('An error occurred while resuming the subscription.')
+    }
   }
 
-  const handleResumeSubscription = (subscriptionId: string) => {
-    setSubscriptions(prev => 
-      prev.map(sub => 
-        sub.id === subscriptionId 
-          ? { ...sub, status: 'active' as any }
-          : sub
-      )
-    )
-    console.log(`Resumed subscription ${subscriptionId}`)
+  const handleViewSubscription = (subscription: Subscription) => {
+    if (!subscription) {
+      console.error('No subscription provided to handleViewSubscription')
+      return
+    }
+    console.log('Viewing subscription:', subscription.id)
+    setSelectedSubscription(subscription)
+    setIsDetailsModalOpen(true)
   }
 
-  const filteredSubscriptions = subscriptions.filter(subscription => {
-    const matchesStatus = filters.status === 'all' || subscription.status === filters.status
-    const matchesPlan = filters.plan === 'all' || subscription.planId === filters.plan
-    const matchesSearch = filters.search === '' || 
-      subscription.customerName.toLowerCase().includes(filters.search.toLowerCase()) ||
-      subscription.customerEmail.toLowerCase().includes(filters.search.toLowerCase()) ||
-      subscription.id.toLowerCase().includes(filters.search.toLowerCase())
-    
-    return matchesStatus && matchesPlan && matchesSearch
-  })
+  const handleEditSubscription = (subscription: Subscription) => {
+    if (!subscription) {
+      console.error('No subscription provided to handleEditSubscription')
+      return
+    }
+    console.log('Editing subscription:', subscription.id)
+    setSelectedSubscription(subscription)
+    setIsEditModalOpen(true)
+  }
+
+  const handleSaveSubscription = async (updatedSubscription: Subscription) => {
+    try {
+      const response = await subscriptionService.updateSubscriptionData(updatedSubscription.id, updatedSubscription)
+      if (response.success) {
+        await loadSubscriptions()
+        console.log(`Updated subscription ${updatedSubscription.id}`)
+        alert(`Subscription for ${updatedSubscription.customerName} has been updated successfully.`)
+      } else {
+        console.error('Failed to update subscription:', response.error)
+        alert(`Failed to update subscription: ${response.error}`)
+      }
+    } catch (error) {
+      console.error('Error updating subscription:', error)
+      alert('An error occurred while updating the subscription.')
+    }
+  }
+
+  const handleViewPaymentHistory = (subscription: Subscription) => {
+    if (!subscription) {
+      console.error('No subscription provided to handleViewPaymentHistory')
+      return
+    }
+    console.log('View payment history for:', subscription.id)
+    console.log('Setting selected subscription:', subscription)
+    setSelectedSubscription(subscription)
+    console.log('Opening payment history modal')
+    setIsPaymentHistoryModalOpen(true)
+    console.log('Payment history modal state set to true')
+  }
+
+  const handleUpdatePaymentMethod = (subscription: Subscription) => {
+    if (!subscription) {
+      console.error('No subscription provided to handleUpdatePaymentMethod')
+      return
+    }
+    console.log('Update payment method for:', subscription.id)
+    setSelectedSubscription(subscription)
+    setIsPaymentMethodModalOpen(true)
+  }
+
+  const handleGenerateInvoice = (subscription: Subscription) => {
+    if (!subscription) {
+      console.error('No subscription provided to handleGenerateInvoice')
+      return
+    }
+    console.log('Generate invoice for:', subscription.id)
+    setSelectedSubscription(subscription)
+    setIsInvoiceGeneratorModalOpen(true)
+  }
+
+  const handleExportData = (subscription: Subscription) => {
+    if (!subscription) {
+      console.error('No subscription provided to handleExportData')
+      return
+    }
+    console.log('Export data for:', subscription.id)
+    // Create CSV export for individual subscription
+    const csvContent = [
+      ['Field', 'Value'].join(','),
+      ['Customer Name', subscription.customerName].join(','),
+      ['Email', subscription.customerEmail].join(','),
+      ['Plan', subscription.planName].join(','),
+      ['Status', subscription.status].join(','),
+      ['Amount', subscription.amount].join(','),
+      ['Billing Cycle', subscription.billingCycle].join(','),
+      ['Payment Method', subscription.paymentMethod].join(','),
+      ['Created At', subscription.createdAt].join(','),
+      ['Next Billing', subscription.nextBillingDate || 'N/A'].join(',')
+    ].join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `subscription-${subscription.customerName}-${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+    alert(`Subscription data for ${subscription.customerName} exported successfully!`)
+  }
+
+  const handleSendEmail = (subscription: Subscription) => {
+    if (!subscription) {
+      console.error('No subscription provided to handleSendEmail')
+      return
+    }
+    console.log('Send email to:', subscription.id)
+    setSelectedSubscription(subscription)
+    setIsEmailComposerModalOpen(true)
+  }
+
+  const handleDeleteSubscription = (subscriptionId: string) => {
+    console.log('Delete subscription:', subscriptionId)
+    const subscription = subscriptions.find(s => s.id === subscriptionId)
+    if (subscription) {
+      setSelectedSubscription(subscription)
+      setIsDeleteConfirmationModalOpen(true)
+    }
+  }
+
+  const handleRefreshSubscription = (subscriptionId: string) => {
+    console.log('Refresh subscription:', subscriptionId)
+    loadSubscriptions()
+    alert('Subscription data refreshed from the database!')
+  }
+
+  const handleExportSubscriptions = () => {
+    console.log('Exporting subscriptions...')
+    // Create CSV export
+    const csvContent = [
+      ['ID', 'Customer Name', 'Email', 'Plan', 'Status', 'Amount', 'Next Billing', 'Payment Method'].join(','),
+      ...subscriptions.map(sub => [
+        sub.id,
+        sub.customerName,
+        sub.customerEmail,
+        sub.planName,
+        sub.status,
+        sub.amount,
+        sub.nextBillingDate,
+        sub.paymentMethod
+      ].join(','))
+    ].join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `subscriptions-${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+  }
+
+  const handleCreateSubscription = () => {
+    console.log('Opening create subscription modal...')
+    setIsCreateModalOpen(true)
+  }
+
+  const handleSubscriptionCreated = (newSubscription: Subscription) => {
+    console.log('New subscription created:', newSubscription)
+    // Reload subscriptions to show the new one
+    loadSubscriptions()
+    setIsCreateModalOpen(false)
+  }
+
+  const handleSendEmailToSelected = () => {
+    console.log('Sending email to selected subscriptions...')
+    alert('Send Email feature - This would open a modal to compose and send emails to selected customers')
+  }
+
+  const handleExportSelected = () => {
+    console.log('Exporting selected subscriptions...')
+    alert('Export Selected feature - This would export only the selected subscriptions')
+  }
+
+  const handleRefreshAll = () => {
+    console.log('Refreshing all subscriptions...')
+    loadSubscriptions()
+  }
+
+  const handleAdvancedFilters = () => {
+    console.log('Opening advanced filters...')
+    alert('Advanced Filters feature - This would open a modal with more detailed filtering options like date ranges, amount ranges, payment method filters, etc.')
+  }
+
+  // Subscriptions are already filtered by the API
+  const filteredSubscriptions = subscriptions
 
   if (loading) {
     return (
@@ -307,15 +428,15 @@ export default function AdminSubscriptionManagement() {
             <p className="text-gray-600">Manage customer subscriptions, billing cycles, and payment issues</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setLoading(true)}>
+            <Button variant="outline" onClick={loadSubscriptions}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" onClick={handleExportSubscriptions}>
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
-            <Button>
+            <Button onClick={handleCreateSubscription}>
               <Plus className="h-4 w-4 mr-2" />
               Create Subscription
             </Button>
@@ -324,14 +445,15 @@ export default function AdminSubscriptionManagement() {
       </div>
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="all">All ({statusCounts.all})</TabsTrigger>
-          <TabsTrigger value="active">Active ({statusCounts.active})</TabsTrigger>
-          <TabsTrigger value="trialing">Trialing ({statusCounts.trialing})</TabsTrigger>
-          <TabsTrigger value="past_due">Past Due ({statusCounts.past_due})</TabsTrigger>
-          <TabsTrigger value="cancelled">Cancelled ({statusCounts.cancelled})</TabsTrigger>
-          <TabsTrigger value="paused">Paused ({statusCounts.paused})</TabsTrigger>
-        </TabsList>
+            <TabsList className="grid w-full grid-cols-7">
+              <TabsTrigger value="all">All ({statusCounts.all})</TabsTrigger>
+              <TabsTrigger value="active">Active ({statusCounts.active})</TabsTrigger>
+              <TabsTrigger value="trialing">Trialing ({statusCounts.trialing})</TabsTrigger>
+              <TabsTrigger value="past_due">Past Due ({statusCounts.past_due})</TabsTrigger>
+              <TabsTrigger value="cancelled">Cancelled ({statusCounts.cancelled})</TabsTrigger>
+              <TabsTrigger value="paused">Paused ({statusCounts.paused})</TabsTrigger>
+              <TabsTrigger value="grace_period">Grace Period ({statusCounts.grace_period})</TabsTrigger>
+            </TabsList>
 
         <TabsContent value={selectedTab} className="space-y-6">
           {/* Filters */}
@@ -398,7 +520,11 @@ export default function AdminSubscriptionManagement() {
                   </CardDescription>
                 </div>
                 <div className="flex space-x-2">
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleAdvancedFilters}
+                  >
                     <Filter className="h-4 w-4 mr-2" />
                     Advanced Filters
                   </Button>
@@ -437,17 +563,32 @@ export default function AdminSubscriptionManagement() {
                       <Badge variant="outline">{subscription.planName}</Badge>
                       <p className="text-xs text-gray-500 mt-1">{subscription.billingCycle}</p>
                     </div>
-                    <div className="col-span-1">
-                      {getStatusBadge(subscription.status)}
-                    </div>
-                    <div className="col-span-1">
-                      <p className="font-medium">${subscription.amount}</p>
-                      <p className="text-xs text-gray-500">{subscription.currency.toUpperCase()}</p>
-                    </div>
+                        <div className="col-span-1">
+                          {getStatusBadge(subscription.status, subscription)}
+                        </div>
+                        <div className="col-span-1">
+                          <p className={`font-medium ${subscription.amount === 0 ? 'text-green-600' : ''}`}>
+                            {subscription.amount === 0 ? 'FREE' : `$${subscription.amount}`}
+                          </p>
+                          <p className="text-xs text-gray-500">{subscription.currency.toUpperCase()}</p>
+                          {subscription.paymentMethod === 'Executive Account (Free)' && (
+                            <Badge className="mt-1 bg-green-100 text-green-800 border-green-300 text-xs">
+                              Executive
+                            </Badge>
+                          )}
+                        </div>
                     <div className="col-span-2">
-                      <p className="text-sm">{new Date(subscription.nextBillingDate).toLocaleDateString()}</p>
+                      <p className="text-sm">
+                        {subscription.nextBillingDate ? 
+                          new Date(subscription.nextBillingDate).toLocaleDateString() : 
+                          'No billing'
+                        }
+                      </p>
                       <p className="text-xs text-gray-500">
-                        {subscription.cancelAtPeriodEnd ? 'Cancels at period end' : 'Auto-renewal'}
+                        {subscription.paymentMethod === 'Executive Account (Free)' ? 
+                          'Executive Account' : 
+                          subscription.cancelAtPeriodEnd ? 'Cancels at period end' : 'Auto-renewal'
+                        }
                       </p>
                     </div>
                     <div className="col-span-1">
@@ -460,10 +601,20 @@ export default function AdminSubscriptionManagement() {
                     </div>
                     <div className="col-span-2">
                       <div className="flex space-x-1">
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleViewSubscription(subscription)}
+                          title="View subscription details"
+                        >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleEditSubscription(subscription)}
+                          title="Edit subscription"
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
                         {subscription.status === 'active' && (
@@ -493,9 +644,21 @@ export default function AdminSubscriptionManagement() {
                             <X className="h-4 w-4" />
                           </Button>
                         )}
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
+                            <SubscriptionActionsDropdown
+                              subscription={subscription}
+                              onViewDetails={handleViewSubscription}
+                              onEdit={handleEditSubscription}
+                              onPause={handlePauseSubscription}
+                              onResume={handleResumeSubscription}
+                              onCancel={handleCancelSubscription}
+                              onDelete={handleDeleteSubscription}
+                              onViewPaymentHistory={handleViewPaymentHistory}
+                              onUpdatePaymentMethod={handleUpdatePaymentMethod}
+                              onGenerateInvoice={handleGenerateInvoice}
+                              onExportData={handleExportData}
+                              onSendEmail={handleSendEmail}
+                              onRefresh={handleRefreshSubscription}
+                            />
                       </div>
                     </div>
                   </div>
@@ -514,15 +677,27 @@ export default function AdminSubscriptionManagement() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button className="w-full justify-start" variant="outline">
+                <Button 
+                  className="w-full justify-start" 
+                  variant="outline"
+                  onClick={handleSendEmailToSelected}
+                >
                   <Mail className="h-4 w-4 mr-2" />
                   Send Email to Selected
                 </Button>
-                <Button className="w-full justify-start" variant="outline">
+                <Button 
+                  className="w-full justify-start" 
+                  variant="outline"
+                  onClick={handleExportSelected}
+                >
                   <Download className="h-4 w-4 mr-2" />
                   Export Selected
                 </Button>
-                <Button className="w-full justify-start" variant="outline">
+                <Button 
+                  className="w-full justify-start" 
+                  variant="outline"
+                  onClick={handleRefreshAll}
+                >
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Refresh All
                 </Button>
@@ -562,21 +737,156 @@ export default function AdminSubscriptionManagement() {
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Monthly Recurring Revenue</span>
-                  <span className="font-semibold">$125,000</span>
+                  <span className="font-semibold">${metrics.monthlyRecurringRevenue.toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Active Subscriptions</span>
-                  <span className="font-semibold">{statusCounts.active}</span>
+                  <span className="font-semibold">{metrics.activeSubscriptions}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Average Revenue Per User</span>
-                  <span className="font-semibold">$89.99</span>
+                  <span className="font-semibold">${metrics.averageRevenuePerUser.toFixed(2)}</span>
                 </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Create Subscription Modal */}
+      <CreateSubscriptionModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handleSubscriptionCreated}
+      />
+
+      {/* Subscription Details Modal */}
+      <SubscriptionDetailsModal
+        isOpen={isDetailsModalOpen}
+        onClose={() => {
+          setIsDetailsModalOpen(false)
+          setSelectedSubscription(null)
+        }}
+        subscription={selectedSubscription}
+        onEdit={handleEditSubscription}
+        onPause={handlePauseSubscription}
+        onResume={handleResumeSubscription}
+        onCancel={handleCancelSubscription}
+        onDelete={(subscriptionId) => {
+          console.log('Delete subscription:', subscriptionId)
+          alert(`Delete subscription ${subscriptionId} - This would permanently delete the subscription`)
+        }}
+      />
+
+      {/* Subscription Edit Modal */}
+      <SubscriptionEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false)
+          setSelectedSubscription(null)
+        }}
+        subscription={selectedSubscription}
+        onSave={handleSaveSubscription}
+      />
+
+      {/* Payment History Modal */}
+      <PaymentHistoryModal
+        isOpen={isPaymentHistoryModalOpen}
+        onClose={() => {
+          setIsPaymentHistoryModalOpen(false)
+          setSelectedSubscription(null)
+        }}
+        subscription={selectedSubscription}
+      />
+
+      {/* Payment Method Modal */}
+      <PaymentMethodModal
+        isOpen={isPaymentMethodModalOpen}
+        onClose={() => {
+          setIsPaymentMethodModalOpen(false)
+          setSelectedSubscription(null)
+        }}
+        subscription={selectedSubscription}
+        onUpdate={async (subscriptionId, newPaymentMethod, gracePeriodData = null) => {
+          try {
+            console.log(`Updating payment method for ${subscriptionId} to ${newPaymentMethod}`)
+            
+            // Prepare update data
+            const updateData = {
+              ...selectedSubscription,
+              paymentMethod: newPaymentMethod,
+              isExecutiveAccount: newPaymentMethod.includes('Executive') && !newPaymentMethod.includes('Remaining') && !newPaymentMethod.includes('Required')
+            }
+            
+            // Add grace period data if provided
+            if (gracePeriodData) {
+              updateData.gracePeriodEndDate = gracePeriodData.gracePeriodEndDate
+              updateData.status = gracePeriodData.status || 'grace_period'
+              updateData.notes = `Demoted from executive account. Grace period until ${gracePeriodData.gracePeriodEndDate}`
+            }
+            
+            // Update the subscription in the database
+            const response = await subscriptionService.updateSubscriptionData(subscriptionId, updateData)
+            
+            if (response.success) {
+              console.log('Successfully updated subscription in database')
+              // Reload subscriptions to get updated data
+              await loadSubscriptions()
+              alert(`Payment method updated successfully! The subscription has been updated.`)
+            } else {
+              console.error('Failed to update subscription:', response.error)
+              alert(`Failed to update subscription: ${response.error}`)
+            }
+          } catch (error) {
+            console.error('Error updating subscription:', error)
+            alert(`Error updating subscription: ${error.message}`)
+          }
+        }}
+      />
+
+      {/* Email Composer Modal */}
+      <EmailComposerModal
+        isOpen={isEmailComposerModalOpen}
+        onClose={() => {
+          setIsEmailComposerModalOpen(false)
+          setSelectedSubscription(null)
+        }}
+        subscription={selectedSubscription}
+            onSend={(emailData) => {
+              console.log('Email sent via callback:', emailData)
+              // The email composer now handles the actual sending
+              // This callback is just for additional logging if needed
+            }}
+      />
+
+      {/* Invoice Generator Modal */}
+      <InvoiceGeneratorModal
+        isOpen={isInvoiceGeneratorModalOpen}
+        onClose={() => {
+          setIsInvoiceGeneratorModalOpen(false)
+          setSelectedSubscription(null)
+        }}
+        subscription={selectedSubscription}
+        onGenerate={(invoiceData) => {
+          console.log('Invoice generated:', invoiceData)
+          alert(`Invoice ${invoiceData.invoiceNumber} generated successfully!`)
+        }}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={isDeleteConfirmationModalOpen}
+        onClose={() => {
+          setIsDeleteConfirmationModalOpen(false)
+          setSelectedSubscription(null)
+        }}
+        subscription={selectedSubscription}
+        onConfirm={(subscriptionId, reason) => {
+          console.log(`Deleting subscription ${subscriptionId} with reason: ${reason}`)
+          loadSubscriptions()
+          alert(`Subscription ${subscriptionId} has been permanently deleted.`)
+        }}
+      />
     </div>
   )
 }

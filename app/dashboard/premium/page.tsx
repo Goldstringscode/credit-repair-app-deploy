@@ -158,7 +158,7 @@ export default function PremiumServicesPage() {
                 />
                 <CardHeader>
                   <div className="flex items-center justify-between mb-4">
-                    <div className={`p-3 rounded-lg ${colorClasses[service.color]}`}>
+                    <div className={`p-3 rounded-lg ${(colorClasses as any)[service.color]}`}>
                       <IconComponent className="h-6 w-6" />
                     </div>
                     <Badge className="bg-green-100 text-green-800">{service.price}</Badge>

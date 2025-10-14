@@ -114,8 +114,7 @@ export default function EmailTestPage() {
         const newTemplate = await createTemplate({
           name: "Test Template",
           subject: "Test Email Subject",
-          category: "test",
-          content: "<h1>Test Email</h1><p>This is a test email template.</p>",
+          category: "transactional",
           tags: ["test", "automated"]
         })
         addTestResult("Template Creation", "success", `Template created: ${newTemplate.name}`, 800)
@@ -166,7 +165,7 @@ export default function EmailTestPage() {
           conversionRate: 0,
           createdAt: new Date().toISOString().split('T')[0],
           template: "test-template",
-          category: "test"
+          category: "transactional"
         })
         addTestResult("Campaign Creation", "success", `Campaign created: ${newCampaign.name}`, 700)
       } catch (err) {
@@ -467,13 +466,14 @@ export default function EmailTestPage() {
                   <Button
                     className="w-full justify-start"
                     variant="outline"
-                    onClick={() => runSingleTest("Template Creation", () => createTemplate({
-                      name: "Quick Test Template",
-                      subject: "Quick Test",
-                      category: "test",
-                      content: "<p>Quick test template</p>",
-                      tags: ["quick", "test"]
-                    }))}
+                    onClick={() => runSingleTest("Template Creation", async () => {
+                      await createTemplate({
+                        name: "Quick Test Template",
+                        subject: "Quick Test",
+                        category: "transactional",
+                        tags: ["quick", "test"]
+                      })
+                    })}
                     disabled={isCreating}
                   >
                     <FileText className="h-4 w-4 mr-2" />
@@ -482,7 +482,8 @@ export default function EmailTestPage() {
                   <Button
                     className="w-full justify-start"
                     variant="outline"
-                    onClick={() => runSingleTest("List Creation", () => createList({
+                    onClick={() => runSingleTest("List Creation", async () => {
+                      await createList({
                       name: "Quick Test List",
                       description: "Quick test list",
                       subscribers: 0,
@@ -496,7 +497,8 @@ export default function EmailTestPage() {
                       growthRate: 0,
                       avgOpenRate: 0,
                       avgClickRate: 0
-                    }))}
+                      })
+                    })}
                     disabled={isCreating}
                   >
                     <Users className="h-4 w-4 mr-2" />
@@ -733,25 +735,27 @@ export default function EmailTestPage() {
                   <Button
                     className="w-full justify-start"
                     variant="outline"
-                    onClick={() => runSingleTest("Create Campaign", () => createCampaign({
-                      name: "Feature Test Campaign",
-                      subject: "Feature Test",
-                      status: "draft",
-                      recipients: 0,
-                      sent: 0,
-                      opened: 0,
-                      clicked: 0,
-                      unsubscribed: 0,
-                      bounced: 0,
-                      openRate: 0,
-                      clickRate: 0,
-                      unsubscribeRate: 0,
-                      bounceRate: 0,
-                      conversionRate: 0,
-                      createdAt: new Date().toISOString().split('T')[0],
-                      template: "test",
-                      category: "test"
-                    }))}
+                    onClick={() => runSingleTest("Create Campaign", async () => {
+                      await createCampaign({
+                        name: "Feature Test Campaign",
+                        subject: "Feature Test",
+                        status: "draft",
+                        recipients: 0,
+                        sent: 0,
+                        opened: 0,
+                        clicked: 0,
+                        unsubscribed: 0,
+                        bounced: 0,
+                        openRate: 0,
+                        clickRate: 0,
+                        unsubscribeRate: 0,
+                        bounceRate: 0,
+                        conversionRate: 0,
+                        createdAt: new Date().toISOString().split('T')[0],
+                        template: "test",
+                        category: "transactional"
+                      })
+                    })}
                     disabled={isCreating}
                   >
                     <Mail className="h-4 w-4 mr-2" />
@@ -760,13 +764,14 @@ export default function EmailTestPage() {
                   <Button
                     className="w-full justify-start"
                     variant="outline"
-                    onClick={() => runSingleTest("Create Template", () => createTemplate({
-                      name: "Feature Test Template",
-                      subject: "Feature Test Template",
-                      category: "test",
-                      content: "<h1>Feature Test</h1>",
-                      tags: ["feature", "test"]
-                    }))}
+                    onClick={() => runSingleTest("Create Template", async () => {
+                      await createTemplate({
+                        name: "Feature Test Template",
+                        subject: "Feature Test Template",
+                        category: "transactional",
+                        tags: ["feature", "test"]
+                      })
+                    })}
                     disabled={isCreating}
                   >
                     <FileText className="h-4 w-4 mr-2" />
@@ -798,21 +803,23 @@ export default function EmailTestPage() {
                   <Button
                     className="w-full justify-start"
                     variant="outline"
-                    onClick={() => runSingleTest("Create List", () => createList({
-                      name: "Feature Test List",
-                      description: "Feature test list",
-                      subscribers: 0,
-                      activeSubscribers: 0,
-                      unsubscribed: 0,
-                      bounced: 0,
-                      createdAt: new Date().toISOString().split('T')[0],
-                      lastUpdated: new Date().toISOString().split('T')[0],
-                      tags: ["feature", "test"],
-                      isPublic: false,
-                      growthRate: 0,
-                      avgOpenRate: 0,
-                      avgClickRate: 0
-                    }))}
+                    onClick={() => runSingleTest("Create List", async () => {
+                      await createList({
+                        name: "Feature Test List",
+                        description: "Feature test list",
+                        subscribers: 0,
+                        activeSubscribers: 0,
+                        unsubscribed: 0,
+                        bounced: 0,
+                        createdAt: new Date().toISOString().split('T')[0],
+                        lastUpdated: new Date().toISOString().split('T')[0],
+                        tags: ["feature", "test"],
+                        isPublic: false,
+                        growthRate: 0,
+                        avgOpenRate: 0,
+                        avgClickRate: 0
+                      })
+                    })}
                     disabled={isCreating}
                   >
                     <Users className="h-4 w-4 mr-2" />

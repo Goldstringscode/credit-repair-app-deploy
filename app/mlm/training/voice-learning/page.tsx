@@ -1768,7 +1768,6 @@ export default function VoiceLearningPage() {
           onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
           onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
           onEnded={() => setIsPlaying(false)}
-          volume={isMuted ? 0 : volume}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
         >

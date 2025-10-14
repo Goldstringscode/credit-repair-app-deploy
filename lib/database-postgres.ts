@@ -667,4 +667,14 @@ class PostgreSQLDatabaseService implements DatabaseService {
   }
 }
 
-export const postgresDatabase = new PostgreSQLDatabaseService()
+// Export singleton instance with lazy initialization
+let _postgresDatabase: PostgreSQLDatabaseService | null = null
+
+export const postgresDatabase = {
+  get instance() {
+    if (!_postgresDatabase) {
+      _postgresDatabase = new PostgreSQLDatabaseService()
+    }
+    return _postgresDatabase
+  }
+}

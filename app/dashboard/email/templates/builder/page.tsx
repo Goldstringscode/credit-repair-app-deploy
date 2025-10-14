@@ -150,7 +150,9 @@ export default function TemplateBuilderPage() {
       const newIndex = direction === 'up' ? index - 1 : index + 1
       if (newIndex < 0 || newIndex >= newBlocks.length) return prev
 
-      [newBlocks[index], newBlocks[newIndex]] = [newBlocks[newIndex], newBlocks[index]]
+      const temp = newBlocks[index]
+      newBlocks[index] = newBlocks[newIndex]
+      newBlocks[newIndex] = temp
       return newBlocks
     })
   }

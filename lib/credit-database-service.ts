@@ -1,13 +1,13 @@
 import { neon } from "@neondatabase/serverless"
 import type { CreditAnalysis } from "./credit-analysis-engine"
 
-// Use the correct environment variable name
-const databaseUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL
-if (!databaseUrl) {
-  throw new Error("Database URL not configured. Please set NEON_DATABASE_URL or DATABASE_URL")
+function getNeonClient() {
+  const databaseUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL
+  if (!databaseUrl) {
+    throw new Error("Database URL not configured. Please set NEON_DATABASE_URL or DATABASE_URL")
+  }
+  return neon(databaseUrl)
 }
-
-const sql = neon(databaseUrl)
 
 export class CreditDatabaseService {
   async saveAnalysis(userId: string, analysis: CreditAnalysis, fileName: string): Promise<string> {
@@ -15,6 +15,7 @@ export class CreditDatabaseService {
       console.log("Saving analysis to database...")
 
       // Save main report with the correct schema
+      const sql = getNeonClient()
       const [report] = await sql`
         INSERT INTO credit_reports (
           user_id, 
@@ -122,6 +123,7 @@ export class CreditDatabaseService {
 
   async getReports(userId: string): Promise<any[]> {
     try {
+      const sql = getNeonClient()
       const reports = await sql`
         SELECT 
           id,
@@ -145,6 +147,7 @@ export class CreditDatabaseService {
 
   async getReportDetails(reportId: string | number): Promise<any> {
     try {
+      const sql = getNeonClient()
       const [report] = await sql`
         SELECT * FROM credit_reports WHERE id = ${reportId}
       `
@@ -175,6 +178,7 @@ export class CreditDatabaseService {
   // Test database connection
   async testConnection(): Promise<boolean> {
     try {
+      const sql = getNeonClient()
       await sql`SELECT 1 as test`
       console.log("✅ Database connection successful")
       return true
@@ -187,6 +191,7 @@ export class CreditDatabaseService {
   // Get database schema info
   async getSchemaInfo(): Promise<any> {
     try {
+      const sql = getNeonClient()
       const tables = await sql`
         SELECT table_name, column_name, data_type, is_nullable
         FROM information_schema.columns 

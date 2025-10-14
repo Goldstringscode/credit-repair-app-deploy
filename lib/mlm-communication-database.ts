@@ -1,12 +1,12 @@
 import { neon } from "@neondatabase/serverless"
 
-// Use the correct environment variable name
-const databaseUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL
-if (!databaseUrl) {
-  throw new Error("Database URL not configured. Please set NEON_DATABASE_URL or DATABASE_URL")
+function getNeonClient() {
+  const databaseUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL
+  if (!databaseUrl) {
+    throw new Error("Database URL not configured. Please set NEON_DATABASE_URL or DATABASE_URL")
+  }
+  return neon(databaseUrl)
 }
-
-const sql = neon(databaseUrl)
 
 export interface MLMChannel {
   id: string
@@ -74,8 +74,15 @@ export class MLMCommunicationDatabase {
   // Initialize database tables
   static async initializeTables() {
     try {
+      // Skip initialization during build time
+      if (process.env.NODE_ENV === 'production' && !process.env.VERCEL_ENV) {
+        console.log("Skipping MLM communication table initialization during build")
+        return
+      }
+
       console.log("Initializing MLM communication tables...")
-      console.log("Database URL configured:", !!databaseUrl)
+      const sql = getNeonClient()
+      console.log("Database URL configured:", !!process.env.NEON_DATABASE_URL || !!process.env.DATABASE_URL)
 
       // Test database connection first
       await sql`SELECT 1 as test`
@@ -182,6 +189,7 @@ export class MLMCommunicationDatabase {
   // Get channels for a user
   static async getChannels(userId: string): Promise<MLMChannel[]> {
     try {
+      const sql = getNeonClient()
       const channels = await sql`
         SELECT 
           c.*,
@@ -215,6 +223,7 @@ export class MLMCommunicationDatabase {
   // Get messages for a channel
   static async getMessages(channelId: string, limit: number = 50, offset: number = 0): Promise<MLMMessage[]> {
     try {
+      const sql = getNeonClient()
       const messages = await sql`
         SELECT 
           m.*,
@@ -310,6 +319,7 @@ export class MLMCommunicationDatabase {
     }>
   }): Promise<MLMMessage> {
     try {
+      const sql = getNeonClient()
       const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       
       console.log("Creating message with data:", {
@@ -397,6 +407,7 @@ export class MLMCommunicationDatabase {
     createdBy: string
   }): Promise<MLMChannel> {
     try {
+      const sql = getNeonClient()
       const channelId = `channel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       
       // Insert channel

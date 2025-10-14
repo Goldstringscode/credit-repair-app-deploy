@@ -70,7 +70,7 @@ export function NotificationSettings() {
         type: 'success',
         priority: 'low',
         category: 'system',
-        userId: 'current-user'
+        read: false
       })
     } catch (error) {
       addNotification({
@@ -79,7 +79,7 @@ export function NotificationSettings() {
         type: 'error',
         priority: 'medium',
         category: 'system',
-        userId: 'current-user'
+        read: false
       })
     } finally {
       setIsLoading(false)
@@ -93,7 +93,7 @@ export function NotificationSettings() {
       type: 'info',
       priority: 'low',
       category: 'system',
-      userId: 'current-user',
+      read: false,
       actions: [
         { label: 'Got it!', action: 'dismiss' }
       ]

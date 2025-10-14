@@ -50,7 +50,7 @@ export default function EnhancedDisputePage() {
 
   const [disputeInfo, setDisputeInfo] = useState({
     creditBureau: "",
-    disputeItems: [],
+    disputeItems: [] as string[],
     disputeReason: "",
     supportingEvidence: "",
     desiredOutcome: "",
@@ -859,7 +859,7 @@ CC: Consumer Financial Protection Bureau (if necessary)`
                   <SendViaCertifiedMail
                     letterContent={generatedPackage.dispute}
                     letterType="Enhanced Dispute"
-                    recipientName={disputeData.creditBureau}
+                    recipientName={disputeInfo.creditBureau}
                     onSuccess={(trackingNumber) => {
                       console.log(`Enhanced dispute letter sent! Tracking: ${trackingNumber}`)
                     }}

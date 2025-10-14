@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { shipEngineService } from '@/lib/shipengine-service';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabaseClient() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Missing Supabase environment variables')
+  }
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+}
 
 export async function GET(
   request: NextRequest,
@@ -22,6 +24,7 @@ export async function GET(
     }
 
     // Get mail record from database
+    const supabase = getSupabaseClient()
     const { data: mailRecord, error: dbError } = await supabase
       .from('certified_mail_tracking')
       .select(`
@@ -50,7 +53,7 @@ export async function GET(
     if (mailRecord.shipengine_tracking_id) {
       try {
         console.log('Fetching real-time tracking from ShipEngine...');
-        const trackingInfo = await shipEngineService.getTrackingInfo(mailRecord.shipengine_tracking_id);
+        const trackingInfo = await shipEngineService.instance.getTrackingInfo(mailRecord.shipengine_tracking_id);
 
         realTimeTracking = {
           status: trackingInfo.status,

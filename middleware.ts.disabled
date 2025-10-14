@@ -1,0 +1,105 @@
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+// Routes that require access control (disabled for initial deployment)
+const PROTECTED_ROUTES: string[] = [
+  // '/dashboard',
+  // '/api/certified-mail',
+  // '/api/webhooks',
+  // '/mlm',
+  // '/admin'
+];
+
+// Routes that are always accessible
+const PUBLIC_ROUTES = [
+  '/',
+  '/login',
+  '/signup',
+  '/about',
+  '/contact',
+  '/_next',
+  '/favicon.ico',
+  '/api/auth',
+  '/access-denied'
+];
+
+export function middleware(request: NextRequest) {
+  try {
+    const { pathname } = request.nextUrl;
+    
+    // Allow public routes
+    if (PUBLIC_ROUTES.some(route => pathname.startsWith(route))) {
+      return NextResponse.next();
+    }
+
+    // Check if route is protected
+    const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route));
+    
+    if (!isProtectedRoute) {
+      return NextResponse.next();
+    }
+
+    // For now, allow all routes since access control is disabled
+    // This can be re-enabled later when you want to restrict access
+    return NextResponse.next();
+
+    // TODO: Re-enable access control when ready
+    /*
+    // Get user email from various sources
+    let userEmail: string | null = null;
+
+    // Try to get email from headers (if set by auth system)
+    userEmail = request.headers.get('x-user-email');
+    
+    // Try to get email from cookies
+    if (!userEmail) {
+      userEmail = request.cookies.get('user-email')?.value || null;
+    }
+
+    // Try to get email from query params (for testing)
+    if (!userEmail) {
+      userEmail = request.nextUrl.searchParams.get('email');
+    }
+
+    // If no email found, redirect to access denied page
+    if (!userEmail) {
+      return NextResponse.redirect(new URL('/access-denied', request.url));
+    }
+
+    // Check if user is trusted
+    if (!AccessControl.isTrustedUser(userEmail)) {
+      return NextResponse.redirect(new URL('/access-denied', request.url));
+    }
+
+    // Add user info to headers for use in API routes
+    const userInfo = AccessControl.getUserInfo(userEmail);
+    if (userInfo) {
+      const response = NextResponse.next();
+      response.headers.set('x-user-id', userInfo.id);
+      response.headers.set('x-user-role', userInfo.role);
+      response.headers.set('x-user-access-level', userInfo.accessLevel.toString());
+      return response;
+    }
+    */
+
+  } catch (error) {
+    console.error('Middleware error:', error);
+    // If middleware fails, allow the request to continue
+    return NextResponse.next();
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+  ],
+};

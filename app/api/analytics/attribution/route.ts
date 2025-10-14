@@ -1,4 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
+
+export const dynamic = 'force-dynamic'
 import { calculateAttribution, attributionModels } from "@/lib/analytics"
 
 export async function GET(request: NextRequest) {

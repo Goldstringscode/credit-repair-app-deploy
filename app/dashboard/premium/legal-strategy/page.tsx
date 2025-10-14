@@ -36,7 +36,7 @@ export default function LegalStrategyPage() {
   const [strategyData, setStrategyData] = useState({
     caseType: "",
     currentSituation: "",
-    goals: [],
+    goals: [] as string[],
     timeline: "",
     budget: "",
     riskTolerance: "",
@@ -49,7 +49,7 @@ export default function LegalStrategyPage() {
 
   const [generatedStrategy, setGeneratedStrategy] = useState({
     executiveSummary: "",
-    phaseBreakdown: [],
+    phaseBreakdown: [] as Array<{ phase: string; duration: string; objectives: string[]; deliverables: string[]; cost: string; successMetrics: string[] }>,
     riskAssessment: "",
     costBenefit: "",
     timeline: "",

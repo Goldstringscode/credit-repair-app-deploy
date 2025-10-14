@@ -114,7 +114,11 @@ export default function LessonNotesModal({
 
   const handleSaveNote = async () => {
     if (!currentNote.title?.trim() || !currentNote.content?.trim()) {
-      toast.error("Please provide both title and content for your note")
+      toast({
+        title: "Error",
+        description: "Please provide both title and content for your note",
+        variant: "destructive"
+      })
       return
     }
 
@@ -128,14 +132,14 @@ export default function LessonNotesModal({
           title: currentNote.title!.trim(),
           content: currentNote.content!.trim(),
           tags: currentNote.tags || [],
-          videoTimestamp: currentNote.videoTimestamp,
+          videoTimestamp: currentNote.videoTimestamp || 0,
           isBookmarked: currentNote.isBookmarked || false,
           updatedAt: new Date().toISOString()
         }
         
         setNotes(prev => prev.map(n => n.id === editingNoteId ? updatedNote : n))
         onUpdateNote?.(editingNoteId, updatedNote)
-        toast.success("Note updated successfully!")
+        toast({ title: "Success", description: "Note updated successfully!" })
         
       } else {
         // Create new note
@@ -147,7 +151,7 @@ export default function LessonNotesModal({
           content: currentNote.content!.trim(),
           tags: currentNote.tags || [],
           timestamp: new Date().toISOString(),
-          videoTimestamp: currentNote.videoTimestamp,
+          videoTimestamp: currentNote.videoTimestamp || 0,
           isBookmarked: currentNote.isBookmarked || false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
@@ -155,7 +159,7 @@ export default function LessonNotesModal({
         
         setNotes(prev => [newNote, ...prev])
         onSaveNote?.(newNote)
-        toast.success("Note saved successfully!")
+        toast({ title: "Success", description: "Note saved successfully!" })
       }
 
       // Reset form
@@ -173,7 +177,7 @@ export default function LessonNotesModal({
       
     } catch (error: unknown) {
       console.error('Failed to save note:', error)
-      toast.error("Failed to save note. Please try again.")
+      toast({ title: "Error", description: "Failed to save note. Please try again.", variant: "destructive" })
     } finally {
       setIsSaving(false)
     }
@@ -184,10 +188,10 @@ export default function LessonNotesModal({
       try {
         setNotes(prev => prev.filter(note => note.id !== noteId))
         onDeleteNote?.(noteId)
-        toast.success("Note deleted successfully!")
+        toast({ title: "Success", description: "Note deleted successfully!" })
       } catch (error: unknown) {
         console.error('Failed to delete note:', error)
-        toast.error("Failed to delete note. Please try again.")
+        toast({ title: "Error", description: "Failed to delete note. Please try again.", variant: "destructive" })
       }
     }
   }

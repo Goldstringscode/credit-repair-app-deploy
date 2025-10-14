@@ -30,7 +30,7 @@ import { useNotifications } from "@/lib/notification-context"
 import { NotificationCategories } from "./notification-categories"
 import { NotificationActions } from "./notification-actions"
 import { MobileNotificationBell } from "./notification-mobile"
-import { useMobile } from "@/hooks/use-mobile"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 export function NotificationDashboard() {
   const { 
@@ -45,7 +45,7 @@ export function NotificationDashboard() {
     getTemplatesByCategory
   } = useNotifications()
   
-  const isMobile = useMobile()
+  const isMobile = useIsMobile()
   const [activeTab, setActiveTab] = useState('overview')
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)

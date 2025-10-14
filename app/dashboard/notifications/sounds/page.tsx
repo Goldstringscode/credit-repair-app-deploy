@@ -122,7 +122,8 @@ export default function NotificationSoundsPage() {
           message: result.error || "Failed to play sound",
           type: "error",
           priority: "medium",
-          category: "system"
+          category: "system",
+          read: false
         })
       }
     } catch (error) {
@@ -156,7 +157,8 @@ export default function NotificationSoundsPage() {
           message: `Played ${category} notification sound`,
           type: "success",
           priority: "medium",
-          category: "system"
+          category: "system",
+          read: false
         })
       } else {
         addNotification({
@@ -164,7 +166,8 @@ export default function NotificationSoundsPage() {
           message: result.error || "Failed to play category sound",
           type: "error",
           priority: "medium",
-          category: "system"
+          category: "system",
+          read: false
         })
       }
     } catch (error) {
@@ -194,7 +197,8 @@ export default function NotificationSoundsPage() {
           message: "Your notification sound settings have been saved",
           type: "success",
           priority: "medium",
-          category: "system"
+          category: "system",
+          read: false
         })
       } else {
         addNotification({
@@ -202,7 +206,8 @@ export default function NotificationSoundsPage() {
           message: result.error || "Failed to update sound settings",
           type: "error",
           priority: "high",
-          category: "system"
+          category: "system",
+          read: false
         })
       }
     } catch (error) {

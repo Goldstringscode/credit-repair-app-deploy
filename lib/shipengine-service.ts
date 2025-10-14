@@ -478,8 +478,17 @@ class ShipEngineService {
   }
 }
 
-// Export singleton instance
-export const shipEngineService = new ShipEngineService();
+// Export singleton instance with lazy initialization
+let _shipEngineService: ShipEngineService | null = null
+
+export const shipEngineService = {
+  get instance() {
+    if (!_shipEngineService) {
+      _shipEngineService = new ShipEngineService()
+    }
+    return _shipEngineService
+  }
+}
 
 // Export types
 export type {

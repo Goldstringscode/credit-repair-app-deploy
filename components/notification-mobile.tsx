@@ -7,8 +7,8 @@ import {
   Eye, 
   Trash2, 
   MoreVertical, 
-  SwipeLeft, 
-  SwipeRight,
+  ChevronLeft,
+  ChevronRight,
   Volume2,
   VolumeX,
   Settings,
@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { useNotifications } from "@/lib/notification-context"
-import { useMobile } from "@/hooks/use-mobile"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { NotificationActions } from "./notification-actions"
 import { NotificationCategories } from "./notification-categories"
 
@@ -46,7 +46,7 @@ export function MobileNotificationCenter({ isOpen, onClose }: MobileNotification
     updateSoundSettings
   } = useNotifications()
   
-  const isMobile = useMobile()
+  const isMobile = useIsMobile()
   const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'categories'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
@@ -423,7 +423,7 @@ export function MobileNotificationCenter({ isOpen, onClose }: MobileNotification
 export function MobileNotificationBell() {
   const { unreadCount } = useNotifications()
   const [isOpen, setIsOpen] = useState(false)
-  const isMobile = useMobile()
+  const isMobile = useIsMobile()
 
   if (!isMobile) {
     return null

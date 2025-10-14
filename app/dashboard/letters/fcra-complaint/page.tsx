@@ -51,8 +51,8 @@ export default function FCRAComplaintPage() {
     originalDisputeDate: "",
     responseReceived: "",
     responseDate: "",
-    inaccurateItems: [],
-    supportingDocs: [],
+    inaccurateItems: [] as string[],
+    supportingDocs: [] as string[],
     desiredOutcome: "",
     complaintDetails: "",
     fcraViolation: "",
@@ -165,7 +165,7 @@ ${complaintInfo.creditBureau} has violated Section 611 of the FCRA by failing to
 TIMELINE:
 - Dispute sent: ${complaintInfo.originalDisputeDate}
 - Required response date: ${new Date(new Date(complaintInfo.originalDisputeDate).getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
-- Days overdue: ${Math.floor((new Date() - new Date(complaintInfo.originalDisputeDate)) / (1000 * 60 * 60 * 24)) - 30} days
+- Days overdue: ${Math.floor((new Date().getTime() - new Date(complaintInfo.originalDisputeDate).getTime()) / (1000 * 60 * 60 * 24)) - 30} days
 
 SUPPORTING DOCUMENTATION:
 ${
@@ -345,7 +345,7 @@ Sincerely,
 ${personalInfo.firstName} ${personalInfo.lastName}`,
     }
 
-    setGeneratedComplaint(complaintTemplates[complaintType] || "")
+    setGeneratedComplaint((complaintTemplates as any)[complaintType] || "")
     setIsGenerating(false)
     setCurrentStep(4)
   }

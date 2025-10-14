@@ -96,11 +96,12 @@ export default function AdminPage() {
       </div>
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="email">Email</TabsTrigger>
+          <TabsTrigger value="compliance">Compliance</TabsTrigger>
           <TabsTrigger value="system">System</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
@@ -755,6 +756,276 @@ export default function AdminPage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="compliance" className="space-y-6">
+          {/* Compliance Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">GDPR Compliance</CardTitle>
+                <Shield className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">98.5%</div>
+                <p className="text-xs text-muted-foreground">+0.2% from last month</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">FCRA Compliance</CardTitle>
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">99.1%</div>
+                <p className="text-xs text-muted-foreground">+0.1% from last month</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">CCPA Compliance</CardTitle>
+                <CheckCircle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">97.8%</div>
+                <p className="text-xs text-muted-foreground">+0.3% from last month</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">PCI DSS</CardTitle>
+                <CreditCard className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">100%</div>
+                <p className="text-xs text-muted-foreground">Fully compliant</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Compliance Management Tools */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  GDPR Management
+                </CardTitle>
+                <CardDescription>Manage GDPR compliance and data protection</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Link href="/admin/compliance">
+                  <Button className="w-full justify-start">
+                    <Shield className="h-4 w-4 mr-2" />
+                    Full Compliance Dashboard
+                  </Button>
+                </Link>
+                <Link href="/admin/compliance">
+                  <Button className="w-full justify-start" variant="outline">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Data Export Requests
+                  </Button>
+                </Link>
+                <Link href="/admin/compliance">
+                  <Button className="w-full justify-start" variant="outline">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Data Deletion Requests
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  FCRA Management
+                </CardTitle>
+                <CardDescription>Fair Credit Reporting Act compliance</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Link href="/dashboard/letters/generate">
+                  <Button className="w-full justify-start">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Dispute Management
+                  </Button>
+                </Link>
+                <Link href="/dashboard/letters">
+                  <Button className="w-full justify-start" variant="outline">
+                    <Eye className="h-4 w-4 mr-2" />
+                    Credit Report Requests
+                  </Button>
+                </Link>
+                <Link href="/admin/compliance">
+                  <Button className="w-full justify-start" variant="outline">
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    Compliance Monitoring
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  PCI DSS Management
+                </CardTitle>
+                <CardDescription>Payment card industry compliance</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Link href="/admin/compliance">
+                  <Button className="w-full justify-start">
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Security Monitoring
+                  </Button>
+                </Link>
+                <Link href="/admin/compliance">
+                  <Button className="w-full justify-start" variant="outline">
+                    <Shield className="h-4 w-4 mr-2" />
+                    Vulnerability Assessment
+                  </Button>
+                </Link>
+                <Link href="/admin/compliance">
+                  <Button className="w-full justify-start" variant="outline">
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    Compliance Reports
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Compliance Status Overview */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Compliance Status Overview</CardTitle>
+                  <CardDescription>Real-time compliance monitoring and management</CardDescription>
+                </div>
+                <div className="flex space-x-2">
+                  <Link href="/admin/compliance">
+                    <Button size="sm">
+                      <Shield className="h-4 w-4 mr-2" />
+                      Full Dashboard
+                    </Button>
+                  </Link>
+                  <Button variant="outline" size="sm">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export Report
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="text-center p-4 border rounded-lg">
+                    <div className="text-2xl font-bold text-green-600 mb-2">98.5%</div>
+                    <p className="text-sm font-medium">GDPR Compliance</p>
+                    <p className="text-xs text-gray-500">Data Protection</p>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <div className="text-2xl font-bold text-green-600 mb-2">99.1%</div>
+                    <p className="text-sm font-medium">FCRA Compliance</p>
+                    <p className="text-xs text-gray-500">Credit Reporting</p>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <div className="text-2xl font-bold text-green-600 mb-2">97.8%</div>
+                    <p className="text-sm font-medium">CCPA Compliance</p>
+                    <p className="text-xs text-gray-500">Privacy Rights</p>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <div className="text-2xl font-bold text-green-600 mb-2">100%</div>
+                    <p className="text-sm font-medium">PCI DSS</p>
+                    <p className="text-xs text-gray-500">Payment Security</p>
+                  </div>
+                </div>
+                
+                <div className="mt-6 flex justify-center space-x-4">
+                  <Link href="/admin/compliance">
+                    <Button>
+                      <Shield className="h-4 w-4 mr-2" />
+                      Access Full Compliance Dashboard
+                    </Button>
+                  </Link>
+                  <Link href="/admin/compliance">
+                    <Button variant="outline">
+                      <BarChart3 className="h-4 w-4 mr-2" />
+                      View Compliance Reports
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Recent Compliance Events */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Compliance Events</CardTitle>
+              <CardDescription>Latest compliance activities and alerts</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-green-100 rounded-full">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">GDPR Data Export Completed</p>
+                      <p className="text-sm text-gray-500">User ID: 12345 - 2 minutes ago</p>
+                    </div>
+                  </div>
+                  <Badge variant="default">Completed</Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-blue-100 rounded-full">
+                      <FileText className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">FCRA Dispute Submitted</p>
+                      <p className="text-sm text-gray-500">Account: Chase Bank - 15 minutes ago</p>
+                    </div>
+                  </div>
+                  <Badge variant="secondary">Processing</Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-yellow-100 rounded-full">
+                      <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">CCPA Deletion Request</p>
+                      <p className="text-sm text-gray-500">User ID: 67890 - 1 hour ago</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline">Pending</Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-green-100 rounded-full">
+                      <Shield className="h-4 w-4 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">PCI Security Scan Completed</p>
+                      <p className="text-sm text-gray-500">All systems secure - 2 hours ago</p>
+                    </div>
+                  </div>
+                  <Badge variant="default">Secure</Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="system" className="space-y-6">

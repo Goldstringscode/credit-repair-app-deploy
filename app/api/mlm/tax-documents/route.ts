@@ -90,7 +90,7 @@ export const POST = withRateLimit(
       }
 
       // Generate tax document
-      const taxDocumentBuffer = await mlmStripeService.generateTaxDocument(user.id, year)
+      const taxDocumentBuffer = await mlmStripeService.instance.generateTaxDocument(user.id, year)
 
       // Return the document as a download
       const headers = new Headers()

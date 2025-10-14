@@ -324,11 +324,12 @@ Enclosures: Credit Report Copy`
         const requestBody = {
           personalInfo,
           disputeItems,
-          letterType: aiLetterType, // This should be just the tier (standard/enhanced/premium)
+          letterType: selectedLetterType, // Use the actual dispute type (dispute, goodwill, etc.)
+          letterTier: aiLetterType, // Use the tier (standard/enhanced/premium)
           creditBureau: bureau,
           additionalContext: {
             previousDisputes: disputeInfo.previousDisputes,
-            letterPurpose: selectedLetterType, // Pass the specific letter type (dispute, goodwill, etc.)
+            letterPurpose: selectedLetterType,
             disputeDetails: disputeInfo.disputeDetails,
             desiredOutcome: disputeInfo.desiredOutcome,
             bureauName: bureauName,
@@ -407,13 +408,13 @@ Enclosures: Credit Report Copy`
           
           // Store metadata from first successful generation
           if (!firstMetadata) {
-            firstMetadata = result.data.metadata
+            firstMetadata = result.data.letter.metadata
             firstBureau = bureau
           }
           
-          console.log(`✅ Letter generated for ${bureau} with quality score:`, result.data.metadata.qualityScore)
-          console.log(`🔄 Uniqueness score for ${bureau}:`, result.data.metadata.uniquenessScore)
-          console.log(`📊 Customization level for ${bureau}:`, result.data.metadata.customizationLevel)
+          console.log(`✅ Letter generated for ${bureau} with quality score:`, result.data.letter.metadata.qualityScore)
+          console.log(`🔄 Uniqueness score for ${bureau}:`, result.data.letter.metadata.uniquenessScore)
+          console.log(`📊 Customization level for ${bureau}:`, result.data.letter.metadata.customizationLevel)
         } else {
           throw new Error(result.error || "Failed to generate letter")
         }

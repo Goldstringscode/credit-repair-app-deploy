@@ -559,7 +559,7 @@ export default function SMSDashboard() {
                       Template: {log.templateId}
                     </p>
                     <p className="text-sm text-gray-500 mb-1">
-                      {log.message}
+                      {(log as any).message || (log as any).content}
                     </p>
                     <p className="text-xs text-gray-400">
                       {new Date(log.sentAt).toLocaleString()}

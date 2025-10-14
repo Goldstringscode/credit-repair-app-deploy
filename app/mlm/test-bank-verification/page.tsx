@@ -33,7 +33,7 @@ export default function TestBankVerificationPage() {
     accountNumber: "",
     routingNumber: "",
     bankName: "",
-    accountType: "checking" as const,
+    accountType: "checking" as "checking" | "savings",
   })
 
   const predefinedTests: Omit<BankVerificationTest, "id" | "status" | "result">[] = [

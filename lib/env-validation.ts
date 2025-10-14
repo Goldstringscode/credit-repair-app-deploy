@@ -402,30 +402,44 @@ ENABLE_AUDIT_LOGGING=true
   }
 }
 
-// Create singleton instance
-export const envValidator = new EnvironmentValidator()
+// Create singleton instance with lazy initialization
+let _envValidator: EnvironmentValidator | null = null
+
+function getEnvValidator(): EnvironmentValidator {
+  if (!_envValidator) {
+    _envValidator = new EnvironmentValidator()
+  }
+  return _envValidator
+}
 
 // Export convenience functions
 export function getEnvConfig(): EnvConfig {
-  return envValidator.getConfig()
+  return getEnvValidator().getConfig()
 }
 
 export function isProduction(): boolean {
-  return envValidator.isProduction()
+  return getEnvValidator().isProduction()
 }
 
 export function isDevelopment(): boolean {
-  return envValidator.isDevelopment()
+  return getEnvValidator().isDevelopment()
 }
 
 export function isTest(): boolean {
-  return envValidator.isTest()
+  return getEnvValidator().isTest()
 }
 
 export function isFeatureEnabled(feature: 'ai_analysis' | 'superior_parser' | 'notifications' | 'audit_logging'): boolean {
-  return envValidator.isFeatureEnabled(feature)
+  return getEnvValidator().isFeatureEnabled(feature)
 }
 
-// Export the validator instance
+// Export the validator instance getter
+export const envValidator = {
+  get instance() {
+    return getEnvValidator()
+  }
+}
+
+// Export the validator instance getter as default
 export default envValidator
 

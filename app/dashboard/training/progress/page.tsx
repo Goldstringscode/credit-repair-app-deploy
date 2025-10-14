@@ -59,7 +59,7 @@ export default function ProgressPage() {
       
       const [statsData, achievementsData, certificatesData] = await Promise.all([
         trainingService.getUserTrainingStats(userId),
-        trainingService.getUserAchievements(userId),
+        (trainingService as any).getUserAchievements?.(userId) || Promise.resolve([]),
         trainingService.getUserCertificates(userId)
       ])
 

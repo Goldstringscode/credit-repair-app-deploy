@@ -3,10 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 import { notificationService } from '@/lib/notification-service';
 import crypto from 'crypto';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabaseClient() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Missing Supabase environment variables')
+  }
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+}
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -65,7 +67,6 @@ export async function POST(request: NextRequest) {
     console.log(`✅ [${webhookId}] Webhook processed successfully in ${processingTime}ms`);
     
     return NextResponse.json({ 
-      success: true, 
       webhookId,
       processingTime: `${processingTime}ms`,
       ...result 
@@ -95,6 +96,7 @@ async function handleLabelCreated(data: any, webhookId: string) {
   
   try {
     // Update the mail record with label information
+    const supabase = getSupabaseClient()
     const { error } = await supabase
       .from('certified_mail_tracking')
       .update({
@@ -139,6 +141,7 @@ async function handleTrackingUpdate(data: any, webhookId: string) {
 
   try {
     // Update the mail record status
+    const supabase = getSupabaseClient()
     const { error } = await supabase
       .from('certified_mail_tracking')
       .update({
@@ -181,6 +184,7 @@ async function handleDelivery(data: any, webhookId: string) {
 
   try {
     // Update the mail record
+    const supabase = getSupabaseClient()
     const { error } = await supabase
       .from('certified_mail_tracking')
       .update({
@@ -225,6 +229,7 @@ async function handleException(data: any, webhookId: string) {
 
   try {
     // Update the mail record
+    const supabase = getSupabaseClient()
     const { error } = await supabase
       .from('certified_mail_tracking')
       .update({
@@ -264,6 +269,7 @@ async function handleReturnToSender(data: any, webhookId: string) {
 
   try {
     // Update the mail record
+    const supabase = getSupabaseClient()
     const { error } = await supabase
       .from('certified_mail_tracking')
       .update({
@@ -298,6 +304,7 @@ async function handleReturnToSender(data: any, webhookId: string) {
 async function createMailEvent(trackingNumber: string, eventType: string, description: string, location: string, webhookId: string) {
   try {
     // First get the tracking ID
+    const supabase = getSupabaseClient()
     const { data: mailRecord } = await supabase
       .from('certified_mail_tracking')
       .select('id')
@@ -334,6 +341,7 @@ async function createMailEvent(trackingNumber: string, eventType: string, descri
 async function sendTrackingNotification(trackingNumber: string, status: string, location: any, webhookId: string) {
   try {
     // Get the mail record with user info
+    const supabase = getSupabaseClient()
     const { data: mailRecord } = await supabase
       .from('certified_mail_tracking')
       .select(`
@@ -371,6 +379,7 @@ async function sendTrackingNotification(trackingNumber: string, status: string, 
 async function sendDeliveryNotification(trackingNumber: string, webhookId: string) {
   try {
     // Get the mail record with user info
+    const supabase = getSupabaseClient()
     const { data: mailRecord } = await supabase
       .from('certified_mail_tracking')
       .select(`

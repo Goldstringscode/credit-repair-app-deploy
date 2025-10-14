@@ -18,6 +18,7 @@ import {
   Share2,
   BarChart3,
   Calendar,
+  XCircle,
   Mail,
   Phone,
   MapPin,

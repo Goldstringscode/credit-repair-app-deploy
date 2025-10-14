@@ -28,7 +28,8 @@ export const isSupabaseAvailable = () => {
 // Helper function to create a client with error handling
 export const createSupabaseClient = () => {
   if (!isSupabaseAvailable()) {
-    throw new Error('Supabase is not configured. Please check your environment variables.')
+    console.log('Supabase is not configured. Returning null.')
+    return null
   }
   return supabase
 }

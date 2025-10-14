@@ -115,7 +115,7 @@ class CertifiedMailServiceShipEngine {
    * Get available pricing tiers
    */
   getPricingTiers(): Record<string, PricingTier> {
-    return shipEngineService.getPricingTiers();
+    return shipEngineService.instance.getPricingTiers();
   }
 
   /**
@@ -140,7 +140,7 @@ class CertifiedMailServiceShipEngine {
       additionalServices: request.additionalServices,
     };
 
-    return shipEngineService.calculateCost(shipEngineRequest);
+    return shipEngineService.instance.calculateCost(shipEngineRequest);
   }
 
   /**
@@ -150,8 +150,8 @@ class CertifiedMailServiceShipEngine {
     try {
       // 1. Validate addresses (simplified for testing)
       console.log('Validating addresses...');
-      const recipientValidation = await shipEngineService.validateAddress(request.recipient.address);
-      const senderValidation = await shipEngineService.validateAddress(request.sender.address);
+      const recipientValidation = await shipEngineService.instance.validateAddress(request.recipient.address);
+      const senderValidation = await shipEngineService.instance.validateAddress(request.sender.address);
 
       console.log('Recipient validation:', recipientValidation);
       console.log('Sender validation:', senderValidation);
@@ -255,7 +255,7 @@ class CertifiedMailServiceShipEngine {
         additionalServices: JSON.parse(mailRecord.additional_services || '{}'),
       };
 
-      const labelResponse = await shipEngineService.createCertifiedMail(shipEngineRequest);
+      const labelResponse = await shipEngineService.instance.createCertifiedMail(shipEngineRequest);
 
       // 5. Update with ShipEngine tracking info
       await this.updateMailRecord(trackingId, {
@@ -311,7 +311,7 @@ class CertifiedMailServiceShipEngine {
       // If we have a ShipEngine tracking number, get real-time tracking
       if (mailRecord.shipengine_tracking_id) {
         try {
-          const shipEngineTracking = await shipEngineService.getTrackingInfo(mailRecord.shipengine_tracking_id);
+          const shipEngineTracking = await shipEngineService.instance.getTrackingInfo(mailRecord.shipengine_tracking_id);
 
           // Update status based on ShipEngine tracking
           if (shipEngineTracking.status !== mailRecord.status) {
@@ -415,7 +415,7 @@ class CertifiedMailServiceShipEngine {
     estimatedDelivery: string;
   }[]> {
     try {
-      return await shipEngineService.getServiceRates(fromAddress, toAddress);
+      return await shipEngineService.instance.getServiceRates(fromAddress, toAddress);
     } catch (error) {
       console.error('Error getting service rates:', error);
       return [];
@@ -591,8 +591,17 @@ class CertifiedMailServiceShipEngine {
   }
 }
 
-// Export singleton instance
-export const certifiedMailService = new CertifiedMailServiceShipEngine();
+// Export singleton instance with lazy initialization
+let _certifiedMailService: CertifiedMailServiceShipEngine | null = null
+
+export const certifiedMailService = {
+  get instance() {
+    if (!_certifiedMailService) {
+      _certifiedMailService = new CertifiedMailServiceShipEngine()
+    }
+    return _certifiedMailService
+  }
+}
 
 // Export types
 export type {

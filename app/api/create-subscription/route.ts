@@ -1,15 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
-import Stripe from "stripe"
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-08-27.basil",
-})
+import { getStripeClient } from "@/lib/stripe-client"
 
 export async function POST(request: NextRequest) {
   try {
     const { paymentIntentId, customerInfo, planId, priceId } = await request.json()
 
     // Retrieve the payment intent to get the customer and payment method
+    const stripe = getStripeClient()
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
 
     if (!paymentIntent.customer || !paymentIntent.payment_method) {

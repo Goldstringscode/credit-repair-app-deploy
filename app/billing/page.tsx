@@ -36,8 +36,8 @@ export default function BillingPage() {
 }
 
 function BillingContent() {
-  const [currentPlan, setCurrentPlan] = useState(null)
-  const [subscription, setSubscription] = useState(null)
+  const [currentPlan, setCurrentPlan] = useState<any>(null)
+  const [subscription, setSubscription] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

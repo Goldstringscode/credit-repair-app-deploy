@@ -390,7 +390,7 @@ class CreditReportAnalyzer {
       // Pattern 2: CREDITOR NAME ****1234 $1,000
       {
         regex: /([A-Z][A-Z\s&\-.,']{4,50})\s+(?:\*{4,}|X{4,})(\d{4})\s+\$?([\d,]+\.?\d*)/gi,
-        extract: (match) => ({
+        extract: (match: RegExpMatchArray) => ({
           creditor_name: this.cleanCreditorName(match[1]),
           account_number_last_4: match[2],
           balance: safeParseNumber(match[3]),
@@ -401,7 +401,7 @@ class CreditReportAnalyzer {
       // Pattern 3: Account ending in 1234
       {
         regex: /([A-Z][A-Z\s&\-.,']{4,50})\s+.*?ending\s+in\s+(\d{4})\s+.*?Balance[:\s]*\$?([\d,]+\.?\d*)/gi,
-        extract: (match) => ({
+        extract: (match: RegExpMatchArray) => ({
           creditor_name: this.cleanCreditorName(match[1]),
           account_number_last_4: match[2],
           balance: safeParseNumber(match[3]),
@@ -465,7 +465,9 @@ class CreditReportAnalyzer {
     const accountNumberMatch = line.match(/(?:\*{4,}|X{4,})(\d{4})|ending\s+in\s+(\d{4})|\b(\d{4})\b/gi)
     if (!accountNumberMatch) return null
 
-    const accountLast4 = accountNumberMatch[0].match(/(\d{4})/)[1]
+    const accountLast4Match = accountNumberMatch[0].match(/(\d{4})/)
+    if (!accountLast4Match) return null
+    const accountLast4 = accountLast4Match[1]
 
     // Look for creditor name (usually at the beginning of the line)
     const creditorMatch = line.match(/^([A-Z][A-Z\s&\-.,']{3,50})/)

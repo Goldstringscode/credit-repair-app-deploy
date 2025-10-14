@@ -12,7 +12,7 @@ export function getDatabaseService(): DatabaseService {
   console.log(`🗄️ Database: Using ${useProductionDB ? 'production' : 'development'} database (${dbType})`)
 
   if (useProductionDB || dbType === 'postgres') {
-    return postgresDatabase
+    return postgresDatabase.instance
   }
 
   return mockDatabase

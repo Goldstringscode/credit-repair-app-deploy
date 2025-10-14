@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { useCourse } from "@/lib/course-context"
+// import { useCourse } from "@/lib/course-context"
 import {
   Trophy,
   Star,
@@ -95,7 +95,15 @@ const rarityStyles = {
 }
 
 export default function BadgesPage() {
-  const { getAllProgress } = useCourse()
+  // Mock course progress for static generation
+  const getAllProgress = () => ({
+    'course-1': {
+      overallProgress: 0,
+      completedLessons: [],
+      currentLesson: 0,
+      totalLessons: 10
+    }
+  })
   const [badges, setBadges] = useState<BadgeItem[]>([])
   const [filteredBadges, setFilteredBadges] = useState<BadgeItem[]>([])
   const [searchTerm, setSearchTerm] = useState("")

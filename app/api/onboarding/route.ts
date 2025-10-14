@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { getSupabaseClient } from "@/lib/supabase-client"
 import jwt from "jsonwebtoken"
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 function verifyToken(request: NextRequest) {
   const token = request.cookies.get("auth-token")?.value
@@ -28,6 +26,7 @@ export async function POST(request: NextRequest) {
     const onboardingData = await request.json()
 
     // Update user profile with onboarding data
+    const supabase = getSupabaseClient()
     const { error: updateError } = await supabase
       .from("users")
       .update({

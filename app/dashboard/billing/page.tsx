@@ -340,7 +340,7 @@ export default function BillingDashboard() {
             onPlanChange={handlePlanChange}
             onCancel={handleCancelSubscription}
             onReactivate={handleReactivateSubscription}
-            subscription={subscription}
+            subscription={subscription || undefined}
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

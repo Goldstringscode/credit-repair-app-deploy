@@ -1,12 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
-import Stripe from "stripe"
-import { createClient } from "@supabase/supabase-js"
+import { getStripeClient } from "@/lib/stripe-client"
+import { getSupabaseClient } from "@/lib/supabase-client"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
+function getWebhookSecret() {
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    throw new Error('STRIPE_WEBHOOK_SECRET environment variable is required')
+  }
+  return process.env.STRIPE_WEBHOOK_SECRET
+}
 
 export async function POST(request: NextRequest) {
     const body = await request.text()
@@ -15,6 +16,8 @@ export async function POST(request: NextRequest) {
   let event: Stripe.Event
 
   try {
+    const stripe = getStripeClient()
+    const webhookSecret = getWebhookSecret()
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
   } catch (err) {
     console.error("Webhook signature verification failed:", err)
@@ -63,6 +66,7 @@ async function handleMLMPaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
   console.log(`MLM Payment succeeded for user ${userId}, plan: ${planType}`)
 
   // Update MLM user status
+  const supabase = getSupabaseClient()
   await supabase
     .from("mlm_users")
     .update({ 
@@ -93,6 +97,7 @@ async function handleMLMPaymentFailed(paymentIntent: Stripe.PaymentIntent) {
   console.log(`MLM Payment failed for user ${userId}, plan: ${planType}`)
 
   // Update MLM user status
+  const supabase = getSupabaseClient()
   await supabase
     .from("mlm_users")
     .update({ 
@@ -125,6 +130,7 @@ async function handleMLMInvoicePaymentSuccess(invoice: Stripe.Invoice) {
   console.log(`MLM Invoice payment succeeded for user ${userId}`)
 
   // Update MLM user status
+  const supabase = getSupabaseClient()
   await supabase
     .from("mlm_users")
     .update({ 
@@ -157,6 +163,7 @@ async function handleMLMInvoicePaymentFailed(invoice: Stripe.Invoice) {
   console.log(`MLM Invoice payment failed for user ${userId}`)
 
   // Update MLM user status
+  const supabase = getSupabaseClient()
   await supabase
     .from("mlm_users")
     .update({ 
@@ -187,6 +194,7 @@ async function handleMLMSubscriptionCreated(subscription: Stripe.Subscription) {
   console.log(`MLM Subscription created for user ${userId}`)
 
   // Update MLM user with subscription details
+  const supabase = getSupabaseClient()
   await supabase
     .from("mlm_users")
     .update({
@@ -206,6 +214,7 @@ async function handleMLMSubscriptionUpdated(subscription: Stripe.Subscription) {
   console.log(`MLM Subscription updated for user ${userId}`)
 
   // Update MLM user subscription status
+  const supabase = getSupabaseClient()
   await supabase
     .from("mlm_users")
     .update({
@@ -225,6 +234,7 @@ async function handleMLMSubscriptionDeleted(subscription: Stripe.Subscription) {
   console.log(`MLM Subscription deleted for user ${userId}`)
 
   // Update MLM user status
+  const supabase = getSupabaseClient()
   await supabase
     .from("mlm_users")
     .update({

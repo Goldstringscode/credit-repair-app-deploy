@@ -154,9 +154,9 @@ export function NotesDashboard() {
 
         const stats: NotesStats = {
           totalNotes: allNotes.length,
-          totalBookmarks: allNotes.filter(note => note.is_bookmarked).length,
-          notesThisWeek: allNotes.filter(note => new Date(note.created_at) >= weekAgo).length,
-          notesThisMonth: allNotes.filter(note => new Date(note.created_at) >= monthAgo).length,
+          totalBookmarks: allNotes.filter((note: any) => note.is_bookmarked).length,
+          notesThisWeek: allNotes.filter((note: any) => new Date(note.created_at) >= weekAgo).length,
+          notesThisMonth: allNotes.filter((note: any) => new Date(note.created_at) >= monthAgo).length,
           mostUsedTags: calculateMostUsedTags(allNotes)
         }
         
@@ -169,8 +169,8 @@ export function NotesDashboard() {
 
   const calculateMostUsedTags = (notes: Note[]) => {
     const tagCounts: { [key: string]: number } = {}
-    notes.forEach(note => {
-      note.tags?.forEach(tag => {
+    notes.forEach((note: any) => {
+      note.tags?.forEach((tag: any) => {
         tagCounts[tag] = (tagCounts[tag] || 0) + 1
       })
     })
@@ -186,28 +186,28 @@ export function NotesDashboard() {
 
     // Apply search filter
     if (searchTerm) {
-      filtered = filtered.filter(note =>
+      filtered = filtered.filter((note: any) =>
         note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         note.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        note.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+        note.tags.some((tag: any) => tag.toLowerCase().includes(searchTerm.toLowerCase()))
       )
     }
 
     // Apply tag filter
     if (selectedTags.length > 0) {
-      filtered = filtered.filter(note =>
-        selectedTags.some(tag => note.tags.includes(tag))
+      filtered = filtered.filter((note: any) =>
+        selectedTags.some((tag: any) => note.tags.includes(tag))
       )
     }
 
     // Apply course filter
     if (selectedCourse && selectedCourse !== "all") {
-      filtered = filtered.filter(note => note.course_id === selectedCourse)
+      filtered = filtered.filter((note: any) => note.course_id === selectedCourse)
     }
 
     // Apply bookmarked filter
     if (showBookmarkedOnly) {
-      filtered = filtered.filter(note => note.is_bookmarked)
+      filtered = filtered.filter((note: any) => note.is_bookmarked)
     }
 
     // Apply sorting
@@ -237,7 +237,7 @@ export function NotesDashboard() {
         })
 
         if (response.ok) {
-          setNotes(prev => prev.filter(note => note.id !== noteId))
+          setNotes(prev => prev.filter((note: any) => note.id !== noteId))
           toast.success("Note deleted successfully!")
         } else {
           throw new Error('Failed to delete note')
@@ -250,7 +250,7 @@ export function NotesDashboard() {
   }
 
   const handleExportNotes = (notesToExport: Note[] = filteredNotes, filename?: string) => {
-    const notesText = notesToExport.map(note => 
+    const notesText = notesToExport.map((note: any) => 
       `# ${note.title}\n\n${note.content}\n\nCourse: ${note.course_title || 'Unknown Course'}\nLesson: ${note.lesson_title || 'Unknown Lesson'}\nTimestamp: ${note.video_timestamp ? formatTimestamp(note.video_timestamp) : 'N/A'}\nTags: ${note.tags.join(', ')}\nCreated: ${new Date(note.created_at).toLocaleDateString()}\n\n---\n`
     ).join('\n')
     
@@ -272,7 +272,7 @@ export function NotesDashboard() {
   }
 
   const handleExportSelectedNotes = () => {
-    const selectedNotesData = filteredNotes.filter(note => selectedNotes.includes(note.id))
+    const selectedNotesData = filteredNotes.filter((note: any) => selectedNotes.includes(note.id))
     if (selectedNotesData.length === 0) {
       toast.error("Please select notes to export")
       return
@@ -285,7 +285,7 @@ export function NotesDashboard() {
     if (selectedNotes.length === filteredNotes.length) {
       setSelectedNotes([])
     } else {
-      setSelectedNotes(filteredNotes.map(note => note.id))
+      setSelectedNotes(filteredNotes.map((note: any) => note.id))
     }
   }
 
@@ -323,8 +323,8 @@ export function NotesDashboard() {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  const allTags = Array.from(new Set(notes.flatMap(note => note.tags)))
-  const allCourses = Array.from(new Set(notes.map(note => note.course_id)))
+  const allTags = Array.from(new Set(notes.flatMap((note: any) => note.tags)))
+  const allCourses = Array.from(new Set(notes.map((note: any) => note.course_id)))
 
   if (isLoading) {
     return (
@@ -560,7 +560,7 @@ export function NotesDashboard() {
             Notes ({mounted ? filteredNotes.length : '...'})
           </h2>
           {filteredNotes.length > 0 && (
-            <Button variant="outline" size="sm" onClick={handleExportNotes}>
+            <Button variant="outline" size="sm" onClick={() => handleExportNotes()}>
               <Download className="h-4 w-4 mr-2" />
               Export Filtered
             </Button>
@@ -576,7 +576,7 @@ export function NotesDashboard() {
             </CardContent>
           </Card>
         ) : (
-          filteredNotes.map(note => (
+          filteredNotes.map((note: any) => (
             <Card key={note.id} className="hover:shadow-md transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
@@ -651,7 +651,7 @@ export function NotesDashboard() {
                 <p className="text-gray-700 mb-3 line-clamp-3">{note.content}</p>
                 {note.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1">
-                    {note.tags.map(tag => (
+                    {note.tags.map((tag: any) => (
                       <Badge key={tag} variant="outline" className="text-xs">
                         <Tag className="h-3 w-3 mr-1" />
                         {tag}

@@ -2,7 +2,12 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import jwt from "jsonwebtoken"
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+function getSupabaseClient() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Missing Supabase environment variables')
+  }
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,6 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find user with this verification token
+    const supabase = getSupabaseClient()
     const { data: user, error: findError } = await supabase
       .from("users")
       .select("*")
@@ -92,6 +98,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Find user with this verification token
+    const supabase = getSupabaseClient()
     const { data: user, error: findError } = await supabase
       .from("users")
       .select("*")

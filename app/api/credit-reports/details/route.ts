@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
 
-const sql = neon(process.env.NEON_DATABASE_URL!)
+function getNeonClient() {
+  if (!process.env.NEON_DATABASE_URL) {
+    throw new Error('NEON_DATABASE_URL environment variable is required')
+  }
+  return neon(process.env.NEON_DATABASE_URL)
+}
 
 export async function GET() {
   try {
+    const sql = getNeonClient()
     // Fetch credit reports
     const reports = await sql`
       SELECT id, bureau, credit_score, report_date, file_name, ai_analysis

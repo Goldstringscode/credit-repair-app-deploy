@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-// Create client with service role key to bypass RLS
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { getSupabaseClient } from '@/lib/supabase-client'
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,6 +15,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    const supabase = getSupabaseClient()
     let query = supabase
       .from('lesson_notes')
       .select('*')
@@ -129,6 +124,7 @@ export async function POST(request: NextRequest) {
     console.log('📊 Attempting to insert note data:', noteData)
     console.log('🔌 Supabase client created, attempting database operation...')
 
+    const supabase = getSupabaseClient()
     const { data: note, error } = await supabase
       .from('lesson_notes')
       .insert([noteData])
@@ -190,6 +186,7 @@ export async function PUT(request: NextRequest) {
       }
     })
 
+    const supabase = getSupabaseClient()
     const { data: note, error } = await supabase
       .from('lesson_notes')
       .update(filteredUpdates)
@@ -227,6 +224,7 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
+    const supabase = getSupabaseClient()
     const { error } = await supabase
       .from('lesson_notes')
       .delete()
@@ -290,6 +288,7 @@ export async function PATCH(request: NextRequest) {
       }
 
       // Get all notes that need migration (missing course_title or lesson_title)
+      const supabase = getSupabaseClient()
       const { data: notesToMigrate, error: fetchError } = await supabase
         .from('lesson_notes')
         .select('*')

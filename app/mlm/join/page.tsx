@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,7 +18,7 @@ interface TeamInfo {
   teamRank: string
 }
 
-export default function MLMJoinPage() {
+function MLMJoinPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -396,5 +396,13 @@ export default function MLMJoinPage() {
         {step === 'success' && renderSuccessStep()}
       </div>
     </div>
+  )
+}
+
+export default function MLMJoinPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>}>
+      <MLMJoinPageContent />
+    </Suspense>
   )
 }

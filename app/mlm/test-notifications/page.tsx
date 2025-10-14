@@ -54,6 +54,7 @@ export default function TestMLMNotificationsPage() {
         type: testForm.type as any,
         priority: testForm.priority as any,
         category: testForm.category,
+        read: false,
         actions: [
           {
             label: "View Details",

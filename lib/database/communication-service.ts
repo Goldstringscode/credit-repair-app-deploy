@@ -1,10 +1,5 @@
 // lib/database/communication-service.ts
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseClient } from '@/lib/supabase-client';
 
 export interface Message {
   id: string;
@@ -36,6 +31,7 @@ export interface Channel {
 export class CommunicationService {
   // Messages
   async getMessages(channelId: string, limit = 50, offset = 0): Promise<Message[]> {
+    const supabase = getSupabaseClient()
     const { data, error } = await supabase
       .from('messages')
       .select('*')
@@ -236,5 +232,16 @@ export class CommunicationService {
   }
 }
 
-export const communicationService = new CommunicationService();
+// Export singleton instance with lazy initialization
+let _communicationService: CommunicationService | null = null
+
+export const communicationService = {
+  get instance() {
+    if (!_communicationService) {
+      _communicationService = new CommunicationService()
+    }
+    return _communicationService
+  }
+}
+
 export const communicationDatabaseService = communicationService;

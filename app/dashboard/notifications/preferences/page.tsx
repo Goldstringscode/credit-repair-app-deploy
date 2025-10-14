@@ -157,7 +157,8 @@ export default function NotificationPreferencesPage() {
           message: "Your notification preferences have been updated successfully",
           type: "success",
           priority: "medium",
-          category: "system"
+          category: "system",
+          read: false
         })
         setHasChanges(false)
       } else {
@@ -166,7 +167,8 @@ export default function NotificationPreferencesPage() {
           message: data.error || "Failed to save preferences",
           type: "error",
           priority: "high",
-          category: "system"
+          category: "system",
+          read: false
         })
       }
     } catch (error) {
@@ -176,7 +178,8 @@ export default function NotificationPreferencesPage() {
         message: "An error occurred while saving your preferences",
         type: "error",
         priority: "high",
-        category: "system"
+        category: "system",
+        read: false
       })
     } finally {
       setIsSaving(false)
@@ -207,7 +210,8 @@ export default function NotificationPreferencesPage() {
           message: "Your notification preferences have been reset to defaults",
           type: "success",
           priority: "medium",
-          category: "system"
+          category: "system",
+          read: false
         })
       }
     } catch (error) {
@@ -498,7 +502,6 @@ export default function NotificationPreferencesPage() {
                               <Switch
                                 checked={settings.sound}
                                 onCheckedChange={(checked) => updateCategoryPreference(category, 'sound', checked)}
-                                size="sm"
                               />
                               <Label className="text-sm">Sound</Label>
                             </div>
@@ -506,7 +509,6 @@ export default function NotificationPreferencesPage() {
                               <Switch
                                 checked={settings.push}
                                 onCheckedChange={(checked) => updateCategoryPreference(category, 'push', checked)}
-                                size="sm"
                               />
                               <Label className="text-sm">Push</Label>
                             </div>
@@ -514,7 +516,6 @@ export default function NotificationPreferencesPage() {
                               <Switch
                                 checked={settings.email}
                                 onCheckedChange={(checked) => updateCategoryPreference(category, 'email', checked)}
-                                size="sm"
                               />
                               <Label className="text-sm">Email</Label>
                             </div>
@@ -522,7 +523,6 @@ export default function NotificationPreferencesPage() {
                               <Switch
                                 checked={settings.sms}
                                 onCheckedChange={(checked) => updateCategoryPreference(category, 'sms', checked)}
-                                size="sm"
                               />
                               <Label className="text-sm">SMS</Label>
                             </div>
@@ -593,7 +593,6 @@ export default function NotificationPreferencesPage() {
                               <Switch
                                 checked={enabled}
                                 onCheckedChange={(checked) => updateSoundCategory(category, checked)}
-                                size="sm"
                               />
                             </div>
                           ))}
@@ -680,7 +679,6 @@ export default function NotificationPreferencesPage() {
                             <Switch
                               checked={enabled}
                               onCheckedChange={(checked) => updatePushCategory(category, checked)}
-                              size="sm"
                             />
                           </div>
                         ))}
@@ -744,7 +742,6 @@ export default function NotificationPreferencesPage() {
                               <Switch
                                 checked={enabled}
                                 onCheckedChange={(checked) => updateEmailCategory(category, checked)}
-                                size="sm"
                               />
                             </div>
                           ))}
@@ -803,7 +800,6 @@ export default function NotificationPreferencesPage() {
                               <Switch
                                 checked={enabled}
                                 onCheckedChange={(checked) => updateSmsCategory(category, checked)}
-                                size="sm"
                               />
                             </div>
                           ))}

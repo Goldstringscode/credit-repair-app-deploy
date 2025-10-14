@@ -43,7 +43,7 @@ export const POST = withRateLimit(
         : pendingCommissions.map(c => c.id)
 
       // Process payout with Stripe
-      const payout = await mlmStripeService.processCommissionPayout({
+          const payout = await mlmStripeService.instance.processCommissionPayout({
         userId: targetUserId,
         amount: totalAmount,
         currency: 'USD',
@@ -158,7 +158,7 @@ async function processUserPayout(userId: string): Promise<any> {
 
   const totalAmount = pendingCommissions.reduce((sum, c) => sum + c.amount, 0)
   
-  return await mlmStripeService.processCommissionPayout({
+  return await mlmStripeService.instance.processCommissionPayout({
     userId,
     amount: totalAmount,
     currency: 'USD',

@@ -33,7 +33,7 @@ export default function AttorneyReviewPage() {
   const [reviewData, setReviewData] = useState({
     caseType: "",
     urgency: "standard",
-    documents: [],
+    documents: [] as Array<{ name: string; size: number; type: string }>,
     caseDescription: "",
     legalQuestions: "",
     desiredOutcome: "",
@@ -135,8 +135,8 @@ export default function AttorneyReviewPage() {
 
   const progressPercentage = (currentStep / 4) * 100
 
-  const handleFileUpload = (event) => {
-    const files = Array.from(event.target.files)
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
     setReviewData({
       ...reviewData,
       documents: [

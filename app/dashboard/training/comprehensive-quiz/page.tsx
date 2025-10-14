@@ -285,7 +285,8 @@ export default function ComprehensiveQuizPage() {
       message: `You scored ${Math.round(percentage)}% on "Comprehensive Credit Knowledge Quiz"${passed ? " - Great job!" : " - Keep studying!"}`,
       type: passed ? "success" : "info",
       priority: "medium",
-      category: "training"
+      category: "training",
+      read: false
     }).catch(error => {
       console.error('Failed to send quiz completion notification:', error)
     })

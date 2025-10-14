@@ -524,6 +524,8 @@ export default function AdvancedDisputesCoursePage() {
                         courseId="advanced-disputes"
                         initialProgress={0}
                         isCompleted={mounted ? getLessonCompletionStatus(`lesson-${currentLesson}`) : false}
+                        onProgressUpdate={() => {}}
+                        onComplete={() => {}}
                       />
 
                       {/* Completion Action Buttons */}

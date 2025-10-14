@@ -161,8 +161,7 @@ export default function TestDiagnosticPage() {
         const newTemplate = await createTemplate({
           name: "Diagnostic Test Template",
           subject: "Diagnostic Test Email Subject",
-          category: "diagnostic",
-          content: "<h1>Diagnostic Test Email</h1><p>This is a diagnostic test email template.</p>",
+          category: "transactional",
           tags: ["diagnostic", "test"]
         })
         const duration3 = Date.now() - startTime3
@@ -227,7 +226,7 @@ export default function TestDiagnosticPage() {
           conversionRate: 0,
           createdAt: new Date().toISOString().split('T')[0],
           template: "diagnostic-test-template",
-          category: "diagnostic"
+          category: "transactional"
         })
         const duration5 = Date.now() - startTime5
         addDiagnosticResult("Campaign Creation", "success", `Campaign created: ${newCampaign.name}`, newCampaign, "campaign", [], "Campaign creation is working", duration5)

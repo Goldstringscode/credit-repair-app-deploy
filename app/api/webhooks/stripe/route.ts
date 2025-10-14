@@ -2,11 +2,26 @@ import { type NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+function getStripeClient() {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error('STRIPE_SECRET_KEY environment variable is required')
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY)
+}
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+function getSupabaseClient() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Missing Supabase environment variables')
+  }
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+}
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
+function getWebhookSecret() {
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    throw new Error('STRIPE_WEBHOOK_SECRET environment variable is required')
+  }
+  return process.env.STRIPE_WEBHOOK_SECRET
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,6 +31,8 @@ export async function POST(request: NextRequest) {
     let event: Stripe.Event
 
     try {
+      const stripe = getStripeClient()
+      const webhookSecret = getWebhookSecret()
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
     } catch (err) {
       console.error("Webhook signature verification failed:", err)
@@ -74,6 +91,7 @@ async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
     }
 
     // Record payment in database
+    const supabase = getSupabaseClient()
     await supabase.from("payments").insert({
       user_id: userId,
       stripe_payment_intent_id: paymentIntent.id,
@@ -109,6 +127,7 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
     }
 
     // Record failed payment
+    const supabase = getSupabaseClient()
     await supabase.from("payments").insert({
       user_id: userId,
       stripe_payment_intent_id: paymentIntent.id,
@@ -129,6 +148,7 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
     const customerId = subscription.customer as string
 
     // Get user by Stripe customer ID
+    const supabase = getSupabaseClient()
     const { data: user } = await supabase.from("users").select("id").eq("stripe_customer_id", customerId).single()
 
     if (!user) {
@@ -142,8 +162,8 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
       stripe_subscription_id: subscription.id,
       status: subscription.status,
       plan_type: subscription.items.data[0]?.price?.metadata?.planType || "basic",
-      current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      current_period_start: (subscription as any).current_period_start ? new Date((subscription as any).current_period_start * 1000).toISOString() : null,
+      current_period_end: (subscription as any).current_period_end ? new Date((subscription as any).current_period_end * 1000).toISOString() : null,
       cancel_at_period_end: subscription.cancel_at_period_end,
     })
 
@@ -156,12 +176,13 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   try {
     // Update subscription record
+    const supabase = getSupabaseClient()
     await supabase
       .from("subscriptions")
       .update({
         status: subscription.status,
-        current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+        current_period_start: (subscription as any).current_period_start ? new Date((subscription as any).current_period_start * 1000).toISOString() : null,
+        current_period_end: (subscription as any).current_period_end ? new Date((subscription as any).current_period_end * 1000).toISOString() : null,
         cancel_at_period_end: subscription.cancel_at_period_end,
         updated_at: new Date().toISOString(),
       })
@@ -178,6 +199,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     const customerId = subscription.customer as string
 
     // Get user by Stripe customer ID
+    const supabase = getSupabaseClient()
     const { data: user } = await supabase.from("users").select("id").eq("stripe_customer_id", customerId).single()
 
     if (!user) {

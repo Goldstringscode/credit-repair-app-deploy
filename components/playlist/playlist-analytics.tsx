@@ -318,7 +318,7 @@ export function PlaylistAnalyticsComponent({ playlist }: PlaylistAnalyticsProps)
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {analytics.dropOffPoints.map((point, index) => {
+                  {analytics.dropOffPoints.map((point: any, index: number) => {
                     const video = playlist.videos.find((v) => v.id === point.videoId)
                     return (
                       <div key={point.videoId} className="space-y-2">
@@ -374,7 +374,7 @@ export function PlaylistAnalyticsComponent({ playlist }: PlaylistAnalyticsProps)
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {analytics.popularVideos.map((videoData, index) => {
+                {analytics.popularVideos.map((videoData: any, index: number) => {
                   const video = playlist.videos.find((v) => v.id === videoData.videoId)
                   return (
                     <div
@@ -420,7 +420,7 @@ export function PlaylistAnalyticsComponent({ playlist }: PlaylistAnalyticsProps)
             <CardContent>
               <ScrollArea className="h-96">
                 <div className="space-y-4">
-                  {analytics.userFeedback.map((feedback, index) => (
+                  {analytics.userFeedback.map((feedback: any, index: number) => (
                     <div key={index} className="p-4 border rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">

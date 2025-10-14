@@ -110,7 +110,8 @@ export default function PushNotificationPage() {
           message: "Check your device for the test push notification",
           type: "success",
           priority: "medium",
-          category: "system"
+          category: "system",
+          read: false
         })
       } else {
         addNotification({
@@ -118,7 +119,8 @@ export default function PushNotificationPage() {
           message: result.error || "Failed to send test notification",
           type: "error",
           priority: "high",
-          category: "system"
+          category: "system",
+          read: false
         })
       }
     } catch (error) {
@@ -128,7 +130,8 @@ export default function PushNotificationPage() {
         message: "An error occurred while testing the notification",
         type: "error",
         priority: "high",
-        category: "system"
+        category: "system",
+        read: false
       })
     } finally {
       setIsTesting(false)
@@ -163,7 +166,8 @@ export default function PushNotificationPage() {
           message: "Your custom push notification has been sent",
           type: "success",
           priority: "medium",
-          category: "system"
+          category: "system",
+          read: false
         })
       } else {
         addNotification({
@@ -171,7 +175,8 @@ export default function PushNotificationPage() {
           message: result.error || "Failed to send custom notification",
           type: "error",
           priority: "high",
-          category: "system"
+          category: "system",
+          read: false
         })
       }
     } catch (error) {
@@ -181,7 +186,8 @@ export default function PushNotificationPage() {
         message: "An error occurred while sending the notification",
         type: "error",
         priority: "high",
-        category: "system"
+        category: "system",
+        read: false
       })
     } finally {
       setIsTesting(false)
@@ -220,7 +226,8 @@ export default function PushNotificationPage() {
           message: "Push notification settings have been updated",
           type: "success",
           priority: "medium",
-          category: "system"
+          category: "system",
+          read: false
         })
       }
     } catch (error) {
