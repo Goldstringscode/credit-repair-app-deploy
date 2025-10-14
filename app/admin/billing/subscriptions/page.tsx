@@ -56,6 +56,7 @@ export default function AdminSubscriptionManagement() {
   const [selectedTab, setSelectedTab] = useState("all")
   const [loading, setLoading] = useState(true)
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
+  const [filteredSubscriptions, setFilteredSubscriptions] = useState<Subscription[]>([])
   const [statusCounts, setStatusCounts] = useState({
     all: 0,
     active: 0,
