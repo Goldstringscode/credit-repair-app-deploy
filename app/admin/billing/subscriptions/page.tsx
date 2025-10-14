@@ -106,6 +106,7 @@ export default function AdminSubscriptionManagement() {
       
       if (response.success) {
         setSubscriptions(response.data.subscriptions)
+        setFilteredSubscriptions(response.data.subscriptions) // Initialize filtered subscriptions
         setStatusCounts(response.data.statusCounts)
         setMetrics(response.data.metrics)
       } else {
@@ -419,11 +420,84 @@ export default function AdminSubscriptionManagement() {
     applyAdvancedFilters(filters)
   }
 
+  const handleClearFilters = () => {
+    console.log('Clearing all filters')
+    setAdvancedFilters(null)
+    setFilteredSubscriptions(subscriptions)
+  }
+
   const applyAdvancedFilters = (filters: any) => {
-    // This would integrate with the API to apply server-side filtering
-    // For now, we'll apply client-side filtering
     console.log('Applying filters:', filters)
-    // The actual filtering logic would be implemented here
+    
+    let filtered = [...subscriptions]
+    
+    // Search filter
+    if (filters.search && filters.search.trim()) {
+      const searchTerm = filters.search.toLowerCase()
+      filtered = filtered.filter(subscription => 
+        subscription.customerName.toLowerCase().includes(searchTerm) ||
+        subscription.customerEmail.toLowerCase().includes(searchTerm) ||
+        subscription.id.toLowerCase().includes(searchTerm) ||
+        subscription.planName.toLowerCase().includes(searchTerm)
+      )
+    }
+    
+    // Date range filter
+    if (filters.dateRange?.start || filters.dateRange?.end) {
+      filtered = filtered.filter(subscription => {
+        const subscriptionDate = new Date(subscription.createdAt)
+        
+        if (filters.dateRange.start) {
+          const startDate = new Date(filters.dateRange.start)
+          if (subscriptionDate < startDate) return false
+        }
+        
+        if (filters.dateRange.end) {
+          const endDate = new Date(filters.dateRange.end)
+          endDate.setHours(23, 59, 59, 999) // Include entire end date
+          if (subscriptionDate > endDate) return false
+        }
+        
+        return true
+      })
+    }
+    
+    // Amount range filter
+    if (filters.amountRange?.min || filters.amountRange?.max) {
+      filtered = filtered.filter(subscription => {
+        const amount = subscription.amount
+        
+        if (filters.amountRange.min) {
+          const minAmount = parseFloat(filters.amountRange.min)
+          if (amount < minAmount) return false
+        }
+        
+        if (filters.amountRange.max) {
+          const maxAmount = parseFloat(filters.amountRange.max)
+          if (amount > maxAmount) return false
+        }
+        
+        return true
+      })
+    }
+    
+    // Payment method filter
+    if (filters.paymentMethods && filters.paymentMethods.length > 0) {
+      filtered = filtered.filter(subscription => {
+        const paymentMethod = subscription.paymentMethod || subscription.isExecutiveAccount ? 'Executive Account (Free)' : 'Unknown'
+        return filters.paymentMethods.includes(paymentMethod)
+      })
+    }
+    
+    // Status filter
+    if (filters.statuses && filters.statuses.length > 0) {
+      filtered = filtered.filter(subscription => {
+        return filters.statuses.includes(subscription.status)
+      })
+    }
+    
+    console.log(`Filtered ${subscriptions.length} subscriptions to ${filtered.length} results`)
+    setFilteredSubscriptions(filtered)
   }
 
   const handleBulkEmail = () => {
@@ -565,13 +639,28 @@ export default function AdminSubscriptionManagement() {
                 </div>
                 <div className="flex space-x-2">
                   <Button 
-                    variant="outline" 
+                    variant={advancedFilters ? "default" : "outline"}
                     size="sm"
                     onClick={handleAdvancedFilters}
                   >
                     <Filter className="h-4 w-4 mr-2" />
                     Advanced Filters
+                    {advancedFilters && (
+                      <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                        Active
+                      </span>
+                    )}
                   </Button>
+                  {advancedFilters && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleClearFilters}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Clear Filters
+                    </Button>
+                  )}
                   <Button 
                     variant="outline" 
                     size="sm"
