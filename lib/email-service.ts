@@ -54,9 +54,9 @@ class EmailService {
     try {
       console.log('📧 EmailService: Sending email to', emailData.to)
       console.log('📧 EmailService: Base URL', this.baseUrl)
-      console.log('📧 EmailService: Full URL', `${this.baseUrl}/api/admin/email/send`)
+      console.log('📧 EmailService: Full URL', `${this.baseUrl}/api/email/send`)
 
-      const response = await fetch(`${this.baseUrl}/api/admin/email/send`, {
+      const response = await fetch(`${this.baseUrl}/api/email/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
