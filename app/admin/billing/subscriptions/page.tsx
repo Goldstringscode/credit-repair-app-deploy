@@ -135,15 +135,15 @@ export default function AdminSubscriptionManagement() {
   }, [filters])
 
   const getStatusBadge = (status: string, subscription?: Subscription) => {
-      const statusConfig = {
-        active: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
-        cancelled: { color: 'bg-red-100 text-red-800', icon: X },
-        past_due: { color: 'bg-yellow-100 text-yellow-800', icon: AlertCircle },
-        trialing: { color: 'bg-blue-100 text-blue-800', icon: Clock },
-        paused: { color: 'bg-gray-100 text-gray-800', icon: Pause },
+    const statusConfig = {
+      active: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
+      cancelled: { color: 'bg-red-100 text-red-800', icon: X },
+      past_due: { color: 'bg-yellow-100 text-yellow-800', icon: AlertCircle },
+      trialing: { color: 'bg-blue-100 text-blue-800', icon: Clock },
+      paused: { color: 'bg-gray-100 text-gray-800', icon: Pause },
         incomplete: { color: 'bg-orange-100 text-orange-800', icon: AlertCircle },
         grace_period: { color: 'bg-purple-100 text-purple-800', icon: Clock }
-      }
+    }
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.active
     const Icon = config.icon
@@ -488,17 +488,27 @@ export default function AdminSubscriptionManagement() {
     
     // Payment method filter
     if (filters.paymentMethods && filters.paymentMethods.length > 0) {
+      console.log('🔍 Payment method filter:', filters.paymentMethods)
       filtered = filtered.filter(subscription => {
-        const paymentMethod = subscription.paymentMethod || subscription.isExecutiveAccount ? 'Executive Account (Free)' : 'Unknown'
-        return filters.paymentMethods.includes(paymentMethod)
+        const paymentMethod = subscription.paymentMethod || (subscription.isExecutiveAccount ? 'Executive Account (Free)' : 'Unknown')
+        console.log('🔍 Subscription payment method:', paymentMethod, 'for subscription:', subscription.customerName)
+        const isIncluded = filters.paymentMethods.includes(paymentMethod)
+        console.log('🔍 Is included:', isIncluded)
+        return isIncluded
       })
+      console.log('🔍 After payment method filter:', filtered.length, 'subscriptions')
     }
     
     // Status filter
     if (filters.statuses && filters.statuses.length > 0) {
+      console.log('🔍 Status filter:', filters.statuses)
       filtered = filtered.filter(subscription => {
-        return filters.statuses.includes(subscription.status)
+        console.log('🔍 Subscription status:', subscription.status, 'for subscription:', subscription.customerName)
+        const isIncluded = filters.statuses.includes(subscription.status)
+        console.log('🔍 Is included:', isIncluded)
+        return isIncluded
       })
+      console.log('🔍 After status filter:', filtered.length, 'subscriptions')
     }
     
     console.log('🔍 Final result: Filtered to', filtered.length, 'subscriptions')
@@ -569,14 +579,14 @@ export default function AdminSubscriptionManagement() {
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
             <TabsList className="grid w-full grid-cols-7">
-              <TabsTrigger value="all">All ({statusCounts.all})</TabsTrigger>
-              <TabsTrigger value="active">Active ({statusCounts.active})</TabsTrigger>
-              <TabsTrigger value="trialing">Trialing ({statusCounts.trialing})</TabsTrigger>
-              <TabsTrigger value="past_due">Past Due ({statusCounts.past_due})</TabsTrigger>
-              <TabsTrigger value="cancelled">Cancelled ({statusCounts.cancelled})</TabsTrigger>
-              <TabsTrigger value="paused">Paused ({statusCounts.paused})</TabsTrigger>
+          <TabsTrigger value="all">All ({statusCounts.all})</TabsTrigger>
+          <TabsTrigger value="active">Active ({statusCounts.active})</TabsTrigger>
+          <TabsTrigger value="trialing">Trialing ({statusCounts.trialing})</TabsTrigger>
+          <TabsTrigger value="past_due">Past Due ({statusCounts.past_due})</TabsTrigger>
+          <TabsTrigger value="cancelled">Cancelled ({statusCounts.cancelled})</TabsTrigger>
+          <TabsTrigger value="paused">Paused ({statusCounts.paused})</TabsTrigger>
               <TabsTrigger value="grace_period">Grace Period ({statusCounts.grace_period})</TabsTrigger>
-            </TabsList>
+        </TabsList>
 
         <TabsContent value={selectedTab} className="space-y-6">
           {/* Filters */}
@@ -709,20 +719,20 @@ export default function AdminSubscriptionManagement() {
                       <Badge variant="outline">{subscription.planName}</Badge>
                       <p className="text-xs text-gray-500 mt-1">{subscription.billingCycle}</p>
                     </div>
-                        <div className="col-span-1">
+                    <div className="col-span-1">
                           {getStatusBadge(subscription.status, subscription)}
-                        </div>
-                        <div className="col-span-1">
+                    </div>
+                    <div className="col-span-1">
                           <p className={`font-medium ${(subscription.amount === 0 || subscription.isExecutiveAccount) ? 'text-green-600' : ''}`}>
                             {(subscription.amount === 0 || subscription.isExecutiveAccount) ? 'FREE' : `$${subscription.amount}`}
                           </p>
-                          <p className="text-xs text-gray-500">{subscription.currency.toUpperCase()}</p>
+                      <p className="text-xs text-gray-500">{subscription.currency.toUpperCase()}</p>
                           {(subscription.paymentMethod === 'Executive Account (Free)' || subscription.isExecutiveAccount) && (
                             <Badge className="mt-1 bg-green-100 text-green-800 border-green-300 text-xs">
                               Executive
                             </Badge>
                           )}
-                        </div>
+                    </div>
                     <div className="col-span-2">
                       <p className="text-sm">
                         {subscription.nextBillingDate ? 
