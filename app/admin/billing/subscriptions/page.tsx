@@ -16,6 +16,8 @@ import PaymentMethodModal from '@/components/payment-method-modal'
 import EmailComposerModal from '@/components/email-composer-modal'
 import InvoiceGeneratorModal from '@/components/invoice-generator-modal'
 import DeleteConfirmationModal from '@/components/delete-confirmation-modal'
+import AdvancedFiltersModal from '@/components/advanced-filters-modal'
+import BulkEmailModal from '@/components/bulk-email-modal'
 import { 
   CreditCard, 
   Search, 
@@ -82,7 +84,11 @@ export default function AdminSubscriptionManagement() {
   const [isEmailComposerModalOpen, setIsEmailComposerModalOpen] = useState(false)
   const [isInvoiceGeneratorModalOpen, setIsInvoiceGeneratorModalOpen] = useState(false)
   const [isDeleteConfirmationModalOpen, setIsDeleteConfirmationModalOpen] = useState(false)
+  const [isAdvancedFiltersModalOpen, setIsAdvancedFiltersModalOpen] = useState(false)
+  const [isBulkEmailModalOpen, setIsBulkEmailModalOpen] = useState(false)
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null)
+  const [advancedFilters, setAdvancedFilters] = useState<any>(null)
+  const [selectedSubscriptions, setSelectedSubscriptions] = useState<Subscription[]>([])
 
   // Load subscriptions from API
   const loadSubscriptions = async () => {
@@ -403,7 +409,45 @@ export default function AdminSubscriptionManagement() {
 
   const handleAdvancedFilters = () => {
     console.log('Opening advanced filters...')
-    alert('Advanced Filters feature - This would open a modal with more detailed filtering options like date ranges, amount ranges, payment method filters, etc.')
+    setIsAdvancedFiltersModalOpen(true)
+  }
+
+  const handleApplyAdvancedFilters = (filters: any) => {
+    console.log('Applying advanced filters:', filters)
+    setAdvancedFilters(filters)
+    // Apply filters to the subscription list
+    applyAdvancedFilters(filters)
+  }
+
+  const applyAdvancedFilters = (filters: any) => {
+    // This would integrate with the API to apply server-side filtering
+    // For now, we'll apply client-side filtering
+    console.log('Applying filters:', filters)
+    // The actual filtering logic would be implemented here
+  }
+
+  const handleBulkEmail = () => {
+    console.log('Opening bulk email modal...')
+    setIsBulkEmailModalOpen(true)
+  }
+
+  const handleSelectSubscription = (subscription: Subscription) => {
+    setSelectedSubscriptions(prev => {
+      const exists = prev.find(s => s.id === subscription.id)
+      if (exists) {
+        return prev.filter(s => s.id !== subscription.id)
+      } else {
+        return [...prev, subscription]
+      }
+    })
+  }
+
+  const handleSelectAll = () => {
+    setSelectedSubscriptions(filteredSubscriptions)
+  }
+
+  const handleClearSelection = () => {
+    setSelectedSubscriptions([])
   }
 
   // Subscriptions are already filtered by the API
@@ -527,6 +571,14 @@ export default function AdminSubscriptionManagement() {
                   >
                     <Filter className="h-4 w-4 mr-2" />
                     Advanced Filters
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleBulkEmail}
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    Bulk Email
                   </Button>
                 </div>
               </div>
@@ -899,6 +951,22 @@ export default function AdminSubscriptionManagement() {
           loadSubscriptions()
           alert(`Subscription ${subscriptionId} has been permanently deleted.`)
         }}
+      />
+
+      {/* Advanced Filters Modal */}
+      <AdvancedFiltersModal
+        isOpen={isAdvancedFiltersModalOpen}
+        onClose={() => setIsAdvancedFiltersModalOpen(false)}
+        onApplyFilters={handleApplyAdvancedFilters}
+        currentFilters={advancedFilters}
+      />
+
+      {/* Bulk Email Modal */}
+      <BulkEmailModal
+        isOpen={isBulkEmailModalOpen}
+        onClose={() => setIsBulkEmailModalOpen(false)}
+        subscriptions={filteredSubscriptions}
+        selectedSubscriptions={selectedSubscriptions}
       />
     </div>
   )
