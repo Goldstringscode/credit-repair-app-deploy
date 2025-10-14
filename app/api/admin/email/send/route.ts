@@ -51,6 +51,36 @@ export async function POST(request: NextRequest) {
       bodyLength: emailBody.length
     })
 
+    // For testing, we'll send to the verified email address and include the intended recipient in the subject
+    const isTestMode = process.env.NODE_ENV === 'development' || !process.env.RESEND_VERIFIED_DOMAIN
+    const testEmail = 'jstringscode@gmail.com' // Your verified email for testing
+    
+    const emailPayload = isTestMode ? {
+      from: 'onboarding@resend.dev',
+      to: [testEmail],
+      subject: `[TEST TO: ${to}] ${subject}`,
+      html: `
+        <div style="background: #f0f8ff; padding: 20px; border-left: 4px solid #007bff; margin-bottom: 20px;">
+          <h3 style="color: #007bff; margin: 0 0 10px 0;">🧪 TEST EMAIL</h3>
+          <p style="margin: 0; color: #666;"><strong>Intended Recipient:</strong> ${to}</p>
+          <p style="margin: 5px 0 0 0; color: #666;"><strong>Test Mode:</strong> This email was sent to your verified address for testing.</p>
+        </div>
+        ${emailBody}
+      `
+    } : {
+      from: `noreply@${process.env.RESEND_VERIFIED_DOMAIN}`,
+      to: [to],
+      subject: subject,
+      html: emailBody
+    }
+
+    console.log('📧 Email payload:', {
+      isTestMode,
+      from: emailPayload.from,
+      to: emailPayload.to,
+      subject: emailPayload.subject
+    })
+
     // Send email using Resend API
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -58,12 +88,7 @@ export async function POST(request: NextRequest) {
         'Authorization': `Bearer ${resendApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: 'onboarding@resend.dev',
-        to: [to],
-        subject: subject,
-        html: emailBody
-      })
+      body: JSON.stringify(emailPayload)
     })
 
     const resendResult = await resendResponse.json()
@@ -100,13 +125,17 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         messageId: resendResult.id,
-        to,
+        to: isTestMode ? testEmail : to,
+        intendedRecipient: to,
         subject,
         timestamp: new Date().toISOString(),
         status: 'sent',
-        service: 'resend'
+        service: 'resend',
+        testMode: isTestMode
       },
-      message: `Email sent successfully to ${to}`
+      message: isTestMode 
+        ? `Test email sent successfully to ${testEmail} (intended for ${to})`
+        : `Email sent successfully to ${to}`
     })
 
   } catch (error) {
