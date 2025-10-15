@@ -338,475 +338,453 @@ export default function AdminPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="email" className="space-y-6">
-          {/* Email Marketing Dashboard Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between">
+    <TabsContent value="email" className="space-y-6">
+      {/* Complete Email Marketing Dashboard */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold mb-2">Email Marketing Dashboard</h2>
+            <p className="text-gray-600">
+              Manage email campaigns, templates, and subscriber lists
+            </p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button variant="outline" className="flex items-center space-x-2">
+              <Upload className="h-4 w-4" />
+              <span>Import List</span>
+            </Button>
+            <Button variant="outline" className="flex items-center space-x-2">
+              <BarChart3 className="h-4 w-4" />
+              <span>Analytics</span>
+            </Button>
+            <Button variant="outline" className="flex items-center space-x-2">
+              <Users className="h-4 w-4" />
+              <span>Lists</span>
+            </Button>
+            <Button variant="outline" className="flex items-center space-x-2">
+              <FileText className="h-4 w-4" />
+              <span>Template Builder</span>
+            </Button>
+            <Button variant="outline" className="flex items-center space-x-2">
+              <TestTube className="h-4 w-4" />
+              <span>Test Templates</span>
+            </Button>
+            <Button className="flex items-center space-x-2">
+              <Plus className="h-4 w-4" />
+              <span>Create Campaign</span>
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Email Marketing Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-2">
+              <Mail className="h-8 w-8 text-blue-500" />
               <div>
-                <h2 className="text-3xl font-bold mb-2">Email Marketing Dashboard</h2>
-                <p className="text-gray-600">
-                  Manage email campaigns, templates, and subscriber lists
-                </p>
+                <p className="text-sm font-medium text-gray-600">Total Recipients</p>
+                <p className="text-2xl font-bold">15,420</p>
               </div>
-              <div className="flex items-center space-x-2">
-                <Button variant="outline" className="flex items-center space-x-2">
-                  <Upload className="h-4 w-4" />
-                  <span>Import List</span>
-                </Button>
-                <Link href="/dashboard/email/analytics">
-                  <Button variant="outline" className="flex items-center space-x-2">
-                    <BarChart3 className="h-4 w-4" />
-                    <span>Analytics</span>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-2">
+              <Send className="h-8 w-8 text-green-500" />
+              <div>
+                <p className="text-sm font-medium text-gray-600">Emails Sent</p>
+                <p className="text-2xl font-bold">12,847</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-2">
+              <Eye className="h-8 w-8 text-purple-500" />
+              <div>
+                <p className="text-sm font-medium text-gray-600">Open Rate</p>
+                <p className="text-2xl font-bold">24.8%</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-2">
+              <Target className="h-8 w-8 text-orange-500" />
+              <div>
+                <p className="text-sm font-medium text-gray-600">Click Rate</p>
+                <p className="text-2xl font-bold">8.2%</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Email Management Tools */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Email Analytics
+            </CardTitle>
+            <CardDescription>Comprehensive email performance analytics</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button className="w-full justify-start">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              View Analytics Dashboard
+            </Button>
+            <Button className="w-full justify-start" variant="outline">
+              <TestTube className="h-4 w-4 mr-2" />
+              Test Email Templates
+            </Button>
+            <Button className="w-full justify-start" variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Export Email Data
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Template Management
+            </CardTitle>
+            <CardDescription>Create and manage email templates</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button className="w-full justify-start">
+              <Plus className="h-4 w-4 mr-2" />
+              Create New Template
+            </Button>
+            <Button className="w-full justify-start" variant="outline">
+              <FileText className="h-4 w-4 mr-2" />
+              View All Templates
+            </Button>
+            <Button className="w-full justify-start" variant="outline">
+              <Settings className="h-4 w-4 mr-2" />
+              Template Settings
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              List Management
+            </CardTitle>
+            <CardDescription>Manage email lists and segments</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button className="w-full justify-start">
+              <Users className="h-4 w-4 mr-2" />
+              Manage Lists
+            </Button>
+            <Button className="w-full justify-start" variant="outline">
+              <Target className="h-4 w-4 mr-2" />
+              Create Segments
+            </Button>
+            <Button className="w-full justify-start" variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Import Lists
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Email Campaigns */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Email Campaigns</CardTitle>
+              <CardDescription>Manage and monitor email campaigns</CardDescription>
+            </div>
+            <div className="flex space-x-2">
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Campaign
+              </Button>
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* Campaign List */}
+            <div className="border rounded-lg">
+              <div className="grid grid-cols-6 gap-4 p-4 bg-gray-50 font-medium text-sm">
+                <div>Campaign</div>
+                <div>Status</div>
+                <div>Recipients</div>
+                <div>Open Rate</div>
+                <div>Click Rate</div>
+                <div>Actions</div>
+              </div>
+
+              {/* Sample Campaign Data */}
+              <div className="grid grid-cols-6 gap-4 p-4 border-t">
+                <div>
+                  <p className="font-medium">Welcome Series</p>
+                  <p className="text-sm text-gray-500">New user onboarding</p>
+                </div>
+                <div>
+                  <Badge variant="default">Active</Badge>
+                </div>
+                <div>2,847</div>
+                <div>28.5%</div>
+                <div>12.3%</div>
+                <div className="flex space-x-1">
+                  <Button variant="ghost" size="sm">
+                    <Eye className="h-4 w-4" />
                   </Button>
-                </Link>
-                <Link href="/dashboard/email/lists">
-                  <Button variant="outline" className="flex items-center space-x-2">
-                    <Users className="h-4 w-4" />
-                    <span>Lists</span>
+                  <Button variant="ghost" size="sm">
+                    <Edit className="h-4 w-4" />
                   </Button>
-                </Link>
-                <Link href="/dashboard/email/templates/builder">
-                  <Button variant="outline" className="flex items-center space-x-2">
-                    <FileText className="h-4 w-4" />
-                    <span>Template Builder</span>
+                  <Button variant="ghost" size="sm">
+                    <Trash2 className="h-4 w-4" />
                   </Button>
-                </Link>
-                <Link href="/dashboard/email/templates-test">
-                  <Button variant="outline" className="flex items-center space-x-2">
-                    <TestTube className="h-4 w-4" />
-                    <span>Test Templates</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-6 gap-4 p-4 border-t">
+                <div>
+                  <p className="font-medium">Credit Score Update</p>
+                  <p className="text-sm text-gray-500">Monthly score notifications</p>
+                </div>
+                <div>
+                  <Badge variant="secondary">Scheduled</Badge>
+                </div>
+                <div>5,234</div>
+                <div>31.2%</div>
+                <div>15.7%</div>
+                <div className="flex space-x-1">
+                  <Button variant="ghost" size="sm">
+                    <Eye className="h-4 w-4" />
                   </Button>
-                </Link>
-                <Link href="/dashboard/email/campaigns/create">
-                  <Button className="flex items-center space-x-2">
-                    <Plus className="h-4 w-4" />
-                    <span>Create Campaign</span>
+                  <Button variant="ghost" size="sm">
+                    <Edit className="h-4 w-4" />
                   </Button>
-                </Link>
+                  <Button variant="ghost" size="sm">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-6 gap-4 p-4 border-t">
+                <div>
+                  <p className="font-medium">Payment Reminder</p>
+                  <p className="text-sm text-gray-500">Billing notifications</p>
+                </div>
+                <div>
+                  <Badge variant="outline">Draft</Badge>
+                </div>
+                <div>1,156</div>
+                <div>-</div>
+                <div>-</div>
+                <div className="flex space-x-1">
+                  <Button variant="ghost" size="sm">
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Email Marketing Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-2">
-                  <Mail className="h-8 w-8 text-blue-500" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Total Recipients</p>
-                    <p className="text-2xl font-bold">15,420</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-2">
-                  <Send className="h-8 w-8 text-green-500" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Emails Sent</p>
-                    <p className="text-2xl font-bold">12,847</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-2">
-                  <Eye className="h-8 w-8 text-purple-500" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Open Rate</p>
-                    <p className="text-2xl font-bold">24.8%</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-2">
-                  <Target className="h-8 w-8 text-orange-500" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Click Rate</p>
-                    <p className="text-2xl font-bold">8.2%</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+      {/* Email Templates */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Email Templates</CardTitle>
+              <CardDescription>Manage email templates and designs</CardDescription>
+            </div>
+            <div className="flex space-x-2">
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                New Template
+              </Button>
+              <Button variant="outline" size="sm">
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
+              </Button>
+            </div>
           </div>
-
-          {/* Email Management Tools */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
-                  Email Analytics
-                </CardTitle>
-                <CardDescription>Comprehensive email performance analytics</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Link href="/dashboard/email/analytics">
-                  <Button className="w-full justify-start">
-                    <BarChart3 className="h-4 w-4 mr-2" />
-                    View Analytics Dashboard
-                  </Button>
-                </Link>
-                <Link href="/dashboard/email/templates-test">
-                  <Button className="w-full justify-start" variant="outline">
-                    <TestTube className="h-4 w-4 mr-2" />
-                    Test Email Templates
-                  </Button>
-                </Link>
-                <Button className="w-full justify-start" variant="outline">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export Email Data
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Template Management
-                </CardTitle>
-                <CardDescription>Create and manage email templates</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Link href="/dashboard/email/templates/builder">
-                  <Button className="w-full justify-start">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create New Template
-                  </Button>
-                </Link>
-                <Button className="w-full justify-start" variant="outline">
-                  <FileText className="h-4 w-4 mr-2" />
-                  View All Templates
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <Settings className="h-4 w-4 mr-2" />
-                  Template Settings
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <UsersIcon className="h-5 w-5" />
-                  List Management
-                </CardTitle>
-                <CardDescription>Manage email lists and segments</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Link href="/dashboard/email/lists">
-                  <Button className="w-full justify-start">
-                    <UsersIcon className="h-4 w-4 mr-2" />
-                    Manage Lists
-                  </Button>
-                </Link>
-                <Button className="w-full justify-start" variant="outline">
-                  <Target className="h-4 w-4 mr-2" />
-                  Create Segments
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <Download className="h-4 w-4 mr-2" />
-                  Import Lists
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Email Campaigns */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Email Campaigns</CardTitle>
-                  <CardDescription>Manage and monitor email campaigns</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Template Cards */}
+              <div className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium">Welcome Email</h4>
+                  <Badge variant="default">Active</Badge>
                 </div>
+                <p className="text-sm text-gray-500 mb-3">New user onboarding template</p>
                 <div className="flex space-x-2">
-                  <Link href="/dashboard/email/campaigns/create">
-                    <Button size="sm">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Campaign
-                    </Button>
-                  </Link>
-                  <Button variant="outline" size="sm">
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
+                  <Button variant="ghost" size="sm">
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <TestTube className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {/* Campaign List */}
-                <div className="border rounded-lg">
-                  <div className="grid grid-cols-6 gap-4 p-4 bg-gray-50 font-medium text-sm">
-                    <div>Campaign</div>
-                    <div>Status</div>
-                    <div>Recipients</div>
-                    <div>Open Rate</div>
-                    <div>Click Rate</div>
-                    <div>Actions</div>
-                  </div>
-                  
-                  {/* Sample Campaign Data */}
-                  <div className="grid grid-cols-6 gap-4 p-4 border-t">
-                    <div>
-                      <p className="font-medium">Welcome Series</p>
-                      <p className="text-sm text-gray-500">New user onboarding</p>
-                    </div>
-                    <div>
-                      <Badge variant="default">Active</Badge>
-                    </div>
-                    <div>2,847</div>
-                    <div>28.5%</div>
-                    <div>12.3%</div>
-                    <div className="flex space-x-1">
-                      <Button variant="ghost" size="sm">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-6 gap-4 p-4 border-t">
-                    <div>
-                      <p className="font-medium">Credit Score Update</p>
-                      <p className="text-sm text-gray-500">Monthly score notifications</p>
-                    </div>
-                    <div>
-                      <Badge variant="secondary">Scheduled</Badge>
-                    </div>
-                    <div>5,234</div>
-                    <div>31.2%</div>
-                    <div>15.7%</div>
-                    <div className="flex space-x-1">
-                      <Button variant="ghost" size="sm">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-6 gap-4 p-4 border-t">
-                    <div>
-                      <p className="font-medium">Payment Reminder</p>
-                      <p className="text-sm text-gray-500">Billing notifications</p>
-                    </div>
-                    <div>
-                      <Badge variant="outline">Draft</Badge>
-                    </div>
-                    <div>1,156</div>
-                    <div>-</div>
-                    <div>-</div>
-                    <div className="flex space-x-1">
-                      <Button variant="ghost" size="sm">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+              <div className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium">Payment Confirmation</h4>
+                  <Badge variant="default">Active</Badge>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Email Templates */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Email Templates</CardTitle>
-                  <CardDescription>Manage email templates and designs</CardDescription>
-                </div>
+                <p className="text-sm text-gray-500 mb-3">Payment success notification</p>
                 <div className="flex space-x-2">
-                  <Link href="/dashboard/email/templates/builder">
-                    <Button size="sm">
-                      <Plus className="h-4 w-4 mr-2" />
-                      New Template
-                    </Button>
-                  </Link>
-                  <Button variant="outline" size="sm">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Settings
+                  <Button variant="ghost" size="sm">
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <TestTube className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* Template Cards */}
-                  <div className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">Welcome Email</h4>
-                      <Badge variant="default">Active</Badge>
-                    </div>
-                    <p className="text-sm text-gray-500 mb-3">New user onboarding template</p>
-                    <div className="flex space-x-2">
-                      <Button variant="ghost" size="sm">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <TestTube className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
 
-                  <div className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">Payment Confirmation</h4>
-                      <Badge variant="default">Active</Badge>
-                    </div>
-                    <p className="text-sm text-gray-500 mb-3">Payment success notification</p>
-                    <div className="flex space-x-2">
-                      <Button variant="ghost" size="sm">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <TestTube className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">Credit Score Update</h4>
-                      <Badge variant="secondary">Draft</Badge>
-                    </div>
-                    <p className="text-sm text-gray-500 mb-3">Score improvement notification</p>
-                    <div className="flex space-x-2">
-                      <Button variant="ghost" size="sm">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <TestTube className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+              <div className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium">Credit Score Update</h4>
+                  <Badge variant="secondary">Draft</Badge>
+                </div>
+                <p className="text-sm text-gray-500 mb-3">Score improvement notification</p>
+                <div className="flex space-x-2">
+                  <Button variant="ghost" size="sm">
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <TestTube className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Email System Status */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Mail className="h-5 w-5 mr-2" />
-                  Email Service
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Status</span>
-                    <Badge variant="default">Operational</Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Queue</span>
-                    <span>23 pending</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Delivery Rate</span>
-                    <span>99.2%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Last Sent</span>
-                    <span>2 min ago</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Clock className="h-5 w-5 mr-2" />
-                  Scheduled Emails
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Pending</span>
-                    <span>12</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Today</span>
-                    <span>8</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>This Week</span>
-                    <span>45</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Next Run</span>
-                    <span>In 2 hours</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <TrendingUp className="h-5 w-5 mr-2" />
-                  Performance
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Avg Open Rate</span>
-                    <span>24.8%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Avg Click Rate</span>
-                    <span>8.2%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Unsubscribe Rate</span>
-                    <span>0.3%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Bounce Rate</span>
-                    <span>1.2%</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            </div>
           </div>
-        </TabsContent>
+        </CardContent>
+      </Card>
+
+      {/* Email System Status */}
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Mail className="h-5 w-5 mr-2" />
+              Email Service
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span>Status</span>
+                <Badge variant="default">Operational</Badge>
+              </div>
+              <div className="flex justify-between">
+                <span>Queue</span>
+                <span>23 pending</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Delivery Rate</span>
+                <span>99.2%</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Last Sent</span>
+                <span>2 min ago</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Clock className="h-5 w-5 mr-2" />
+              Scheduled Emails
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span>Pending</span>
+                <span>12</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Today</span>
+                <span>8</span>
+              </div>
+              <div className="flex justify-between">
+                <span>This Week</span>
+                <span>45</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Next Run</span>
+                <span>In 2 hours</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <TrendingUp className="h-5 w-5 mr-2" />
+              Performance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span>Avg Open Rate</span>
+                <span>24.8%</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Avg Click Rate</span>
+                <span>8.2%</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Unsubscribe Rate</span>
+                <span>0.3%</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Bounce Rate</span>
+                <span>1.2%</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </TabsContent>
 
         <TabsContent value="compliance" className="space-y-6">
           {/* Compliance Overview */}

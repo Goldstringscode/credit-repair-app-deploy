@@ -57,11 +57,11 @@ class EmailService {
       console.log('📧 EmailService: Full URL', `${this.baseUrl}/api/email/send`)
 
       const response = await fetch(`${this.baseUrl}/api/email/send`, {
-        method: 'POST',
+      method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
+      body: JSON.stringify({ 
           to: emailData.to,
           subject: emailData.subject,
           body: emailData.body,
@@ -83,15 +83,15 @@ class EmailService {
           success: true,
           messageId: result.data.messageId
         }
-      } else {
+    } else {
         console.error('📧 EmailService: Email sending failed', result.error)
         return {
           success: false,
           error: result.error,
           details: result.details
         }
-      }
-    } catch (error) {
+    }
+  } catch (error) {
       console.error('📧 EmailService: Email sending error', error)
       console.error('📧 EmailService: Error details', {
         message: error instanceof Error ? error.message : 'Unknown error',
