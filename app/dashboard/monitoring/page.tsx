@@ -34,7 +34,8 @@ import {
   Shield,
   BarChart3,
   Bell,
-  Activity
+  Activity,
+  Copy
 } from "lucide-react"
 
 interface LetterTracking {
@@ -205,6 +206,22 @@ export default function LetterMonitoringPage() {
     document.body.appendChild(element)
     element.click()
     document.body.removeChild(element)
+  }
+
+  const handleCopyTrackingNumber = async (letter: LetterTracking) => {
+    try {
+      await navigator.clipboard.writeText(letter.trackingNumber)
+      toast.success(`Tracking number copied: ${letter.trackingNumber}`)
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea')
+      textArea.value = letter.trackingNumber
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      toast.success(`Tracking number copied: ${letter.trackingNumber}`)
+    }
   }
 
   const handleDownloadTrackingNumber = (letter: LetterTracking) => {
@@ -471,11 +488,11 @@ export default function LetterMonitoringPage() {
                                 <Button 
                                   variant="ghost" 
                                   size="sm"
-                                  onClick={() => handleDownloadTrackingNumber(letter)}
-                                  title="Download tracking information"
+                                  onClick={() => handleCopyTrackingNumber(letter)}
+                                  title="Copy tracking number to clipboard"
                                   className="h-6 w-6 p-0"
                                 >
-                                  <Download className="h-3 w-3" />
+                                  <Copy className="h-3 w-3" />
                                 </Button>
                               </div>
                             </div>
@@ -594,11 +611,11 @@ export default function LetterMonitoringPage() {
                                           <Button 
                                             variant="ghost" 
                                             size="sm"
-                                            onClick={() => handleDownloadTrackingNumber(letter)}
-                                            title="Download tracking information"
+                                            onClick={() => handleCopyTrackingNumber(letter)}
+                                            title="Copy tracking number to clipboard"
                                             className="h-6 w-6 p-0"
                                           >
-                                            <Download className="h-3 w-3" />
+                                            <Copy className="h-3 w-3" />
                                           </Button>
                                         </div>
                                       </div>
