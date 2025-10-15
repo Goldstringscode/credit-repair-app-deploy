@@ -675,24 +675,6 @@ export default function DashboardPage() {
                     Credit Monitoring
                   </Button>
                 </Link>
-                <Link href="/dashboard/email">
-                  <Button className="w-full justify-start bg-transparent" variant="outline">
-                    <Mail className="mr-2 h-4 w-4" />
-                    Email Marketing
-                  </Button>
-                </Link>
-                <Link href="/dashboard/email/campaigns/create">
-                  <Button className="w-full justify-start bg-transparent" variant="outline">
-                    <Send className="mr-2 h-4 w-4" />
-                    Create Campaign
-                  </Button>
-                </Link>
-                <Link href="/dashboard/email/analytics">
-                  <Button className="w-full justify-start bg-transparent" variant="outline">
-                    <BarChart3 className="mr-2 h-4 w-4" />
-                    Email Analytics
-                  </Button>
-                </Link>
               </CardContent>
             </Card>
 
