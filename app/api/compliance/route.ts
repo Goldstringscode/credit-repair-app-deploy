@@ -6,7 +6,19 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createSupabaseClient()
     
-    // Get compliance overview data
+    if (!supabase) {
+      console.error('Supabase client not available')
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Database not configured. Please check environment variables.',
+          details: 'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY'
+        },
+        { status: 500 }
+      )
+    }
+    
+    // Get compliance overview data with error handling
     const [
       gdprRequests,
       fcraDisputes,
@@ -20,33 +32,45 @@ export async function GET(request: NextRequest) {
       supabase
         .from('compliance_requests')
         .select('*')
-        .eq('framework', 'GDPR'),
+        .eq('framework', 'GDPR')
+        .then(result => ({ data: result.data || [], error: result.error }))
+        .catch(error => ({ data: [], error })),
       
       // FCRA disputes
       supabase
         .from('fcra_disputes')
-        .select('*'),
+        .select('*')
+        .then(result => ({ data: result.data || [], error: result.error }))
+        .catch(error => ({ data: [], error })),
       
       // CCPA requests
       supabase
         .from('compliance_requests')
         .select('*')
-        .eq('framework', 'CCPA'),
+        .eq('framework', 'CCPA')
+        .then(result => ({ data: result.data || [], error: result.error }))
+        .catch(error => ({ data: [], error })),
       
       // HIPAA data
       supabase
         .from('hipaa_health_data')
-        .select('*'),
+        .select('*')
+        .then(result => ({ data: result.data || [], error: result.error }))
+        .catch(error => ({ data: [], error })),
       
       // PCI security events
       supabase
         .from('pci_security_events')
-        .select('*'),
+        .select('*')
+        .then(result => ({ data: result.data || [], error: result.error }))
+        .catch(error => ({ data: [], error })),
       
       // Data retention records
       supabase
         .from('data_retention_records')
-        .select('*'),
+        .select('*')
+        .then(result => ({ data: result.data || [], error: result.error }))
+        .catch(error => ({ data: [], error })),
       
       // Audit logs
       supabase
@@ -54,6 +78,8 @@ export async function GET(request: NextRequest) {
         .select('*')
         .order('timestamp', { ascending: false })
         .limit(100)
+        .then(result => ({ data: result.data || [], error: result.error }))
+        .catch(error => ({ data: [], error }))
     ])
 
     // Calculate compliance metrics

@@ -84,10 +84,67 @@ export default function ComplianceDashboard() {
     try {
       setLoading(true)
       
-      const complianceData = await complianceService.getComplianceOverview()
-      setComplianceStatus(complianceData)
+      const response = await fetch('/api/compliance')
+      const result = await response.json()
+      
+      if (result.success) {
+        setComplianceStatus(result.data)
+      } else {
+        console.error('Failed to load compliance status:', result.error)
+        alert(`Compliance system error: ${result.error}. ${result.details || 'Please check your database configuration.'}`)
+        
+        // Fallback to mock data if API fails
+        const mockStatus: ComplianceStatus = {
+          gdpr: {
+            requests: 45,
+            completed: 42,
+            pending: 3,
+            complianceRate: 93
+          },
+          fcra: {
+            disputes: 128,
+            freeReports: 67,
+            resolved: 115,
+            complianceRate: 90
+          },
+          ccpa: {
+            requests: 23,
+            completed: 21,
+            pending: 2,
+            complianceRate: 91
+          },
+          hipaa: {
+            requests: 12,
+            completed: 11,
+            breaches: 0,
+            complianceRate: 100
+          },
+          pci: {
+            cards: 89,
+            transactions: 1247,
+            vulnerabilities: 2,
+            complianceRate: 95
+          },
+          retention: {
+            totalRecords: 1250,
+            expired: 45,
+            deleted: 38,
+            exempt: 7,
+            complianceRate: 95
+          },
+          audit: {
+            totalEvents: 15420,
+            criticalEvents: 3,
+            highRiskEvents: 12,
+            complianceRate: 98
+          }
+        }
+        setComplianceStatus(mockStatus)
+      }
     } catch (error) {
       console.error('Failed to load compliance status:', error)
+      alert('Failed to connect to compliance system. Please check your database configuration.')
+      
       // Fallback to mock data if service fails
       const mockStatus: ComplianceStatus = {
         gdpr: {
@@ -142,21 +199,31 @@ export default function ComplianceDashboard() {
 
   const handleGDPRRequest = async (requestType: string) => {
     try {
-      await complianceService.createGDPRRequest(
-        'user-123',
-        requestType,
-        'User requested data access',
-        {
-          categories: ['personal_info', 'contact_info', 'account_data'],
-          purposes: ['service_provision', 'marketing', 'analytics']
-        }
-      )
+      const response = await fetch('/api/compliance/gdpr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: 'user-123',
+          requestType,
+          reason: 'User requested data access',
+          requestedData: {
+            categories: ['personal_info', 'contact_info', 'account_data'],
+            purposes: ['service_provision', 'marketing', 'analytics']
+          }
+        })
+      })
       
-      alert(`${requestType.replace('_', ' ')} request submitted successfully`)
-      loadComplianceStatus()
+      const result = await response.json()
+      
+      if (result.success) {
+        alert(`${requestType.replace('_', ' ')} request submitted successfully`)
+        loadComplianceStatus()
+      } else {
+        alert(`Failed to submit request: ${result.error}`)
+      }
     } catch (error) {
       console.error('GDPR request error:', error)
-      alert('Error submitting request')
+      alert('Error submitting request. Please check your database configuration.')
     }
   }
 
@@ -174,56 +241,90 @@ export default function ComplianceDashboard() {
         accountNumber: '****1234'
       }
 
-      await complianceService.createFCRARequest('user-123', action, data)
+      const response = await fetch('/api/compliance/fcra', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: 'user-123',
+          action,
+          data
+        })
+      })
       
-      alert(`${action} request submitted successfully`)
-      loadComplianceStatus()
+      const result = await response.json()
+      
+      if (result.success) {
+        alert(`${action} request submitted successfully`)
+        loadComplianceStatus()
+      } else {
+        alert(`Failed to submit request: ${result.error}`)
+      }
     } catch (error) {
       console.error('FCRA request error:', error)
-      alert('Error submitting request')
+      alert('Error submitting request. Please check your database configuration.')
     }
   }
 
   const handleCCPARequest = async (requestType: string) => {
     try {
-      await complianceService.createCCPARequest(
-        'user-123',
-        requestType,
-        'Service provision and marketing',
-        ['marketing_partners', 'analytics_providers']
-      )
+      const response = await fetch('/api/compliance/ccpa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: 'user-123',
+          requestType,
+          businessPurpose: 'Service provision and marketing',
+          thirdParties: ['marketing_partners', 'analytics_providers']
+        })
+      })
       
-      alert(`${requestType.replace('_', ' ')} request submitted successfully`)
-      loadComplianceStatus()
+      const result = await response.json()
+      
+      if (result.success) {
+        alert(`${requestType.replace('_', ' ')} request submitted successfully`)
+        loadComplianceStatus()
+      } else {
+        alert(`Failed to submit request: ${result.error}`)
+      }
     } catch (error) {
       console.error('CCPA request error:', error)
-      alert('Error submitting request')
+      alert('Error submitting request. Please check your database configuration.')
     }
   }
 
   const handleHIPAARequest = async (requestType: string) => {
     try {
-      await complianceService.createHIPAARequest(
-        'user-123',
-        requestType,
-        {
-          id: 'health_data_123',
+      const response = await fetch('/api/compliance/hipaa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           userId: 'user-123',
-          dataType: 'medical_record',
-          description: 'Sample health data',
-          sensitivity: 'high',
-          accessLevel: 'view',
-          encrypted: true,
-          lastAccessed: new Date(),
-          accessedBy: []
-        }
-      )
+          requestType,
+          healthData: {
+            id: 'health_data_123',
+            userId: 'user-123',
+            dataType: 'medical_record',
+            description: 'Sample health data',
+            sensitivity: 'high',
+            accessLevel: 'view',
+            encrypted: true,
+            lastAccessed: new Date(),
+            accessedBy: []
+          }
+        })
+      })
       
-      alert(`${requestType} request submitted successfully`)
-      loadComplianceStatus()
+      const result = await response.json()
+      
+      if (result.success) {
+        alert(`${requestType} request submitted successfully`)
+        loadComplianceStatus()
+      } else {
+        alert(`Failed to submit request: ${result.error}`)
+      }
     } catch (error) {
       console.error('HIPAA request error:', error)
-      alert('Error submitting request')
+      alert('Error submitting request. Please check your database configuration.')
     }
   }
 
