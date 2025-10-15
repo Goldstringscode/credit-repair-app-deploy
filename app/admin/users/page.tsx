@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Table,
   TableBody,
@@ -22,6 +24,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Users,
   Search,
   Filter,
@@ -38,7 +56,9 @@ import {
   Clock,
   TrendingUp,
   UserCheck,
-  AlertTriangle
+  AlertTriangle,
+  Save,
+  X
 } from "lucide-react"
 
 interface User {
@@ -104,6 +124,47 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterRole, setFilterRole] = useState<string>("all")
   const [filterStatus, setFilterStatus] = useState<string>("all")
+  
+  // Modal states
+  const [isAddUserOpen, setIsAddUserOpen] = useState(false)
+  const [isEditUserOpen, setIsEditUserOpen] = useState(false)
+  const [isViewUserOpen, setIsViewUserOpen] = useState(false)
+  const [isEmailUserOpen, setIsEmailUserOpen] = useState(false)
+  const [isChangeRoleOpen, setIsChangeRoleOpen] = useState(false)
+  const [isDeleteUserOpen, setIsDeleteUserOpen] = useState(false)
+  
+  // Selected user for operations
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  
+  // Form states
+  const [newUser, setNewUser] = useState({
+    name: "",
+    email: "",
+    role: "user",
+    phone: "",
+    subscription: "Basic Plan"
+  })
+  
+  const [editUser, setEditUser] = useState({
+    name: "",
+    email: "",
+    role: "user",
+    phone: "",
+    subscription: "Basic Plan"
+  })
+  
+  const [emailData, setEmailData] = useState({
+    subject: "",
+    message: "",
+    type: "general"
+  })
+  
+  const [roleData, setRoleData] = useState({
+    role: "",
+    reason: ""
+  })
+  
+  const [isLoading, setIsLoading] = useState(false)
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -144,6 +205,158 @@ export default function UsersPage() {
     }
   }
 
+  // Handler functions
+  const handleViewUser = (user: User) => {
+    setSelectedUser(user)
+    setIsViewUserOpen(true)
+  }
+
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user)
+    setEditUser({
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      phone: "+1234567890", // Mock phone
+      subscription: user.subscription
+    })
+    setIsEditUserOpen(true)
+  }
+
+  const handleEmailUser = (user: User) => {
+    setSelectedUser(user)
+    setEmailData({
+      subject: "",
+      message: "",
+      type: "general"
+    })
+    setIsEmailUserOpen(true)
+  }
+
+  const handleChangeRole = (user: User) => {
+    setSelectedUser(user)
+    setRoleData({
+      role: user.role,
+      reason: ""
+    })
+    setIsChangeRoleOpen(true)
+  }
+
+  const handleDeleteUser = (user: User) => {
+    setSelectedUser(user)
+    setIsDeleteUserOpen(true)
+  }
+
+  const handleAddUser = async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newUser)
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        setUsers([...users, result.data.user])
+        setIsAddUserOpen(false)
+        setNewUser({ name: "", email: "", role: "user", phone: "", subscription: "Basic Plan" })
+      }
+    } catch (error) {
+      console.error('Error adding user:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUpdateUser = async () => {
+    if (!selectedUser) return
+    
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editUser)
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        setUsers(users.map(user => user.id === selectedUser.id ? { ...user, ...result.data.user } : user))
+        setIsEditUserOpen(false)
+      }
+    } catch (error) {
+      console.error('Error updating user:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSendEmail = async () => {
+    if (!selectedUser) return
+    
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}/email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailData)
+      })
+      
+      if (response.ok) {
+        setIsEmailUserOpen(false)
+        setEmailData({ subject: "", message: "", type: "general" })
+      }
+    } catch (error) {
+      console.error('Error sending email:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleChangeUserRole = async () => {
+    if (!selectedUser) return
+    
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}/role`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(roleData)
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        setUsers(users.map(user => user.id === selectedUser.id ? { ...user, role: roleData.role } : user))
+        setIsChangeRoleOpen(false)
+      }
+    } catch (error) {
+      console.error('Error changing role:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDeleteUserConfirm = async () => {
+    if (!selectedUser) return
+    
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
+        method: 'DELETE'
+      })
+      
+      if (response.ok) {
+        setUsers(users.filter(user => user.id !== selectedUser.id))
+        setIsDeleteUserOpen(false)
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const stats = {
     total: users.length,
     active: users.filter(u => u.status === "active").length,
@@ -164,10 +377,100 @@ export default function UsersPage() {
             <Download className="h-4 w-4" />
             <span>Export</span>
           </Button>
-          <Button className="flex items-center space-x-2">
-            <UserPlus className="h-4 w-4" />
-            <span>Add User</span>
-          </Button>
+          <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center space-x-2">
+                <UserPlus className="h-4 w-4" />
+                <span>Add User</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Add New User</DialogTitle>
+                <DialogDescription>
+                  Create a new user account with the specified details.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="name" className="text-right">
+                    Name
+                  </Label>
+                  <Input
+                    id="name"
+                    value={newUser.name}
+                    onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+                    className="col-span-3"
+                    placeholder="Full name"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="email" className="text-right">
+                    Email
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                    className="col-span-3"
+                    placeholder="user@example.com"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="role" className="text-right">
+                    Role
+                  </Label>
+                  <Select value={newUser.role} onValueChange={(value) => setNewUser({...newUser, role: value})}>
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="premium">Premium</SelectItem>
+                      <SelectItem value="trial">Trial</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="phone" className="text-right">
+                    Phone
+                  </Label>
+                  <Input
+                    id="phone"
+                    value={newUser.phone}
+                    onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
+                    className="col-span-3"
+                    placeholder="+1234567890"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="subscription" className="text-right">
+                    Subscription
+                  </Label>
+                  <Select value={newUser.subscription} onValueChange={(value) => setNewUser({...newUser, subscription: value})}>
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Basic Plan">Basic Plan</SelectItem>
+                      <SelectItem value="Premium Plan">Premium Plan</SelectItem>
+                      <SelectItem value="Trial">Trial</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsAddUserOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddUser} disabled={isLoading}>
+                  {isLoading ? "Creating..." : "Create User"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -332,24 +635,27 @@ export default function UsersPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleViewUser(user)}>
                           <Eye className="mr-2 h-4 w-4" />
                           View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEditUser(user)}>
                           <Edit className="mr-2 h-4 w-4" />
                           Edit User
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEmailUser(user)}>
                           <Mail className="mr-2 h-4 w-4" />
                           Send Email
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleChangeRole(user)}>
                           <Shield className="mr-2 h-4 w-4" />
                           Change Role
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600">
+                        <DropdownMenuItem 
+                          onClick={() => handleDeleteUser(user)}
+                          className="text-red-600"
+                        >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete User
                         </DropdownMenuItem>
@@ -362,6 +668,308 @@ export default function UsersPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* View User Modal */}
+      <Dialog open={isViewUserOpen} onOpenChange={setIsViewUserOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>User Details</DialogTitle>
+            <DialogDescription>
+              View detailed information about {selectedUser?.name}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Name</Label>
+                  <p className="text-sm text-gray-600">{selectedUser.name}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Email</Label>
+                  <p className="text-sm text-gray-600">{selectedUser.email}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Role</Label>
+                  <Badge className={getRoleColor(selectedUser.role)}>
+                    {selectedUser.role}
+                  </Badge>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Status</Label>
+                  <div className="flex items-center space-x-2">
+                    {getStatusIcon(selectedUser.status)}
+                    <Badge className={getStatusColor(selectedUser.status)}>
+                      {selectedUser.status}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Join Date</Label>
+                  <p className="text-sm text-gray-600">{selectedUser.joinDate}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Last Login</Label>
+                  <p className="text-sm text-gray-600">{selectedUser.lastLogin}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Subscription</Label>
+                  <p className="text-sm text-gray-600">{selectedUser.subscription}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Credit Score</Label>
+                  <p className="text-sm text-gray-600">{selectedUser.creditScore}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsViewUserOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Modal */}
+      <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Update user information for {selectedUser?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="edit-name"
+                value={editUser.name}
+                onChange={(e) => setEditUser({...editUser, name: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-email" className="text-right">
+                Email
+              </Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editUser.email}
+                onChange={(e) => setEditUser({...editUser, email: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-role" className="text-right">
+                Role
+              </Label>
+              <Select value={editUser.role} onValueChange={(value) => setEditUser({...editUser, role: value})}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="premium">Premium</SelectItem>
+                  <SelectItem value="trial">Trial</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-phone" className="text-right">
+                Phone
+              </Label>
+              <Input
+                id="edit-phone"
+                value={editUser.phone}
+                onChange={(e) => setEditUser({...editUser, phone: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-subscription" className="text-right">
+                Subscription
+              </Label>
+              <Select value={editUser.subscription} onValueChange={(value) => setEditUser({...editUser, subscription: value})}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Basic Plan">Basic Plan</SelectItem>
+                  <SelectItem value="Premium Plan">Premium Plan</SelectItem>
+                  <SelectItem value="Trial">Trial</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditUserOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateUser} disabled={isLoading}>
+              {isLoading ? "Updating..." : "Update User"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Email Modal */}
+      <Dialog open={isEmailUserOpen} onOpenChange={setIsEmailUserOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Send Email</DialogTitle>
+            <DialogDescription>
+              Send an email to {selectedUser?.name} ({selectedUser?.email})
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="email-subject" className="text-right">
+                Subject
+              </Label>
+              <Input
+                id="email-subject"
+                value={emailData.subject}
+                onChange={(e) => setEmailData({...emailData, subject: e.target.value})}
+                className="col-span-3"
+                placeholder="Email subject"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="email-type" className="text-right">
+                Type
+              </Label>
+              <Select value={emailData.type} onValueChange={(value) => setEmailData({...emailData, type: value})}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General</SelectItem>
+                  <SelectItem value="notification">Notification</SelectItem>
+                  <SelectItem value="marketing">Marketing</SelectItem>
+                  <SelectItem value="support">Support</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="email-message" className="text-right pt-2">
+                Message
+              </Label>
+              <Textarea
+                id="email-message"
+                value={emailData.message}
+                onChange={(e) => setEmailData({...emailData, message: e.target.value})}
+                className="col-span-3"
+                placeholder="Email message content"
+                rows={6}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEmailUserOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSendEmail} disabled={isLoading}>
+              {isLoading ? "Sending..." : "Send Email"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Role Modal */}
+      <Dialog open={isChangeRoleOpen} onOpenChange={setIsChangeRoleOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Change User Role</DialogTitle>
+            <DialogDescription>
+              Change the role for {selectedUser?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="new-role" className="text-right">
+                New Role
+              </Label>
+              <Select value={roleData.role} onValueChange={(value) => setRoleData({...roleData, role: value})}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="premium">Premium</SelectItem>
+                  <SelectItem value="trial">Trial</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="role-reason" className="text-right pt-2">
+                Reason
+              </Label>
+              <Textarea
+                id="role-reason"
+                value={roleData.reason}
+                onChange={(e) => setRoleData({...roleData, reason: e.target.value})}
+                className="col-span-3"
+                placeholder="Reason for role change (optional)"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsChangeRoleOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleChangeUserRole} disabled={isLoading}>
+              {isLoading ? "Changing..." : "Change Role"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete User Modal */}
+      <Dialog open={isDeleteUserOpen} onOpenChange={setIsDeleteUserOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete User</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {selectedUser?.name}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <div className="flex">
+                <AlertTriangle className="h-5 w-5 text-red-400" />
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">
+                    Warning
+                  </h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>This will permanently delete the user account and all associated data.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteUserOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteUserConfirm} 
+              disabled={isLoading}
+            >
+              {isLoading ? "Deleting..." : "Delete User"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
