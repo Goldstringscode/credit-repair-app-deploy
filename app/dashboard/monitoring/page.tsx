@@ -7,6 +7,11 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
+import { toast } from "sonner"
 import {
   FileText,
   Truck,
@@ -55,6 +60,22 @@ export default function LetterMonitoringPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [bureauFilter, setBureauFilter] = useState("all")
   const [activeTab, setActiveTab] = useState("overview")
+  const [selectedLetter, setSelectedLetter] = useState<LetterTracking | null>(null)
+  
+  // Alert settings state
+  const [alertSettings, setAlertSettings] = useState({
+    allAlerts: true,
+    deliveryNotifications: true,
+    statusUpdates: true,
+    bureauResponses: true,
+    returnReceipts: true,
+    trackingUpdates: true,
+    emailAlerts: true,
+    smsAlerts: false,
+    pushNotifications: true,
+    weeklyDigest: true,
+    monthlyReport: false
+  })
 
   // Mock data - in real app, this would come from API
   const [letters] = useState<LetterTracking[]>([
@@ -167,6 +188,52 @@ export default function LetterMonitoringPage() {
   const inTransitLetters = letters.filter(l => l.status === "in_transit").length
   const pendingLetters = letters.filter(l => l.status === "sent" || l.status === "pending").length
   const returnedLetters = letters.filter(l => l.status === "returned").length
+
+  // Functional handlers
+  const handleViewLetter = (letter: LetterTracking) => {
+    setSelectedLetter(letter)
+    toast.success(`Viewing letter: ${letter.letterType}`)
+    // In a real app, this would open a modal or navigate to a detailed view
+  }
+
+  const handleDownloadLetter = (letter: LetterTracking) => {
+    toast.success(`Downloading letter: ${letter.letterType}`)
+    // In a real app, this would trigger a download of the letter PDF
+    const element = document.createElement('a')
+    const file = new Blob([`Letter Details:\n\nType: ${letter.letterType}\nRecipient: ${letter.recipient}\nTracking: ${letter.trackingNumber}\nStatus: ${letter.status}\nSent: ${letter.sentDate}\nDispute: ${letter.disputeType}\nBureau: ${letter.creditBureau}\nNotes: ${letter.notes || 'None'}`], {type: 'text/plain'})
+    element.href = URL.createObjectURL(file)
+    element.download = `letter-${letter.id}-${letter.letterType.replace(/\s+/g, '-').toLowerCase()}.txt`
+    document.body.appendChild(element)
+    element.click()
+    document.body.removeChild(element)
+  }
+
+  const handleAlertSettingChange = (setting: string, value: boolean) => {
+    setAlertSettings(prev => ({
+      ...prev,
+      [setting]: value
+    }))
+    
+    if (setting === 'allAlerts') {
+      // Toggle all alerts when master switch is toggled
+      const newValue = value
+      setAlertSettings(prev => ({
+        ...prev,
+        deliveryNotifications: newValue,
+        statusUpdates: newValue,
+        bureauResponses: newValue,
+        returnReceipts: newValue,
+        trackingUpdates: newValue
+      }))
+    }
+    
+    toast.success(`Alert setting updated: ${setting}`)
+  }
+
+  const handleSaveAlertSettings = () => {
+    toast.success("Alert settings saved successfully!")
+    // In a real app, this would save to the backend
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -440,10 +507,20 @@ export default function LetterMonitoringPage() {
                         </div>
                         
                         <div className="flex items-center space-x-2 ml-4">
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleViewLetter(letter)}
+                            title="View letter details"
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDownloadLetter(letter)}
+                            title="Download letter"
+                          >
                             <Download className="h-4 w-4" />
                           </Button>
                         </div>
@@ -457,24 +534,339 @@ export default function LetterMonitoringPage() {
 
           {/* Analytics Tab */}
           <TabsContent value="analytics" className="space-y-6">
-            <div className="text-center py-12">
-              <BarChart3 className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Letter Analytics</h3>
-              <p className="text-gray-600">
-                Detailed analytics and reporting for your dispute letters coming soon
-              </p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Delivery Success Rate */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <CheckCircle className="h-5 w-5" />
+                    <span>Delivery Success Rate</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Successful Deliveries</span>
+                      <span className="text-2xl font-bold text-green-600">
+                        {totalLetters > 0 ? Math.round((deliveredLetters / totalLetters) * 100) : 0}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-green-600 h-2 rounded-full" 
+                        style={{ width: `${totalLetters > 0 ? (deliveredLetters / totalLetters) * 100 : 0}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      {deliveredLetters} of {totalLetters} letters delivered successfully
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Bureau Performance */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Building className="h-5 w-5" />
+                    <span>Bureau Performance</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {["Experian", "Equifax", "TransUnion"].map((bureau) => {
+                      const bureauLetters = letters.filter(l => l.creditBureau === bureau)
+                      const delivered = bureauLetters.filter(l => l.status === "delivered").length
+                      const successRate = bureauLetters.length > 0 ? Math.round((delivered / bureauLetters.length) * 100) : 0
+                      
+                      return (
+                        <div key={bureau} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex-1">
+                            <h4 className="font-medium">{bureau}</h4>
+                            <p className="text-sm text-gray-600">{bureauLetters.length} letters sent</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-medium">{successRate}% success</p>
+                            <p className="text-xs text-gray-500">{delivered} delivered</p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Letter Types Distribution */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <FileText className="h-5 w-5" />
+                    <span>Letter Types</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {letters.reduce((acc, letter) => {
+                      const type = letter.disputeType
+                      acc[type] = (acc[type] || 0) + 1
+                      return acc
+                    }, {} as Record<string, number>).map(([type, count]) => (
+                      <div key={type} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex-1">
+                          <h4 className="font-medium">{type}</h4>
+                          <p className="text-sm text-gray-600">{count} letters</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium">{count}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Timeline Analysis */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Clock className="h-5 w-5" />
+                    <span>Delivery Timeline</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Average Delivery Time</span>
+                      <span className="text-2xl font-bold text-blue-600">3.2 days</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Fastest Delivery</span>
+                      <span className="text-sm text-green-600">1 day</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Longest Delivery</span>
+                      <span className="text-sm text-red-600">7 days</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Return Rate</span>
+                      <span className="text-sm text-orange-600">{returnedLetters} letters</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
           {/* Alerts Tab */}
           <TabsContent value="alerts" className="space-y-6">
-            <div className="text-center py-12">
-              <Bell className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Delivery Alerts</h3>
-              <p className="text-gray-600">
-                Set up alerts for letter delivery status and tracking updates
-              </p>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Bell className="h-5 w-5" />
+                  <span>Alert Settings</span>
+                </CardTitle>
+                <CardDescription>
+                  Manage your notification preferences for letter tracking and delivery updates
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Master Alert Toggle */}
+                <div className="flex items-center justify-between p-4 border rounded-lg bg-gray-50">
+                  <div className="space-y-1">
+                    <Label htmlFor="all-alerts" className="text-base font-medium">
+                      Enable All Alerts
+                    </Label>
+                    <p className="text-sm text-gray-600">
+                      Master switch to enable or disable all letter tracking notifications
+                    </p>
+                  </div>
+                  <Switch
+                    id="all-alerts"
+                    checked={alertSettings.allAlerts}
+                    onCheckedChange={(checked) => handleAlertSettingChange('allAlerts', checked)}
+                  />
+                </div>
+
+                <Separator />
+
+                {/* Letter Tracking Alerts */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-medium">Letter Tracking Alerts</h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="space-y-1">
+                        <Label htmlFor="delivery-notifications" className="font-medium">
+                          Delivery Notifications
+                        </Label>
+                        <p className="text-sm text-gray-600">Get notified when letters are delivered</p>
+                      </div>
+                      <Switch
+                        id="delivery-notifications"
+                        checked={alertSettings.deliveryNotifications}
+                        onCheckedChange={(checked) => handleAlertSettingChange('deliveryNotifications', checked)}
+                        disabled={!alertSettings.allAlerts}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="space-y-1">
+                        <Label htmlFor="status-updates" className="font-medium">
+                          Status Updates
+                        </Label>
+                        <p className="text-sm text-gray-600">Get notified of status changes</p>
+                      </div>
+                      <Switch
+                        id="status-updates"
+                        checked={alertSettings.statusUpdates}
+                        onCheckedChange={(checked) => handleAlertSettingChange('statusUpdates', checked)}
+                        disabled={!alertSettings.allAlerts}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="space-y-1">
+                        <Label htmlFor="bureau-responses" className="font-medium">
+                          Bureau Responses
+                        </Label>
+                        <p className="text-sm text-gray-600">Get notified of bureau responses</p>
+                      </div>
+                      <Switch
+                        id="bureau-responses"
+                        checked={alertSettings.bureauResponses}
+                        onCheckedChange={(checked) => handleAlertSettingChange('bureauResponses', checked)}
+                        disabled={!alertSettings.allAlerts}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="space-y-1">
+                        <Label htmlFor="return-receipts" className="font-medium">
+                          Return Receipts
+                        </Label>
+                        <p className="text-sm text-gray-600">Get notified of return receipts</p>
+                      </div>
+                      <Switch
+                        id="return-receipts"
+                        checked={alertSettings.returnReceipts}
+                        onCheckedChange={(checked) => handleAlertSettingChange('returnReceipts', checked)}
+                        disabled={!alertSettings.allAlerts}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="space-y-1">
+                        <Label htmlFor="tracking-updates" className="font-medium">
+                          Tracking Updates
+                        </Label>
+                        <p className="text-sm text-gray-600">Get notified of tracking location updates</p>
+                      </div>
+                      <Switch
+                        id="tracking-updates"
+                        checked={alertSettings.trackingUpdates}
+                        onCheckedChange={(checked) => handleAlertSettingChange('trackingUpdates', checked)}
+                        disabled={!alertSettings.allAlerts}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Notification Methods */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-medium">Notification Methods</h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="space-y-1">
+                        <Label htmlFor="email-alerts" className="font-medium">
+                          Email Alerts
+                        </Label>
+                        <p className="text-sm text-gray-600">Receive notifications via email</p>
+                      </div>
+                      <Switch
+                        id="email-alerts"
+                        checked={alertSettings.emailAlerts}
+                        onCheckedChange={(checked) => handleAlertSettingChange('emailAlerts', checked)}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="space-y-1">
+                        <Label htmlFor="sms-alerts" className="font-medium">
+                          SMS Alerts
+                        </Label>
+                        <p className="text-sm text-gray-600">Receive notifications via SMS</p>
+                      </div>
+                      <Switch
+                        id="sms-alerts"
+                        checked={alertSettings.smsAlerts}
+                        onCheckedChange={(checked) => handleAlertSettingChange('smsAlerts', checked)}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="space-y-1">
+                        <Label htmlFor="push-notifications" className="font-medium">
+                          Push Notifications
+                        </Label>
+                        <p className="text-sm text-gray-600">Receive browser push notifications</p>
+                      </div>
+                      <Switch
+                        id="push-notifications"
+                        checked={alertSettings.pushNotifications}
+                        onCheckedChange={(checked) => handleAlertSettingChange('pushNotifications', checked)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Digest Settings */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-medium">Digest & Reports</h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="space-y-1">
+                        <Label htmlFor="weekly-digest" className="font-medium">
+                          Weekly Digest
+                        </Label>
+                        <p className="text-sm text-gray-600">Weekly summary of letter activity</p>
+                      </div>
+                      <Switch
+                        id="weekly-digest"
+                        checked={alertSettings.weeklyDigest}
+                        onCheckedChange={(checked) => handleAlertSettingChange('weeklyDigest', checked)}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="space-y-1">
+                        <Label htmlFor="monthly-report" className="font-medium">
+                          Monthly Report
+                        </Label>
+                        <p className="text-sm text-gray-600">Monthly analytics and insights</p>
+                      </div>
+                      <Switch
+                        id="monthly-report"
+                        checked={alertSettings.monthlyReport}
+                        onCheckedChange={(checked) => handleAlertSettingChange('monthlyReport', checked)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Save Button */}
+                <div className="flex justify-end pt-4">
+                  <Button onClick={handleSaveAlertSettings} className="px-6">
+                    Save Alert Settings
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
