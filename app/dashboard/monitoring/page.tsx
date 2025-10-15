@@ -606,11 +606,11 @@ export default function LetterMonitoringPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {letters.reduce((acc, letter) => {
+                    {Object.entries(letters.reduce((acc, letter) => {
                       const type = letter.disputeType
                       acc[type] = (acc[type] || 0) + 1
                       return acc
-                    }, {} as Record<string, number>).map(([type, count]) => (
+                    }, {} as Record<string, number>)).map(([type, count]) => (
                       <div key={type} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex-1">
                           <h4 className="font-medium">{type}</h4>
