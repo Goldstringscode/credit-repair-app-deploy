@@ -1,0 +1,51 @@
+@echo off
+echo Setting up Vercel environment variables for compliance system...
+
+echo.
+echo Setting NEXT_PUBLIC_SUPABASE_URL...
+echo https://gbvpubekxavjxylofpqf.supabase.co | vercel env add NEXT_PUBLIC_SUPABASE_URL production
+
+echo.
+echo Setting NEXT_PUBLIC_SUPABASE_ANON_KEY...
+echo eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdidnB1YmVreGF2anh5bG9mcHFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwODE0MDUsImV4cCI6MjA2OTY1NzQwNX0.90ANHldAgk-_nPKkd4W44Uab1hUnpTeii5RovDVf_hM | vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production
+
+echo.
+echo Setting SUPABASE_SERVICE_ROLE_KEY...
+echo eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdidnB1YmVreGF2anh5bG9mcHFmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDA4MTQwNSwiZXhwIjoyMDY5NjU3NDA1fQ.cK_iG9h749j4GyGqHFVB7DBI6loLu6nXN9ZcdrH0Pi0 | vercel env add SUPABASE_SERVICE_ROLE_KEY production
+
+echo.
+echo Setting environment variables for preview and development environments...
+
+echo.
+echo Setting NEXT_PUBLIC_SUPABASE_URL for preview...
+echo https://gbvpubekxavjxylofpqf.supabase.co | vercel env add NEXT_PUBLIC_SUPABASE_URL preview
+
+echo.
+echo Setting NEXT_PUBLIC_SUPABASE_ANON_KEY for preview...
+echo eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdidnB1YmVreGF2anh5bG9mcHFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwODE0MDUsImV4cCI6MjA2OTY1NzQwNX0.90ANHldAgk-_nPKkd4W44Uab1hUnpTeii5RovDVf_hM | vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY preview
+
+echo.
+echo Setting SUPABASE_SERVICE_ROLE_KEY for preview...
+echo eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdidnB1YmVreGF2anh5bG9mcHFmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDA4MTQwNSwiZXhwIjoyMDY5NjU3NDA1fQ.cK_iG9h749j4GyGqHFVB7DBI6loLu6nXN9ZcdrH0Pi0 | vercel env add SUPABASE_SERVICE_ROLE_KEY preview
+
+echo.
+echo Setting NEXT_PUBLIC_SUPABASE_URL for development...
+echo https://gbvpubekxavjxylofpqf.supabase.co | vercel env add NEXT_PUBLIC_SUPABASE_URL development
+
+echo.
+echo Setting NEXT_PUBLIC_SUPABASE_ANON_KEY for development...
+echo eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdidnB1YmVreGF2anh5bG9mcHFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwODE0MDUsImV4cCI6MjA2OTY1NzQwNX0.90ANHldAgk-_nPKkd4W44Uab1hUnpTeii5RovDVf_hM | vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY development
+
+echo.
+echo Setting SUPABASE_SERVICE_ROLE_KEY for development...
+echo eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdidnB1YmVreGF2anh5bG9mcHFmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDA4MTQwNSwiZXhwIjoyMDY5NjU3NDA1fQ.cK_iG9h749j4GyGqHFVB7DBI6loLu6nXN9ZcdrH0Pi0 | vercel env add SUPABASE_SERVICE_ROLE_KEY development
+
+echo.
+echo ✅ All environment variables have been set successfully!
+echo.
+echo Next steps:
+echo 1. Run the SQL script in your Supabase SQL Editor
+echo 2. Deploy your project: vercel --prod
+echo 3. Test the compliance system
+echo.
+pause

@@ -84,7 +84,7 @@ export default function ComplianceDashboard() {
     try {
       setLoading(true)
       
-      const response = await fetch('/api/compliance')
+      const response = await fetch('/api/public/compliance')
       const result = await response.json()
       
       if (result.success) {
@@ -199,7 +199,7 @@ export default function ComplianceDashboard() {
 
   const handleGDPRRequest = async (requestType: string) => {
     try {
-      const response = await fetch('/api/compliance/gdpr', {
+      const response = await fetch('/api/public/compliance/gdpr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -241,7 +241,7 @@ export default function ComplianceDashboard() {
         accountNumber: '****1234'
       }
 
-      const response = await fetch('/api/compliance/fcra', {
+      const response = await fetch('/api/public/compliance/fcra', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -267,7 +267,7 @@ export default function ComplianceDashboard() {
 
   const handleCCPARequest = async (requestType: string) => {
     try {
-      const response = await fetch('/api/compliance/ccpa', {
+      const response = await fetch('/api/public/compliance/ccpa', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -294,7 +294,7 @@ export default function ComplianceDashboard() {
 
   const handleHIPAARequest = async (requestType: string) => {
     try {
-      const response = await fetch('/api/compliance/hipaa', {
+      const response = await fetch('/api/public/compliance/hipaa', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
