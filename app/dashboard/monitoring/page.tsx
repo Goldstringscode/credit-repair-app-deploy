@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import {
   FileText,
@@ -192,17 +193,26 @@ export default function LetterMonitoringPage() {
   // Functional handlers
   const handleViewLetter = (letter: LetterTracking) => {
     setSelectedLetter(letter)
-    toast.success(`Viewing letter: ${letter.letterType}`)
-    // In a real app, this would open a modal or navigate to a detailed view
+    toast.success(`Opening letter details: ${letter.letterType}`)
   }
 
   const handleDownloadLetter = (letter: LetterTracking) => {
     toast.success(`Downloading letter: ${letter.letterType}`)
-    // In a real app, this would trigger a download of the letter PDF
     const element = document.createElement('a')
     const file = new Blob([`Letter Details:\n\nType: ${letter.letterType}\nRecipient: ${letter.recipient}\nTracking: ${letter.trackingNumber}\nStatus: ${letter.status}\nSent: ${letter.sentDate}\nDispute: ${letter.disputeType}\nBureau: ${letter.creditBureau}\nNotes: ${letter.notes || 'None'}`], {type: 'text/plain'})
     element.href = URL.createObjectURL(file)
     element.download = `letter-${letter.id}-${letter.letterType.replace(/\s+/g, '-').toLowerCase()}.txt`
+    document.body.appendChild(element)
+    element.click()
+    document.body.removeChild(element)
+  }
+
+  const handleDownloadTrackingNumber = (letter: LetterTracking) => {
+    toast.success(`Downloading tracking number: ${letter.trackingNumber}`)
+    const element = document.createElement('a')
+    const file = new Blob([`Tracking Information:\n\nTracking Number: ${letter.trackingNumber}\nLetter Type: ${letter.letterType}\nRecipient: ${letter.recipient}\nStatus: ${letter.status}\nCurrent Location: ${letter.currentLocation}\nSent Date: ${letter.sentDate}\nExpected Delivery: ${letter.expectedDelivery}\nLast Update: ${letter.lastUpdate}\nCertified Mail: ${letter.certifiedMail ? 'Yes' : 'No'}\nReturn Receipt: ${letter.returnReceipt ? 'Yes' : 'No'}`], {type: 'text/plain'})
+    element.href = URL.createObjectURL(file)
+    element.download = `tracking-${letter.trackingNumber.replace(/\s+/g, '-')}.txt`
     document.body.appendChild(element)
     element.click()
     document.body.removeChild(element)
@@ -456,7 +466,18 @@ export default function LetterMonitoringPage() {
                             </div>
                             <div>
                               <p className="text-sm font-medium text-gray-600">Tracking Number</p>
-                              <p className="text-sm font-mono">{letter.trackingNumber}</p>
+                              <div className="flex items-center space-x-2">
+                                <p className="text-sm font-mono">{letter.trackingNumber}</p>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handleDownloadTrackingNumber(letter)}
+                                  title="Download tracking information"
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Download className="h-3 w-3" />
+                                </Button>
+                              </div>
                             </div>
                             <div>
                               <p className="text-sm font-medium text-gray-600">Credit Bureau</p>
@@ -507,14 +528,164 @@ export default function LetterMonitoringPage() {
                         </div>
                         
                         <div className="flex items-center space-x-2 ml-4">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleViewLetter(letter)}
-                            title="View letter details"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleViewLetter(letter)}
+                                title="View letter details"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl">
+                              <DialogHeader>
+                                <DialogTitle className="flex items-center space-x-2">
+                                  <FileText className="h-5 w-5" />
+                                  <span>Letter Details</span>
+                                </DialogTitle>
+                                <DialogDescription>
+                                  Complete information for {letter.letterType}
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <h4 className="font-medium text-sm text-gray-600 mb-2">Letter Information</h4>
+                                    <div className="space-y-2">
+                                      <div>
+                                        <p className="text-sm font-medium">Type</p>
+                                        <p className="text-sm text-gray-600">{letter.letterType}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-medium">Dispute Type</p>
+                                        <p className="text-sm text-gray-600">{letter.disputeType}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-medium">Credit Bureau</p>
+                                        <p className="text-sm text-gray-600">{letter.creditBureau}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <h4 className="font-medium text-sm text-gray-600 mb-2">Recipient Information</h4>
+                                    <div className="space-y-2">
+                                      <div>
+                                        <p className="text-sm font-medium">Recipient</p>
+                                        <p className="text-sm text-gray-600">{letter.recipient}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-medium">Address</p>
+                                        <p className="text-sm text-gray-600">{letter.recipientAddress}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <h4 className="font-medium text-sm text-gray-600 mb-2">Tracking Information</h4>
+                                    <div className="space-y-2">
+                                      <div>
+                                        <p className="text-sm font-medium">Tracking Number</p>
+                                        <div className="flex items-center space-x-2">
+                                          <p className="text-sm font-mono text-gray-600">{letter.trackingNumber}</p>
+                                          <Button 
+                                            variant="ghost" 
+                                            size="sm"
+                                            onClick={() => handleDownloadTrackingNumber(letter)}
+                                            title="Download tracking information"
+                                            className="h-6 w-6 p-0"
+                                          >
+                                            <Download className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-medium">Status</p>
+                                        <Badge className={getStatusColor(letter.status)}>
+                                          <div className="flex items-center space-x-1">
+                                            {getStatusIcon(letter.status)}
+                                            <span>{letter.status.replace('_', ' ')}</span>
+                                          </div>
+                                        </Badge>
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-medium">Current Location</p>
+                                        <p className="text-sm text-gray-600">{letter.currentLocation}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <h4 className="font-medium text-sm text-gray-600 mb-2">Timeline</h4>
+                                    <div className="space-y-2">
+                                      <div>
+                                        <p className="text-sm font-medium">Sent Date</p>
+                                        <p className="text-sm text-gray-600">{letter.sentDate}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-medium">Expected Delivery</p>
+                                        <p className="text-sm text-gray-600">{letter.expectedDelivery}</p>
+                                      </div>
+                                      {letter.actualDelivery && (
+                                        <div>
+                                          <p className="text-sm font-medium">Actual Delivery</p>
+                                          <p className="text-sm text-gray-600">{letter.actualDelivery}</p>
+                                        </div>
+                                      )}
+                                      <div>
+                                        <p className="text-sm font-medium">Last Update</p>
+                                        <p className="text-sm text-gray-600">{letter.lastUpdate}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <h4 className="font-medium text-sm text-gray-600 mb-2">Mail Services</h4>
+                                    <div className="space-y-2">
+                                      <div className="flex items-center space-x-2">
+                                        <Mail className="h-4 w-4" />
+                                        <span className="text-sm">Certified Mail: {letter.certifiedMail ? 'Yes' : 'No'}</span>
+                                      </div>
+                                      <div className="flex items-center space-x-2">
+                                        <Package className="h-4 w-4" />
+                                        <span className="text-sm">Return Receipt: {letter.returnReceipt ? 'Yes' : 'No'}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {letter.notes && (
+                                  <div>
+                                    <h4 className="font-medium text-sm text-gray-600 mb-2">Notes</h4>
+                                    <div className="p-3 bg-gray-100 rounded-lg">
+                                      <p className="text-sm">{letter.notes}</p>
+                                    </div>
+                                  </div>
+                                )}
+
+                                <div className="flex justify-end space-x-2 pt-4 border-t">
+                                  <Button 
+                                    variant="outline"
+                                    onClick={() => handleDownloadLetter(letter)}
+                                  >
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download Letter
+                                  </Button>
+                                  <Button 
+                                    variant="outline"
+                                    onClick={() => handleDownloadTrackingNumber(letter)}
+                                  >
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download Tracking
+                                  </Button>
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                           <Button 
                             variant="ghost" 
                             size="sm"
