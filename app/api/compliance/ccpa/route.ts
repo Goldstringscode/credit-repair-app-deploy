@@ -1,109 +1,160 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ccpaService, submitCCPARightsRequest, processCCPARightsRequest, getUserCCPArequests } from '@/lib/compliance/ccpa'
+import { createSupabaseClient } from '@/lib/supabase'
 
-export const POST = async (request: NextRequest) => {
+export async function POST(request: NextRequest) {
   try {
-    const { userId, requestType } = await request.json()
+    const body = await request.json()
+    const { userId, requestType, businessPurpose, thirdParties } = body
     
-    if (!userId || !requestType) {
-      return NextResponse.json({ 
-        error: 'Missing required fields: userId, requestType' 
-      }, { status: 400 })
+    const supabase = createSupabaseClient()
+    
+    // Create CCPA consumer request
+    const { data: ccpaRequest, error } = await supabase
+      .from('ccpa_consumer_requests')
+      .insert({
+        user_id: userId,
+        request_type: requestType,
+        verification_status: 'pending',
+        business_purpose: businessPurpose,
+        third_parties: thirdParties,
+        status: 'pending'
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('CCPA request creation error:', error)
+      return NextResponse.json(
+        { success: false, error: 'Failed to create CCPA request' },
+        { status: 500 }
+      )
     }
 
-    const ccpaRequest = submitCCPARightsRequest(userId, requestType)
-    
-    return NextResponse.json({ 
-      success: true, 
-      request: ccpaRequest,
-      message: 'CCPA rights request created successfully'
+    // Also create a compliance request for tracking
+    const { data: complianceRequest, error: complianceError } = await supabase
+      .from('compliance_requests')
+      .insert({
+        user_id: userId,
+        request_type: `ccpa_${requestType}`,
+        framework: 'CCPA',
+        status: 'pending',
+        priority: getPriorityForCCPARequest(requestType),
+        description: getDescriptionForCCPARequest(requestType),
+        reason: 'Consumer rights request under CCPA',
+        due_date: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString() // CCPA allows 45 days
+      })
+      .select()
+      .single()
+
+    if (complianceError) {
+      console.error('CCPA compliance request creation error:', complianceError)
+    }
+
+    // Log the action
+    await supabase
+      .from('compliance_audit_log')
+      .insert({
+        user_id: userId,
+        action: `ccpa_${requestType}_requested`,
+        framework: 'CCPA',
+        request_id: ccpaRequest.id,
+        details: {
+          requestType,
+          businessPurpose,
+          thirdParties
+        }
+      })
+
+    // Send notification to admin
+    await supabase
+      .from('compliance_notifications')
+      .insert({
+        type: 'compliance_alert',
+        title: `New CCPA ${requestType.replace('_', ' ')} Request`,
+        message: `User ${userId} has submitted a ${requestType.replace('_', ' ')} request under CCPA.`,
+        priority: getPriorityForCCPARequest(requestType)
+      })
+
+    return NextResponse.json({
+      success: true,
+      data: ccpaRequest,
+      message: 'CCPA request submitted successfully'
     })
-  } catch (error: any) {
-    console.error('CCPA request creation error:', error)
-    return NextResponse.json({ 
-      error: 'Failed to create CCPA request',
-      message: error.message 
-    }, { status: 500 })
+
+  } catch (error) {
+    console.error('CCPA API error:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to process CCPA request' },
+      { status: 500 }
+    )
   }
 }
 
-export const GET = async (request: NextRequest) => {
+export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
-    const action = searchParams.get('action')
+    const status = searchParams.get('status')
     
-    if (action === 'rights') {
-      // Get CCPA rights information
-      const rights = ccpaService.getCCPArights()
-      return NextResponse.json({ 
-        success: true, 
-        rights
-      })
-    } else if (action === 'data-categories') {
-      // Get data categories
-      const dataCategories = ccpaService.getDataCategories()
-      return NextResponse.json({ 
-        success: true, 
-        dataCategories
-      })
-    } else if (action === 'third-parties') {
-      // Get third parties
-      const thirdParties = ccpaService.getThirdParties()
-      return NextResponse.json({ 
-        success: true, 
-        thirdParties
-      })
-    } else if (userId) {
-      // Get user's CCPA requests
-      const requests = getUserCCPArequests(userId)
-      return NextResponse.json({ 
-        success: true, 
-        requests
-      })
-    } else {
-      return NextResponse.json({ 
-        error: 'Missing userId parameter' 
-      }, { status: 400 })
+    const supabase = createSupabaseClient()
+    
+    let query = supabase
+      .from('ccpa_consumer_requests')
+      .select('*')
+    
+    if (userId) {
+      query = query.eq('user_id', userId)
     }
-  } catch (error: any) {
-    console.error('CCPA request retrieval error:', error)
-    return NextResponse.json({ 
-      error: 'Failed to retrieve CCPA data',
-      message: error.message 
-    }, { status: 500 })
-  }
-}
-
-export const PUT = async (request: NextRequest) => {
-  try {
-    const { requestId, userId } = await request.json()
     
-    if (!requestId || !userId) {
-      return NextResponse.json({ 
-        error: 'Missing required fields: requestId, userId' 
-      }, { status: 400 })
+    if (status) {
+      query = query.eq('status', status)
+    }
+    
+    const { data: requests, error } = await query
+      .order('submitted_at', { ascending: false })
+
+    if (error) {
+      console.error('CCPA requests fetch error:', error)
+      return NextResponse.json(
+        { success: false, error: 'Failed to fetch CCPA requests' },
+        { status: 500 }
+      )
     }
 
-    const result = await processCCPARightsRequest(requestId, userId)
-    
-    if (!result.success) {
-      return NextResponse.json({ 
-        error: result.error 
-      }, { status: 400 })
-    }
-    
-    return NextResponse.json({ 
-      success: true, 
-      data: result.data,
-      message: 'CCPA rights request processed successfully'
+    return NextResponse.json({
+      success: true,
+      data: requests
     })
-  } catch (error: any) {
-    console.error('CCPA request processing error:', error)
-    return NextResponse.json({ 
-      error: 'Failed to process CCPA request',
-      message: error.message 
-    }, { status: 500 })
+
+  } catch (error) {
+    console.error('CCPA API error:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch CCPA requests' },
+      { status: 500 }
+    )
   }
 }
 
+function getPriorityForCCPARequest(requestType: string): string {
+  const priorityMap: { [key: string]: string } = {
+    'know': 'normal',
+    'delete': 'high',
+    'opt_out': 'high',
+    'non_discrimination': 'normal',
+    'data_portability': 'normal'
+  }
+  
+  return priorityMap[requestType] || 'normal'
+}
+
+function getDescriptionForCCPARequest(requestType: string): string {
+  const descriptionMap: { [key: string]: string } = {
+    'know': 'Consumer requests to know what personal information is collected',
+    'delete': 'Consumer requests deletion of personal information',
+    'opt_out': 'Consumer opts out of sale of personal information',
+    'non_discrimination': 'Consumer requests non-discrimination protection',
+    'data_portability': 'Consumer requests data portability'
+  }
+  
+  return descriptionMap[requestType] || 'CCPA consumer request'
+}

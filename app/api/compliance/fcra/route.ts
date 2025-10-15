@@ -1,132 +1,157 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { fcraService, submitFCRADispute, requestFCRAFreeReport, getUserFCRArequests } from '@/lib/compliance/fcra'
+import { createSupabaseClient } from '@/lib/supabase'
 
-export const POST = async (request: NextRequest) => {
+export async function POST(request: NextRequest) {
   try {
-    const { userId, action, data } = await request.json()
+    const body = await request.json()
+    const { userId, action, data } = body
     
-    if (!userId || !action) {
-      return NextResponse.json({ 
-        error: 'Missing required fields: userId, action' 
-      }, { status: 400 })
+    const supabase = createSupabaseClient()
+    
+    if (action === 'dispute') {
+      // Create FCRA dispute
+      const { data: dispute, error } = await supabase
+        .from('fcra_disputes')
+        .insert({
+          user_id: userId,
+          credit_bureau: data.bureau,
+          account_name: data.accountName,
+          account_number: data.accountNumber,
+          dispute_reason: data.description,
+          supporting_documents: data.documents,
+          status: 'submitted'
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('FCRA dispute creation error:', error)
+        return NextResponse.json(
+          { success: false, error: 'Failed to create FCRA dispute' },
+          { status: 500 }
+        )
+      }
+
+      // Log the action
+      await supabase
+        .from('compliance_audit_log')
+        .insert({
+          user_id: userId,
+          action: 'fcra_dispute_submitted',
+          framework: 'FCRA',
+          details: {
+            bureau: data.bureau,
+            accountName: data.accountName,
+            reason: data.description
+          }
+        })
+
+      return NextResponse.json({
+        success: true,
+        data: dispute,
+        message: 'FCRA dispute submitted successfully'
+      })
+
+    } else if (action === 'free_report') {
+      // Create free report request
+      const { data: reportRequest, error } = await supabase
+        .from('compliance_requests')
+        .insert({
+          user_id: userId,
+          request_type: 'free_credit_report',
+          framework: 'FCRA',
+          status: 'pending',
+          priority: 'normal',
+          description: 'User requests free annual credit report',
+          reason: 'Annual free report entitlement under FCRA',
+          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('FCRA report request creation error:', error)
+        return NextResponse.json(
+          { success: false, error: 'Failed to create FCRA report request' },
+          { status: 500 }
+        )
+      }
+
+      // Log the action
+      await supabase
+        .from('compliance_audit_log')
+        .insert({
+          user_id: userId,
+          action: 'fcra_free_report_requested',
+          framework: 'FCRA',
+          request_id: reportRequest.id,
+          details: {
+            bureau: data.bureau
+          }
+        })
+
+      return NextResponse.json({
+        success: true,
+        data: reportRequest,
+        message: 'Free credit report request submitted successfully'
+      })
     }
 
-    let result: any
+    return NextResponse.json(
+      { success: false, error: 'Invalid action specified' },
+      { status: 400 }
+    )
 
-    switch (action) {
-      case 'dispute':
-        if (!data.bureau || !data.description) {
-          return NextResponse.json({ 
-            error: 'Missing required fields for dispute: bureau, description' 
-          }, { status: 400 })
-        }
-        result = submitFCRADispute(userId, data)
-        break
-      case 'free_report':
-        if (!data.bureau) {
-          return NextResponse.json({ 
-            error: 'Missing required field for free report: bureau' 
-          }, { status: 400 })
-        }
-        result = requestFCRAFreeReport(userId, data.bureau)
-        break
-      default:
-        return NextResponse.json({ 
-          error: 'Invalid action. Must be "dispute" or "free_report"' 
-        }, { status: 400 })
-    }
-    
-    return NextResponse.json({ 
-      success: true, 
-      request: result,
-      message: `FCRA ${action} request created successfully`
-    })
-  } catch (error: any) {
-    console.error('FCRA request creation error:', error)
-    return NextResponse.json({ 
-      error: 'Failed to create FCRA request',
-      message: error.message 
-    }, { status: 500 })
+  } catch (error) {
+    console.error('FCRA API error:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to process FCRA request' },
+      { status: 500 }
+    )
   }
 }
 
-export const GET = async (request: NextRequest) => {
+export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
-    const action = searchParams.get('action')
+    const status = searchParams.get('status')
     
-    if (action === 'rights') {
-      // Get FCRA rights information
-      const rights = fcraService.getFCRArights()
-      return NextResponse.json({ 
-        success: true, 
-        rights
-      })
-    } else if (action === 'eligibility') {
-      // Check free report eligibility
-      const bureau = searchParams.get('bureau')
-      if (!userId || !bureau) {
-        return NextResponse.json({ 
-          error: 'Missing required parameters: userId, bureau' 
-        }, { status: 400 })
-      }
-      
-      const eligible = fcraService.isEligibleForFreeReport(userId, bureau as any)
-      return NextResponse.json({ 
-        success: true, 
-        eligible,
-        bureau
-      })
-    } else if (userId) {
-      // Get user's FCRA requests
-      const requests = getUserFCRArequests(userId)
-      return NextResponse.json({ 
-        success: true, 
-        requests
-      })
-    } else {
-      return NextResponse.json({ 
-        error: 'Missing userId parameter' 
-      }, { status: 400 })
+    const supabase = createSupabaseClient()
+    
+    let query = supabase
+      .from('fcra_disputes')
+      .select('*')
+    
+    if (userId) {
+      query = query.eq('user_id', userId)
     }
-  } catch (error: any) {
-    console.error('FCRA request retrieval error:', error)
-    return NextResponse.json({ 
-      error: 'Failed to retrieve FCRA data',
-      message: error.message 
-    }, { status: 500 })
-  }
-}
-
-export const PUT = async (request: NextRequest) => {
-  try {
-    const { requestId, resolution } = await request.json()
     
-    if (!requestId || !resolution) {
-      return NextResponse.json({ 
-        error: 'Missing required fields: requestId, resolution' 
-      }, { status: 400 })
+    if (status) {
+      query = query.eq('status', status)
+    }
+    
+    const { data: disputes, error } = await query
+      .order('submitted_at', { ascending: false })
+
+    if (error) {
+      console.error('FCRA disputes fetch error:', error)
+      return NextResponse.json(
+        { success: false, error: 'Failed to fetch FCRA disputes' },
+        { status: 500 }
+      )
     }
 
-    const result = await fcraService.processDispute(requestId, resolution)
-    
-    if (!result.success) {
-      return NextResponse.json({ 
-        error: result.error 
-      }, { status: 400 })
-    }
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: 'FCRA request processed successfully'
+    return NextResponse.json({
+      success: true,
+      data: disputes
     })
-  } catch (error: any) {
-    console.error('FCRA request processing error:', error)
-    return NextResponse.json({ 
-      error: 'Failed to process FCRA request',
-      message: error.message 
-    }, { status: 500 })
+
+  } catch (error) {
+    console.error('FCRA API error:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch FCRA disputes' },
+      { status: 500 }
+    )
   }
 }
-

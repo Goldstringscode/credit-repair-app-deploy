@@ -1,135 +1,180 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { retentionService, createRetentionRecord, processExpiredData, getRetentionPolicies } from '@/lib/compliance/data-retention'
+import { createSupabaseClient } from '@/lib/supabase'
 
-export const POST = async (request: NextRequest) => {
-  try {
-    const { userId, dataType, metadata } = await request.json()
-    
-    if (!userId || !dataType) {
-      return NextResponse.json({ 
-        error: 'Missing required fields: userId, dataType' 
-      }, { status: 400 })
-    }
-
-    const record = createRetentionRecord(userId, dataType, metadata)
-    
-    return NextResponse.json({ 
-      success: true, 
-      record,
-      message: 'Retention record created successfully'
-    })
-  } catch (error: any) {
-    console.error('Retention record creation error:', error)
-    return NextResponse.json({ 
-      error: 'Failed to create retention record',
-      message: error.message 
-    }, { status: 500 })
-  }
-}
-
-export const GET = async (request: NextRequest) => {
+export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
-    const action = searchParams.get('action')
+    const dataType = searchParams.get('dataType')
     
-    if (action === 'policies') {
-      // Get retention policies
-      const policies = getRetentionPolicies()
-      return NextResponse.json({ 
-        success: true, 
-        policies
-      })
-    } else if (action === 'expiring') {
-      // Get records expiring soon
-      const days = parseInt(searchParams.get('days') || '30')
-      const records = retentionService.getRecordsExpiringSoon(days)
-      return NextResponse.json({ 
-        success: true, 
+    const supabase = createSupabaseClient()
+    
+    let query = supabase
+      .from('data_retention_records')
+      .select(`
+        *,
+        data_retention_policies (
+          name,
+          description,
+          retention_period_days,
+          auto_delete
+        )
+      `)
+    
+    if (userId) {
+      query = query.eq('user_id', userId)
+    }
+    
+    if (dataType) {
+      query = query.eq('data_type', dataType)
+    }
+    
+    const { data: records, error } = await query
+      .order('expires_at', { ascending: true })
+
+    if (error) {
+      console.error('Data retention records fetch error:', error)
+      return NextResponse.json(
+        { success: false, error: 'Failed to fetch data retention records' },
+        { status: 500 }
+      )
+    }
+
+    // Get retention policies
+    const { data: policies, error: policiesError } = await supabase
+      .from('data_retention_policies')
+      .select('*')
+      .eq('is_active', true)
+
+    if (policiesError) {
+      console.error('Data retention policies fetch error:', policiesError)
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
         records,
-        count: records.length
-      })
-    } else if (action === 'audits') {
-      // Get retention audit history
-      const audits = retentionService.getRetentionAudits()
-      return NextResponse.json({ 
-        success: true, 
-        audits
-      })
-    } else if (userId) {
-      // Get user's retention records
-      const records = retentionService.getUserRetentionRecords(userId)
-      return NextResponse.json({ 
-        success: true, 
-        records
-      })
-    } else {
-      return NextResponse.json({ 
-        error: 'Missing userId parameter' 
-      }, { status: 400 })
-    }
-  } catch (error: any) {
-    console.error('Retention data retrieval error:', error)
-    return NextResponse.json({ 
-      error: 'Failed to retrieve retention data',
-      message: error.message 
-    }, { status: 500 })
-  }
-}
-
-export const PUT = async (request: NextRequest) => {
-  try {
-    const { action, recordId, reason } = await request.json()
-    
-    if (!action) {
-      return NextResponse.json({ 
-        error: 'Missing required field: action' 
-      }, { status: 400 })
-    }
-
-    if (action !== 'process_expired' && !recordId) {
-      return NextResponse.json({ 
-        error: 'Missing required field: recordId' 
-      }, { status: 400 })
-    }
-
-    let result: any
-
-    switch (action) {
-      case 'exempt':
-        if (!reason) {
-          return NextResponse.json({ 
-            error: 'Missing required field for exemption: reason' 
-          }, { status: 400 })
-        }
-        result = retentionService.markDataExempt(recordId, reason)
-        break
-      case 'process_expired':
-        result = await processExpiredData()
-        break
-      default:
-        return NextResponse.json({ 
-          error: 'Invalid action. Must be "exempt" or "process_expired"' 
-        }, { status: 400 })
-    }
-    
-    if (action === 'exempt' && !result) {
-      return NextResponse.json({ 
-        error: 'Record not found or already processed' 
-      }, { status: 404 })
-    }
-    
-    return NextResponse.json({ 
-      success: true, 
-      result,
-      message: `Retention ${action} completed successfully`
+        policies: policies || []
+      }
     })
-  } catch (error: any) {
-    console.error('Retention processing error:', error)
-    return NextResponse.json({ 
-      error: 'Failed to process retention action',
-      message: error.message 
-    }, { status: 500 })
+
+  } catch (error) {
+    console.error('Data retention API error:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch data retention data' },
+      { status: 500 }
+    )
   }
 }
 
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { action, recordIds, policyId, exemptReason } = body
+    
+    const supabase = createSupabaseClient()
+    
+    if (action === 'process_expired') {
+      // Process expired records for deletion
+      const { data: expiredRecords, error: fetchError } = await supabase
+        .from('data_retention_records')
+        .select('*')
+        .lt('expires_at', new Date().toISOString())
+        .is('deleted_at', null)
+        .is('exempt_reason', null)
+
+      if (fetchError) {
+        console.error('Expired records fetch error:', fetchError)
+        return NextResponse.json(
+          { success: false, error: 'Failed to fetch expired records' },
+          { status: 500 }
+        )
+      }
+
+      // Mark records as deleted
+      const { data: updatedRecords, error: updateError } = await supabase
+        .from('data_retention_records')
+        .update({
+          deleted_at: new Date().toISOString()
+        })
+        .in('id', expiredRecords.map(r => r.id))
+        .select()
+
+      if (updateError) {
+        console.error('Records deletion error:', updateError)
+        return NextResponse.json(
+          { success: false, error: 'Failed to delete expired records' },
+          { status: 500 }
+        )
+      }
+
+      // Log the action
+      await supabase
+        .from('compliance_audit_log')
+        .insert({
+          action: 'data_retention_cleanup',
+          framework: 'RETENTION',
+          details: {
+            action: 'process_expired',
+            recordsProcessed: updatedRecords.length,
+            recordIds: updatedRecords.map(r => r.id)
+          }
+        })
+
+      return NextResponse.json({
+        success: true,
+        data: updatedRecords,
+        message: `Successfully processed ${updatedRecords.length} expired records`
+      })
+
+    } else if (action === 'exempt_records') {
+      // Exempt records from deletion
+      const { data: exemptedRecords, error: exemptError } = await supabase
+        .from('data_retention_records')
+        .update({
+          exempt_reason: exemptReason
+        })
+        .in('id', recordIds)
+        .select()
+
+      if (exemptError) {
+        console.error('Records exemption error:', exemptError)
+        return NextResponse.json(
+          { success: false, error: 'Failed to exempt records' },
+          { status: 500 }
+        )
+      }
+
+      // Log the action
+      await supabase
+        .from('compliance_audit_log')
+        .insert({
+          action: 'data_retention_exemption',
+          framework: 'RETENTION',
+          details: {
+            action: 'exempt_records',
+            recordIds,
+            exemptReason
+          }
+        })
+
+      return NextResponse.json({
+        success: true,
+        data: exemptedRecords,
+        message: `Successfully exempted ${exemptedRecords.length} records`
+      })
+    }
+
+    return NextResponse.json(
+      { success: false, error: 'Invalid action specified' },
+      { status: 400 }
+    )
+
+  } catch (error) {
+    console.error('Data retention API error:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to process data retention action' },
+      { status: 500 }
+    )
+  }
+}

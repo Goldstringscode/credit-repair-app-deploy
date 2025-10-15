@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { complianceService } from '@/lib/compliance-service'
 import { 
   Shield, 
   FileText, 
@@ -83,8 +84,11 @@ export default function ComplianceDashboard() {
     try {
       setLoading(true)
       
-      // In a real implementation, these would be actual API calls
-      // For now, we'll simulate the data
+      const complianceData = await complianceService.getComplianceOverview()
+      setComplianceStatus(complianceData)
+    } catch (error) {
+      console.error('Failed to load compliance status:', error)
+      // Fallback to mock data if service fails
       const mockStatus: ComplianceStatus = {
         gdpr: {
           requests: 45,
@@ -130,10 +134,7 @@ export default function ComplianceDashboard() {
           complianceRate: 98
         }
       }
-      
       setComplianceStatus(mockStatus)
-    } catch (error) {
-      console.error('Failed to load compliance status:', error)
     } finally {
       setLoading(false)
     }
@@ -141,22 +142,18 @@ export default function ComplianceDashboard() {
 
   const handleGDPRRequest = async (requestType: string) => {
     try {
-      const response = await fetch('/api/compliance/gdpr', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: 'user-123',
-          requestType,
-          reason: 'User requested data access'
-        })
-      })
+      await complianceService.createGDPRRequest(
+        'user-123',
+        requestType,
+        'User requested data access',
+        {
+          categories: ['personal_info', 'contact_info', 'account_data'],
+          purposes: ['service_provision', 'marketing', 'analytics']
+        }
+      )
       
-      if (response.ok) {
-        alert(`${requestType} request submitted successfully`)
-        loadComplianceStatus()
-      } else {
-        alert('Failed to submit request')
-      }
+      alert(`${requestType.replace('_', ' ')} request submitted successfully`)
+      loadComplianceStatus()
     } catch (error) {
       console.error('GDPR request error:', error)
       alert('Error submitting request')
@@ -165,25 +162,22 @@ export default function ComplianceDashboard() {
 
   const handleFCRARequest = async (action: string) => {
     try {
-      const response = await fetch('/api/compliance/fcra', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: 'user-123',
-          action,
-          data: action === 'dispute' ? {
-            bureau: 'experian',
-            description: 'Inaccurate account information'
-          } : { bureau: 'experian' }
-        })
-      })
-      
-      if (response.ok) {
-        alert(`${action} request submitted successfully`)
-        loadComplianceStatus()
-      } else {
-        alert('Failed to submit request')
+      const data = action === 'dispute' ? {
+        bureau: 'experian',
+        accountName: 'Chase Credit Card',
+        accountNumber: '****1234',
+        description: 'Inaccurate account information',
+        documents: ['credit_report.pdf', 'dispute_letter.pdf']
+      } : { 
+        bureau: 'experian',
+        accountName: 'Chase Credit Card',
+        accountNumber: '****1234'
       }
+
+      await complianceService.createFCRARequest('user-123', action, data)
+      
+      alert(`${action} request submitted successfully`)
+      loadComplianceStatus()
     } catch (error) {
       console.error('FCRA request error:', error)
       alert('Error submitting request')
@@ -192,21 +186,15 @@ export default function ComplianceDashboard() {
 
   const handleCCPARequest = async (requestType: string) => {
     try {
-      const response = await fetch('/api/compliance/ccpa', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: 'user-123',
-          requestType
-        })
-      })
+      await complianceService.createCCPARequest(
+        'user-123',
+        requestType,
+        'Service provision and marketing',
+        ['marketing_partners', 'analytics_providers']
+      )
       
-      if (response.ok) {
-        alert(`${requestType} request submitted successfully`)
-        loadComplianceStatus()
-      } else {
-        alert('Failed to submit request')
-      }
+      alert(`${requestType.replace('_', ' ')} request submitted successfully`)
+      loadComplianceStatus()
     } catch (error) {
       console.error('CCPA request error:', error)
       alert('Error submitting request')
@@ -215,32 +203,24 @@ export default function ComplianceDashboard() {
 
   const handleHIPAARequest = async (requestType: string) => {
     try {
-      const response = await fetch('/api/compliance/hipaa', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await complianceService.createHIPAARequest(
+        'user-123',
+        requestType,
+        {
+          id: 'health_data_123',
           userId: 'user-123',
-          requestType,
-          healthData: {
-            id: 'health_data_123',
-            userId: 'user-123',
-            dataType: 'medical_record',
-            description: 'Sample health data',
-            sensitivity: 'high',
-            accessLevel: 'view',
-            encrypted: true,
-            lastAccessed: new Date(),
-            accessedBy: []
-          }
-        })
-      })
+          dataType: 'medical_record',
+          description: 'Sample health data',
+          sensitivity: 'high',
+          accessLevel: 'view',
+          encrypted: true,
+          lastAccessed: new Date(),
+          accessedBy: []
+        }
+      )
       
-      if (response.ok) {
-        alert(`${requestType} request submitted successfully`)
-        loadComplianceStatus()
-      } else {
-        alert('Failed to submit request')
-      }
+      alert(`${requestType} request submitted successfully`)
+      loadComplianceStatus()
     } catch (error) {
       console.error('HIPAA request error:', error)
       alert('Error submitting request')

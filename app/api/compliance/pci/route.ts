@@ -1,128 +1,174 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { pciService, addPCICard, processPCITransaction, getUserPCICards, getUserPCITransactions } from '@/lib/compliance/pci'
+import { createSupabaseClient } from '@/lib/supabase'
 
-export const POST = async (request: NextRequest) => {
+export async function POST(request: NextRequest) {
   try {
-    console.log('🔍 PCI API: Request received')
-    const { action, data } = await request.json()
-    console.log('🔍 PCI API: Action:', action, 'Data:', data)
+    const body = await request.json()
+    const { eventType, severity, description, affectedSystems, remediationActions } = body
     
-    if (!action) {
-      console.log('❌ PCI API: Missing action field')
-      return NextResponse.json({ 
-        error: 'Missing required field: action' 
-      }, { status: 400 })
+    const supabase = createSupabaseClient()
+    
+    // Create PCI security event
+    const { data: securityEvent, error } = await supabase
+      .from('pci_security_events')
+      .insert({
+        event_type: eventType,
+        severity: severity,
+        description: description,
+        affected_systems: affectedSystems,
+        remediation_actions: remediationActions,
+        status: 'open'
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('PCI security event creation error:', error)
+      return NextResponse.json(
+        { success: false, error: 'Failed to create PCI security event' },
+        { status: 500 }
+      )
     }
 
-    let result: any
+    // Log the action
+    await supabase
+      .from('compliance_audit_log')
+      .insert({
+        action: `pci_${eventType}_detected`,
+        framework: 'PCI',
+        details: {
+          eventType,
+          severity,
+          description,
+          affectedSystems
+        }
+      })
 
-    switch (action) {
-      case 'add_card':
-        console.log('🔍 PCI API: Processing add_card action')
-        if (!data.userId || !data.cardNumber || !data.expiryMonth || !data.expiryYear || !data.cardholderName || !data.cvv) {
-          console.log('❌ PCI API: Missing required fields for add_card')
-          return NextResponse.json({ 
-            error: 'Missing required fields for add_card: userId, cardNumber, expiryMonth, expiryYear, cardholderName, cvv' 
-          }, { status: 400 })
-        }
-        console.log('🔍 PCI API: Calling addPCICard with data:', data)
-        result = addPCICard(data)
-        console.log('🔍 PCI API: addPCICard result:', result)
-        break
-      case 'process_transaction':
-        if (!data.userId || !data.cardId || !data.amount || !data.currency || !data.merchantId || !data.transactionType) {
-          return NextResponse.json({ 
-            error: 'Missing required fields for process_transaction: userId, cardId, amount, currency, merchantId, transactionType' 
-          }, { status: 400 })
-        }
-        result = processPCITransaction(data)
-        break
-      default:
-        return NextResponse.json({ 
-          error: 'Invalid action. Must be "add_card" or "process_transaction"' 
-        }, { status: 400 })
+    // Send notification for critical/high severity events
+    if (severity === 'critical' || severity === 'high') {
+      await supabase
+        .from('compliance_notifications')
+        .insert({
+          type: 'compliance_alert',
+          title: `PCI Security Alert: ${eventType}`,
+          message: `A ${severity} severity PCI security event has been detected: ${description}`,
+          priority: severity
+        })
     }
-    
-    console.log('🔍 PCI API: Returning success response:', result)
-    return NextResponse.json({ 
-      success: true, 
-      result,
-      message: `PCI ${action} completed successfully`
+
+    return NextResponse.json({
+      success: true,
+      data: securityEvent,
+      message: 'PCI security event recorded successfully'
     })
-  } catch (error: any) {
-    console.error('❌ PCI API: Error occurred:', error)
-    console.error('❌ PCI API: Error stack:', error.stack)
-    return NextResponse.json({ 
-      error: 'Failed to process PCI operation',
-      message: error.message 
-    }, { status: 500 })
+
+  } catch (error) {
+    console.error('PCI API error:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to process PCI security event' },
+      { status: 500 }
+    )
   }
 }
 
-export const GET = async (request: NextRequest) => {
+export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
-    const action = searchParams.get('action')
+    const severity = searchParams.get('severity')
+    const status = searchParams.get('status')
     
-    if (action === 'compliance') {
-      // Get PCI compliance information
-      const compliance = {
-        title: 'PCI DSS Compliance Requirements',
-        requirements: [
-          'Build and maintain secure networks and systems',
-          'Protect cardholder data',
-          'Maintain a vulnerability management program',
-          'Implement strong access control measures',
-          'Regularly monitor and test networks',
-          'Maintain an information security policy'
-        ],
-        securityMeasures: [
-          'Data encryption at rest and in transit',
-          'Secure payment processing',
-          'Access controls and authentication',
-          'Vulnerability scanning and patching',
-          'Audit logging and monitoring',
-          'Regular security assessments'
-        ]
-      }
-      return NextResponse.json({ 
-        success: true, 
-        compliance
-      })
-    } else if (action === 'cards' && userId) {
-      // Get user's cards
-      const cards = getUserPCICards(userId)
-      return NextResponse.json({ 
-        success: true, 
-        cards
-      })
-    } else if (action === 'transactions' && userId) {
-      // Get user's transactions
-      const transactions = getUserPCITransactions(userId)
-      return NextResponse.json({ 
-        success: true, 
-        transactions
-      })
-    } else if (userId) {
-      // Get user's PCI data
-      const cards = getUserPCICards(userId)
-      const transactions = getUserPCITransactions(userId)
-      return NextResponse.json({ 
-        success: true, 
-        cards,
-        transactions
-      })
-    } else {
-      return NextResponse.json({ 
-        error: 'Missing userId parameter' 
-      }, { status: 400 })
+    const supabase = createSupabaseClient()
+    
+    let query = supabase
+      .from('pci_security_events')
+      .select('*')
+    
+    if (severity) {
+      query = query.eq('severity', severity)
     }
-  } catch (error: any) {
-    console.error('PCI data retrieval error:', error)
-    return NextResponse.json({ 
-      error: 'Failed to retrieve PCI data',
-      message: error.message 
-    }, { status: 500 })
+    
+    if (status) {
+      query = query.eq('status', status)
+    }
+    
+    const { data: events, error } = await query
+      .order('detected_at', { ascending: false })
+
+    if (error) {
+      console.error('PCI security events fetch error:', error)
+      return NextResponse.json(
+        { success: false, error: 'Failed to fetch PCI security events' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: events
+    })
+
+  } catch (error) {
+    console.error('PCI API error:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch PCI security events' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { eventId, status, remediationActions, resolvedBy } = body
+    
+    const supabase = createSupabaseClient()
+    
+    // Update PCI security event
+    const { data: updatedEvent, error } = await supabase
+      .from('pci_security_events')
+      .update({
+        status: status,
+        remediation_actions: remediationActions,
+        resolved_at: status === 'resolved' ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', eventId)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('PCI security event update error:', error)
+      return NextResponse.json(
+        { success: false, error: 'Failed to update PCI security event' },
+        { status: 500 }
+      )
+    }
+
+    // Log the action
+    await supabase
+      .from('compliance_audit_log')
+      .insert({
+        admin_id: resolvedBy,
+        action: `pci_security_event_${status}`,
+        framework: 'PCI',
+        details: {
+          eventId,
+          status,
+          remediationActions
+        }
+      })
+
+    return NextResponse.json({
+      success: true,
+      data: updatedEvent,
+      message: 'PCI security event updated successfully'
+    })
+
+  } catch (error) {
+    console.error('PCI API error:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to update PCI security event' },
+      { status: 500 }
+    )
   }
 }
