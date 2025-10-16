@@ -165,6 +165,8 @@ export default function UsersPage() {
   })
   
   const [isLoading, setIsLoading] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -230,6 +232,8 @@ export default function UsersPage() {
       message: "",
       type: "general"
     })
+    setEmailSent(false)
+    setEmailError(null)
     setIsEmailUserOpen(true)
   }
 
@@ -296,6 +300,9 @@ export default function UsersPage() {
     if (!selectedUser) return
     
     setIsLoading(true)
+    setEmailError(null)
+    setEmailSent(false)
+    
     try {
       const response = await fetch(`/api/admin/users/${selectedUser.id}/email`, {
         method: 'POST',
@@ -304,11 +311,26 @@ export default function UsersPage() {
       })
       
       if (response.ok) {
-        setIsEmailUserOpen(false)
-        setEmailData({ subject: "", message: "", type: "general" })
+        const result = await response.json()
+        setEmailSent(true)
+        setEmailError(null)
+        
+        // Show success message for 2 seconds then close modal
+        setTimeout(() => {
+          setIsEmailUserOpen(false)
+          setEmailData({ subject: "", message: "", type: "general" })
+          setEmailSent(false)
+          setEmailError(null)
+        }, 2000)
+      } else {
+        const errorData = await response.json()
+        setEmailError(errorData.error || 'Failed to send email')
+        setEmailSent(false)
       }
     } catch (error) {
       console.error('Error sending email:', error)
+      setEmailError('Network error. Please try again.')
+      setEmailSent(false)
     } finally {
       setIsLoading(false)
     }
@@ -827,6 +849,41 @@ export default function UsersPage() {
               Send an email to {selectedUser?.name} ({selectedUser?.email})
             </DialogDescription>
           </DialogHeader>
+          
+          {/* Success Message */}
+          {emailSent && (
+            <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-4">
+              <div className="flex">
+                <CheckCircle className="h-5 w-5 text-green-400" />
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-green-800">
+                    Email Sent Successfully!
+                  </h3>
+                  <div className="mt-2 text-sm text-green-700">
+                    <p>Your email has been sent to {selectedUser?.email}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {emailError && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+              <div className="flex">
+                <AlertTriangle className="h-5 w-5 text-red-400" />
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">
+                    Error Sending Email
+                  </h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>{emailError}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="email-subject" className="text-right">
@@ -838,13 +895,18 @@ export default function UsersPage() {
                 onChange={(e) => setEmailData({...emailData, subject: e.target.value})}
                 className="col-span-3"
                 placeholder="Email subject"
+                disabled={isLoading || emailSent}
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="email-type" className="text-right">
                 Type
               </Label>
-              <Select value={emailData.type} onValueChange={(value) => setEmailData({...emailData, type: value})}>
+              <Select 
+                value={emailData.type} 
+                onValueChange={(value) => setEmailData({...emailData, type: value})}
+                disabled={isLoading || emailSent}
+              >
                 <SelectTrigger className="col-span-3">
                   <SelectValue />
                 </SelectTrigger>
@@ -867,15 +929,28 @@ export default function UsersPage() {
                 className="col-span-3"
                 placeholder="Email message content"
                 rows={6}
+                disabled={isLoading || emailSent}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEmailUserOpen(false)}>
-              Cancel
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsEmailUserOpen(false)
+                setEmailSent(false)
+                setEmailError(null)
+                setEmailData({ subject: "", message: "", type: "general" })
+              }}
+              disabled={isLoading}
+            >
+              {emailSent ? "Close" : "Cancel"}
             </Button>
-            <Button onClick={handleSendEmail} disabled={isLoading}>
-              {isLoading ? "Sending..." : "Send Email"}
+            <Button 
+              onClick={handleSendEmail} 
+              disabled={isLoading || emailSent || !emailData.subject || !emailData.message}
+            >
+              {isLoading ? "Sending..." : emailSent ? "Email Sent!" : "Send Email"}
             </Button>
           </DialogFooter>
         </DialogContent>
