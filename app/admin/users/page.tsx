@@ -259,11 +259,16 @@ export default function UsersPage() {
       if (response.ok) {
         const result = await response.json()
         setUsers([...users, result.data.user])
+        alert(`User ${newUser.name} created successfully!`)
         setIsAddUserOpen(false)
         setNewUser({ name: "", email: "", role: "user", phone: "", subscription: "Basic Plan" })
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to create user: ${errorData.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Error adding user:', error)
+      alert(`Failed to create user: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsLoading(false)
     }
@@ -283,10 +288,16 @@ export default function UsersPage() {
       if (response.ok) {
         const result = await response.json()
         setUsers(users.map(user => user.id === selectedUser.id ? { ...user, ...result.data.user } : user))
+        alert(`User ${selectedUser.name} updated successfully!`)
         setIsEditUserOpen(false)
+        setSelectedUser(null)
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to update user: ${errorData.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Error updating user:', error)
+      alert(`Failed to update user: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsLoading(false)
     }
@@ -336,10 +347,16 @@ export default function UsersPage() {
       if (response.ok) {
         const result = await response.json()
         setUsers(users.map(user => user.id === selectedUser.id ? { ...user, role: roleData.role } : user))
+        alert(`User ${selectedUser.name} role changed to ${roleData.role} successfully!`)
         setIsChangeRoleOpen(false)
+        setSelectedUser(null)
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to change role: ${errorData.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Error changing role:', error)
+      alert(`Failed to change role: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsLoading(false)
     }
@@ -356,10 +373,16 @@ export default function UsersPage() {
       
       if (response.ok) {
         setUsers(users.filter(user => user.id !== selectedUser.id))
+        alert(`User ${selectedUser.name} deleted successfully!`)
         setIsDeleteUserOpen(false)
+        setSelectedUser(null)
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to delete user: ${errorData.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Error deleting user:', error)
+      alert(`Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsLoading(false)
     }
