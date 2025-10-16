@@ -672,25 +672,45 @@ export default function UsersPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => handleViewUser(user)}>
+                        <DropdownMenuItem onClick={() => {
+                          console.log('View Details clicked for user:', user)
+                          alert('View Details clicked!')
+                          handleViewUser(user)
+                        }}>
                           <Eye className="mr-2 h-4 w-4" />
                           View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleEditUser(user)}>
+                        <DropdownMenuItem onClick={() => {
+                          console.log('Edit User clicked for user:', user)
+                          alert('Edit User clicked!')
+                          handleEditUser(user)
+                        }}>
                           <Edit className="mr-2 h-4 w-4" />
                           Edit User
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleEmailUser(user)}>
+                        <DropdownMenuItem onClick={() => {
+                          console.log('Send Email clicked for user:', user)
+                          alert('Send Email clicked!')
+                          handleEmailUser(user)
+                        }}>
                           <Mail className="mr-2 h-4 w-4" />
                           Send Email
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleChangeRole(user)}>
+                        <DropdownMenuItem onClick={() => {
+                          console.log('Change Role clicked for user:', user)
+                          alert('Change Role clicked!')
+                          handleChangeRole(user)
+                        }}>
                           <Shield className="mr-2 h-4 w-4" />
                           Change Role
                         </DropdownMenuItem>
                         <DropdownMenuItem 
-                          onClick={() => handleDeleteUser(user)}
+                          onClick={() => {
+                            console.log('Delete User clicked for user:', user)
+                            alert('Delete User clicked!')
+                            handleDeleteUser(user)
+                          }}
                           className="text-red-600"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
