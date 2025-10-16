@@ -599,6 +599,7 @@ export default function AdminUsersPage() {
                   <option value="Basic Plan">Basic Plan</option>
                   <option value="Premium Plan">Premium Plan</option>
                   <option value="Enterprise Plan">Enterprise Plan</option>
+                  <option value="Executive Account">Executive Account</option>
                   <option value="Trial">Trial</option>
                 </select>
               </div>
