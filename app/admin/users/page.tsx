@@ -248,7 +248,7 @@ export default function UsersPage() {
     console.log('Adding user:', newUser)
     setIsLoading(true)
     try {
-      const response = await fetch('/api/admin/users', {
+      const response = await fetch('/api/test-admin-users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newUser)
@@ -278,7 +278,7 @@ export default function UsersPage() {
     
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
+      const response = await fetch(`/api/test-admin-users/${selectedUser.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editUser)
@@ -309,7 +309,7 @@ export default function UsersPage() {
     setIsLoading(true)
     
     try {
-      const response = await fetch(`/api/admin/users/${selectedUser.id}/email`, {
+      const response = await fetch(`/api/test-admin-users/${selectedUser.id}/email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(emailData)
@@ -340,7 +340,7 @@ export default function UsersPage() {
     
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/admin/users/${selectedUser.id}/role`, {
+      const response = await fetch(`/api/test-admin-users/${selectedUser.id}/role`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(roleData)
@@ -370,7 +370,7 @@ export default function UsersPage() {
     
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
+      const response = await fetch(`/api/test-admin-users/${selectedUser.id}`, {
         method: 'DELETE'
       })
       
