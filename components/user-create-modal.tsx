@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { userService } from '@/lib/user-service'
 import { 
-  User, 
+  User as UserIcon, 
   Mail, 
   Shield, 
   Phone, 
@@ -112,7 +112,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
+            <UserIcon className="h-5 w-5" />
             Create New User
           </DialogTitle>
           <DialogDescription>

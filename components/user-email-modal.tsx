@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { userService, type User } from '@/lib/user-service'
 import { 
   Mail, 
-  User, 
+  User as UserIcon, 
   Send,
   Loader2,
   CheckCircle,
