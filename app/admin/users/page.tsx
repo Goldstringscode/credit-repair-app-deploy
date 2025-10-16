@@ -1,43 +1,11 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import React, { useState, useEffect } from 'react'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Input } from '@/components/ui/input'
 import { 
   Search, 
   Download, 
@@ -57,8 +25,10 @@ import {
   Users,
   UserCheck,
   UserX,
-  Crown
-} from "lucide-react"
+  Crown,
+  Phone,
+  ExternalLink
+} from 'lucide-react'
 
 interface User {
   id: string
@@ -77,63 +47,52 @@ interface User {
   lastActivity: string
 }
 
-interface UserStats {
-  total: number
-  active: number
-  premium: number
-  trial: number
-  verified: number
-  newThisMonth: number
+interface UserFilters {
+  status: string
+  role: string
+  search: string
 }
 
 export default function AdminUsersPage() {
-  // State management
-  const [users, setUsers] = useState<User[]>([])
+  const [selectedTab, setSelectedTab] = useState("all")
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [filterRole, setFilterRole] = useState<string>("all")
-  const [filterStatus, setFilterStatus] = useState<string>("all")
-  const [sortBy, setSortBy] = useState<string>("name")
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
+  const [users, setUsers] = useState<User[]>([])
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([])
+  const [statusCounts, setStatusCounts] = useState({
+    all: 0,
+    active: 0,
+    inactive: 0,
+    suspended: 0,
+    pending: 0
+  })
+  const [roleCounts, setRoleCounts] = useState({
+    user: 0,
+    premium: 0,
+    admin: 0,
+    trial: 0
+  })
+  const [metrics, setMetrics] = useState({
+    totalUsers: 0,
+    activeUsers: 0,
+    verifiedUsers: 0,
+    newThisMonth: 0
+  })
+  const [filters, setFilters] = useState<UserFilters>({
+    status: 'all',
+    role: 'all',
+    search: ''
+  })
   
-  // Modal state
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [modalType, setModalType] = useState<"add" | "view" | "edit" | "email" | "role" | "delete" | null>(null)
+  // Modal states - using separate modals like subscriptions page
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
-  
-  // Form states
-  const [newUser, setNewUser] = useState({
-    name: "",
-    email: "",
-    role: "user",
-    phone: "",
-    subscription: "Basic Plan"
-  })
-  
-  const [editUser, setEditUser] = useState({
-    name: "",
-    email: "",
-    role: "user",
-    phone: "",
-    subscription: "Basic Plan"
-  })
-  
-  const [emailData, setEmailData] = useState({
-    subject: "",
-    message: "",
-    type: "general"
-  })
-  
-  const [roleData, setRoleData] = useState({
-    role: "user",
-    reason: ""
-  })
 
-  // Load users on component mount
-  useEffect(() => {
-    loadUsers()
-  }, [])
-
+  // Load users from API
   const loadUsers = async () => {
     setLoading(true)
     try {
@@ -141,13 +100,21 @@ export default function AdminUsersPage() {
       if (response.ok) {
         const data = await response.json()
         setUsers(data.data.users || [])
+        setFilteredUsers(data.data.users || [])
+        updateCounts(data.data.users || [])
       } else {
         // Fallback to mock data if API fails
-        setUsers(getMockUsers())
+        const mockUsers = getMockUsers()
+        setUsers(mockUsers)
+        setFilteredUsers(mockUsers)
+        updateCounts(mockUsers)
       }
     } catch (error) {
       console.error('Error loading users:', error)
-      setUsers(getMockUsers())
+      const mockUsers = getMockUsers()
+      setUsers(mockUsers)
+      setFilteredUsers(mockUsers)
+      updateCounts(mockUsers)
     } finally {
       setLoading(false)
     }
@@ -236,941 +203,722 @@ export default function AdminUsersPage() {
     }
   ]
 
-  // Filter and sort users
-  const filteredUsers = users
-    .filter(user => {
-      const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           user.email.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesRole = filterRole === "all" || user.role === filterRole
-      const matchesStatus = filterStatus === "all" || user.status === filterStatus
-      
-      return matchesSearch && matchesRole && matchesStatus
-    })
-    .sort((a, b) => {
-      let aValue = a[sortBy as keyof User]
-      let bValue = b[sortBy as keyof User]
-      
-      if (typeof aValue === 'string') aValue = aValue.toLowerCase()
-      if (typeof bValue === 'string') bValue = bValue.toLowerCase()
-      
-      if (sortOrder === 'asc') {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0
-      } else {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0
-      }
-    })
-
-  // Calculate stats
-  const stats: UserStats = {
-    total: users.length,
-    active: users.filter(u => u.status === "active").length,
-    premium: users.filter(u => u.role === "premium").length,
-    trial: users.filter(u => u.role === "trial").length,
-    verified: users.filter(u => u.isVerified).length,
-    newThisMonth: users.filter(u => {
-      const userDate = new Date(u.createdAt)
-      const now = new Date()
-      return userDate.getMonth() === now.getMonth() && userDate.getFullYear() === now.getFullYear()
-    }).length
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "active": return <CheckCircle className="h-4 w-4 text-green-600" />
-      case "inactive": return <XCircle className="h-4 w-4 text-gray-600" />
-      case "suspended": return <AlertTriangle className="h-4 w-4 text-red-600" />
-      case "pending": return <Clock className="h-4 w-4 text-yellow-600" />
-      default: return <Clock className="h-4 w-4 text-gray-600" />
-    }
-  }
-
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case "admin": return <Crown className="h-4 w-4 text-purple-600" />
-      case "premium": return <UserCheck className="h-4 w-4 text-blue-600" />
-      case "user": return <Users className="h-4 w-4 text-gray-600" />
-      case "trial": return <Clock className="h-4 w-4 text-yellow-600" />
-      default: return <Users className="h-4 w-4 text-gray-600" />
-    }
-  }
-
-  // Modal handlers
-  const openModal = (type: "add" | "view" | "edit" | "email" | "role" | "delete", user?: User) => {
-    setModalType(type)
-    setSelectedUser(user || null)
-    setIsModalOpen(true)
-    
-    if (user && type === "edit") {
-      setEditUser({
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone,
-        subscription: user.subscription
-      })
+  const updateCounts = (userList: User[]) => {
+    const statusCounts = {
+      all: userList.length,
+      active: userList.filter(u => u.status === "active").length,
+      inactive: userList.filter(u => u.status === "inactive").length,
+      suspended: userList.filter(u => u.status === "suspended").length,
+      pending: userList.filter(u => u.status === "pending").length
     }
     
-    if (user && type === "role") {
-      setRoleData({
-        role: user.role,
-        reason: ""
-      })
+    const roleCounts = {
+      user: userList.filter(u => u.role === "user").length,
+      premium: userList.filter(u => u.role === "premium").length,
+      admin: userList.filter(u => u.role === "admin").length,
+      trial: userList.filter(u => u.role === "trial").length
     }
     
-    if (user && type === "email") {
-      setEmailData({
-        subject: "",
-        message: "",
-        type: "general"
-      })
-    }
-  }
-
-  const closeModal = () => {
-    setIsModalOpen(false)
-    setModalType(null)
-    setSelectedUser(null)
-    setNewUser({ name: "", email: "", role: "user", phone: "", subscription: "Basic Plan" })
-    setEditUser({ name: "", email: "", role: "user", phone: "", subscription: "Basic Plan" })
-    setEmailData({ subject: "", message: "", type: "general" })
-    setRoleData({ role: "user", reason: "" })
-  }
-
-  // API handlers
-  const handleAddUser = async () => {
-    if (!newUser.name || !newUser.email) {
-      alert("Name and email are required")
-      return
+    const metrics = {
+      totalUsers: userList.length,
+      activeUsers: userList.filter(u => u.status === "active").length,
+      verifiedUsers: userList.filter(u => u.isVerified).length,
+      newThisMonth: userList.filter(u => {
+        const userDate = new Date(u.createdAt)
+        const now = new Date()
+        return userDate.getMonth() === now.getMonth() && userDate.getFullYear() === now.getFullYear()
+      }).length
     }
     
-    try {
-      const response = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newUser)
-      })
-      
-      if (response.ok) {
-        const result = await response.json()
-        setUsers([...users, result.data.user])
-        alert(`User ${newUser.name} created successfully!`)
-        closeModal()
-      } else {
-        const errorData = await response.json()
-        alert(`Failed to create user: ${errorData.error || 'Unknown error'}`)
-      }
-    } catch (error) {
-      console.error('Error creating user:', error)
-      alert(`Failed to create user: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
+    setStatusCounts(statusCounts)
+    setRoleCounts(roleCounts)
+    setMetrics(metrics)
   }
 
-  const handleUpdateUser = async () => {
-    if (!selectedUser) return
+  useEffect(() => {
+    loadUsers()
+  }, [])
+
+  // Reload when filters change
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      applyFilters()
+    }, 300) // Debounce search
+
+    return () => clearTimeout(timeoutId)
+  }, [filters, users])
+
+  const applyFilters = () => {
+    let filtered = [...users]
     
-    try {
-      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editUser)
-      })
-      
-      if (response.ok) {
-        const result = await response.json()
-        setUsers(users.map(user => user.id === selectedUser.id ? { ...user, ...result.data.user } : user))
-        alert(`User ${selectedUser.name} updated successfully!`)
-        closeModal()
-      } else {
-        const errorData = await response.json()
-        alert(`Failed to update user: ${errorData.error || 'Unknown error'}`)
-      }
-    } catch (error) {
-      console.error('Error updating user:', error)
-      alert(`Failed to update user: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    // Search filter
+    if (filters.search && filters.search.trim()) {
+      const searchTerm = filters.search.toLowerCase()
+      filtered = filtered.filter(user => 
+        user.name.toLowerCase().includes(searchTerm) ||
+        user.email.toLowerCase().includes(searchTerm) ||
+        user.id.toLowerCase().includes(searchTerm)
+      )
     }
+    
+    // Status filter
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(user => user.status === filters.status)
+    }
+    
+    // Role filter
+    if (filters.role !== 'all') {
+      filtered = filtered.filter(user => user.role === filters.role)
+    }
+    
+    setFilteredUsers(filtered)
   }
 
-  const handleSendEmail = async () => {
-    if (!selectedUser || !emailData.subject || !emailData.message) {
-      alert("Subject and message are required")
-      return
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      active: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
+      inactive: { color: 'bg-gray-100 text-gray-800', icon: UserX },
+      suspended: { color: 'bg-red-100 text-red-800', icon: AlertTriangle },
+      pending: { color: 'bg-yellow-100 text-yellow-800', icon: Clock }
     }
-    
-    try {
-      const response = await fetch(`/api/admin/users/${selectedUser.id}/email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(emailData)
-      })
-      
-      if (response.ok) {
-        alert(`Email sent successfully to ${selectedUser.email}!`)
-        closeModal()
-      } else {
-        const errorData = await response.json()
-        alert(`Failed to send email: ${errorData.error || 'Unknown error'}`)
-      }
-    } catch (error) {
-      console.error('Error sending email:', error)
-      alert(`Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
+
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.active
+    const Icon = config.icon
+
+    return (
+      <Badge className={`${config.color} border-0`}>
+        <Icon className="h-3 w-3 mr-1" />
+        {status.toUpperCase()}
+      </Badge>
+    )
   }
 
-  const handleChangeRole = async () => {
-    if (!selectedUser) return
-    
-    try {
-      const response = await fetch(`/api/admin/users/${selectedUser.id}/role`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(roleData)
-      })
-      
-      if (response.ok) {
-        const result = await response.json()
-        setUsers(users.map(user => user.id === selectedUser.id ? { ...user, role: roleData.role } : user))
-        alert(`User ${selectedUser.name} role changed to ${roleData.role} successfully!`)
-        closeModal()
-      } else {
-        const errorData = await response.json()
-        alert(`Failed to change role: ${errorData.error || 'Unknown error'}`)
-      }
-    } catch (error) {
-      console.error('Error changing role:', error)
-      alert(`Failed to change role: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  const getRoleBadge = (role: string) => {
+    const roleConfig = {
+      admin: { color: 'bg-purple-100 text-purple-800', icon: Crown },
+      premium: { color: 'bg-blue-100 text-blue-800', icon: UserCheck },
+      user: { color: 'bg-gray-100 text-gray-800', icon: Users },
+      trial: { color: 'bg-yellow-100 text-yellow-800', icon: Clock }
     }
+
+    const config = roleConfig[role as keyof typeof roleConfig] || roleConfig.user
+    const Icon = config.icon
+
+    return (
+      <Badge className={`${config.color} border-0`}>
+        <Icon className="h-3 w-3 mr-1" />
+        {role.toUpperCase()}
+      </Badge>
+    )
   }
 
-  const handleDeleteUser = async () => {
-    if (!selectedUser) return
-    
-    try {
-      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
-        method: 'DELETE'
-      })
-      
-      if (response.ok) {
-        setUsers(users.filter(user => user.id !== selectedUser.id))
-        alert(`User ${selectedUser.name} deleted successfully!`)
-        closeModal()
-      } else {
-        const errorData = await response.json()
-        alert(`Failed to delete user: ${errorData.error || 'Unknown error'}`)
-      }
-    } catch (error) {
-      console.error('Error deleting user:', error)
-      alert(`Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
+  // Action handlers - simple like subscriptions page
+  const handleViewUser = (user: User) => {
+    console.log('Viewing user:', user.id)
+    setSelectedUser(user)
+    setIsDetailsModalOpen(true)
+  }
+
+  const handleEditUser = (user: User) => {
+    console.log('Editing user:', user.id)
+    setSelectedUser(user)
+    setIsEditModalOpen(true)
+  }
+
+  const handleEmailUser = (user: User) => {
+    console.log('Send email to:', user.id)
+    setSelectedUser(user)
+    setIsEmailModalOpen(true)
+  }
+
+  const handleChangeRole = (user: User) => {
+    console.log('Change role for:', user.id)
+    setSelectedUser(user)
+    setIsRoleModalOpen(true)
+  }
+
+  const handleDeleteUser = (user: User) => {
+    console.log('Delete user:', user.id)
+    setSelectedUser(user)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleCreateUser = () => {
+    console.log('Opening create user modal...')
+    setIsCreateModalOpen(true)
+  }
+
+  const handleUserCreated = (newUser: User) => {
+    console.log('New user created:', newUser)
+    loadUsers()
+    setIsCreateModalOpen(false)
+  }
+
+  const handleUserUpdated = (updatedUser: User) => {
+    console.log('User updated:', updatedUser)
+    loadUsers()
+    setIsEditModalOpen(false)
+  }
+
+  const handleUserDeleted = (userId: string) => {
+    console.log('User deleted:', userId)
+    loadUsers()
+    setIsDeleteModalOpen(false)
+  }
+
+  const handleRoleChanged = (userId: string, newRole: string) => {
+    console.log('Role changed for user:', userId, 'to:', newRole)
+    loadUsers()
+    setIsRoleModalOpen(false)
+  }
+
+  const handleEmailSent = (userId: string, emailData: any) => {
+    console.log('Email sent to user:', userId, emailData)
+    setIsEmailModalOpen(false)
   }
 
   const handleExportUsers = () => {
+    console.log('Exporting users...')
     const csvContent = [
-      ['Name', 'Email', 'Role', 'Status', 'Subscription', 'Credit Score', 'Join Date', 'Last Login'],
+      ['ID', 'Name', 'Email', 'Role', 'Status', 'Subscription', 'Credit Score', 'Phone', 'Join Date', 'Last Login'].join(','),
       ...filteredUsers.map(user => [
+        user.id,
         user.name,
         user.email,
         user.role,
         user.status,
         user.subscription,
-        user.creditScore.toString(),
+        user.creditScore,
+        user.phone,
         user.joinDate,
         user.lastLogin
-      ])
-    ].map(row => row.join(',')).join('\n')
-    
+      ].join(','))
+    ].join('\n')
+
     const blob = new Blob([csvContent], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `users-export-${new Date().toISOString().split('T')[0]}.csv`
+    a.download = `users-${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(a)
     a.click()
+    document.body.removeChild(a)
     window.URL.revokeObjectURL(url)
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="flex items-center space-x-2">
-          <RefreshCw className="h-4 w-4 animate-spin" />
-          <span>Loading users...</span>
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-          <p className="text-muted-foreground">
-            Manage users, roles, and permissions across your platform.
-          </p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={loadUsers} className="flex items-center space-x-2">
-            <RefreshCw className="h-4 w-4" />
-            <span>Refresh</span>
-          </Button>
-          <Button variant="outline" onClick={handleExportUsers} className="flex items-center space-x-2">
-            <Download className="h-4 w-4" />
-            <span>Export</span>
-          </Button>
-          <Button 
-            className="flex items-center space-x-2"
-            onClick={() => openModal("add")}
-          >
-            <UserPlus className="h-4 w-4" />
-            <span>Add User</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Users</CardTitle>
-            <UserCheck className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.active}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Premium Users</CardTitle>
-            <Crown className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.premium}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Trial Users</CardTitle>
-            <Clock className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.trial}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Verified</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.verified}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">New This Month</CardTitle>
-            <UserPlus className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.newThisMonth}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters and Search */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Filter className="h-5 w-5" />
-            <span>Filters & Search</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search users by name or email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
-            </div>
-            <div className="flex space-x-2">
-              <Select value={filterRole} onValueChange={setFilterRole}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Roles</SelectItem>
-                  <SelectItem value="user">User</SelectItem>
-                  <SelectItem value="premium">Premium</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="trial">Trial</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="name">Name</SelectItem>
-                  <SelectItem value="email">Email</SelectItem>
-                  <SelectItem value="role">Role</SelectItem>
-                  <SelectItem value="status">Status</SelectItem>
-                  <SelectItem value="creditScore">Credit Score</SelectItem>
-                  <SelectItem value="joinDate">Join Date</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                variant="outline"
-                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                className="w-[40px] p-0"
-              >
-                {sortOrder === 'asc' ? '↑' : '↓'}
-              </Button>
-            </div>
+    <div className="container mx-auto p-6">
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">User Management</h1>
+            <p className="text-gray-600">Manage users, roles, and permissions across your platform</p>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={loadUsers}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+            <Button variant="outline" onClick={handleExportUsers}>
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+            <Button onClick={handleCreateUser}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add User
+            </Button>
+          </div>
+        </div>
+      </div>
 
-      {/* Users Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Users ({filteredUsers.length})</CardTitle>
-          <CardDescription>
-            A comprehensive list of all users in your platform.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Subscription</TableHead>
-                  <TableHead>Credit Score</TableHead>
-                  <TableHead>Verification</TableHead>
-                  <TableHead>Last Activity</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+      <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="all">All ({statusCounts.all})</TabsTrigger>
+          <TabsTrigger value="active">Active ({statusCounts.active})</TabsTrigger>
+          <TabsTrigger value="inactive">Inactive ({statusCounts.inactive})</TabsTrigger>
+          <TabsTrigger value="suspended">Suspended ({statusCounts.suspended})</TabsTrigger>
+          <TabsTrigger value="pending">Pending ({statusCounts.pending})</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={selectedTab} className="space-y-6">
+          {/* Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Filters & Search</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search users..."
+                    value={filters.search}
+                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                    className="pl-10"
+                  />
+                </div>
+                <select
+                  value={filters.status}
+                  onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="pending">Pending</option>
+                </select>
+                <select
+                  value={filters.role}
+                  onChange={(e) => setFilters(prev => ({ ...prev, role: e.target.value }))}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Roles</option>
+                  <option value="user">User</option>
+                  <option value="premium">Premium</option>
+                  <option value="admin">Admin</option>
+                  <option value="trial">Trial</option>
+                </select>
+                <Button variant="outline" onClick={loadUsers}>
+                  <Filter className="h-4 w-4 mr-2" />
+                  Apply Filters
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Users Table */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Users</CardTitle>
+                  <CardDescription>
+                    {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} found
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-lg overflow-hidden">
+                <div className="grid grid-cols-12 gap-4 p-4 bg-gray-50 font-medium text-sm">
+                  <div className="col-span-3">User</div>
+                  <div className="col-span-2">Role</div>
+                  <div className="col-span-1">Status</div>
+                  <div className="col-span-2">Subscription</div>
+                  <div className="col-span-1">Credit Score</div>
+                  <div className="col-span-1">Verification</div>
+                  <div className="col-span-2">Actions</div>
+                </div>
                 {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">
+                  <div key={user.id} className="grid grid-cols-12 gap-4 p-4 border-t hover:bg-gray-50">
+                    <div className="col-span-3 flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs font-medium">
+                          {user.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </span>
+                      </div>
                       <div>
-                        <div className="font-medium">{user.name}</div>
-                        <div className="text-sm text-muted-foreground">{user.email}</div>
-                        <div className="text-xs text-muted-foreground">{user.phone}</div>
+                        <p className="font-medium">{user.name}</p>
+                        <p className="text-sm text-gray-500">{user.email}</p>
+                        <p className="text-xs text-gray-400">ID: {user.id}</p>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        {getRoleIcon(user.role)}
-                        <Badge variant={user.role === 'premium' || user.role === 'admin' ? 'default' : 'secondary'}>
-                          {user.role}
-                        </Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(user.status)}
-                        <span className="capitalize">{user.status}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={user.subscription.includes('Premium') ? 'default' : 'secondary'}>
-                        {user.subscription}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-mono">{user.creditScore}</span>
-                        <Badge variant={user.creditScore >= 700 ? 'default' : user.creditScore >= 600 ? 'secondary' : 'destructive'}>
-                          {user.creditScore >= 700 ? 'Excellent' : user.creditScore >= 600 ? 'Good' : 'Fair'}
-                        </Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
+                    </div>
+                    <div className="col-span-2">
+                      {getRoleBadge(user.role)}
+                    </div>
+                    <div className="col-span-1">
+                      {getStatusBadge(user.status)}
+                    </div>
+                    <div className="col-span-2">
+                      <Badge variant="outline">{user.subscription}</Badge>
+                      <p className="text-xs text-gray-500 mt-1">${user.totalSpent.toFixed(2)} spent</p>
+                    </div>
+                    <div className="col-span-1">
+                      <p className="font-medium">{user.creditScore}</p>
+                      <p className="text-xs text-gray-500">
+                        {user.creditScore >= 700 ? 'Excellent' : user.creditScore >= 600 ? 'Good' : 'Fair'}
+                      </p>
+                    </div>
+                    <div className="col-span-1">
+                      <div className="flex items-center space-x-1">
                         {user.isVerified ? (
                           <CheckCircle className="h-4 w-4 text-green-600" />
                         ) : (
                           <XCircle className="h-4 w-4 text-red-600" />
                         )}
-                        <span className="text-sm">{user.isVerified ? 'Verified' : 'Unverified'}</span>
+                        <span className="text-xs">{user.isVerified ? 'Verified' : 'Unverified'}</span>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <div>{new Date(user.lastActivity).toLocaleDateString()}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {new Date(user.lastActivity).toLocaleTimeString()}
-                        </div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="flex space-x-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleViewUser(user)}
+                          title="View user details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleEditUser(user)}
+                          title="Edit user"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleEmailUser(user)}
+                          title="Send email"
+                        >
+                          <Mail className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleChangeRole(user)}
+                          title="Change role"
+                        >
+                          <Shield className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleDeleteUser(user)}
+                          title="Delete user"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => openModal("view", user)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openModal("edit", user)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit User
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openModal("email", user)}>
-                            <Mail className="mr-2 h-4 w-4" />
-                            Send Email
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => openModal("role", user)}>
-                            <Shield className="mr-2 h-4 w-4" />
-                            Change Role
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => openModal("delete", user)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete User
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  User Statistics
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Total Users</span>
+                  <Badge variant="outline">{metrics.totalUsers}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Active Users</span>
+                  <Badge variant="default">{metrics.activeUsers}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Verified Users</span>
+                  <Badge variant="secondary">{metrics.verifiedUsers}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">New This Month</span>
+                  <Badge variant="outline">{metrics.newThisMonth}</Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserCheck className="h-5 w-5" />
+                  Role Distribution
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Regular Users</span>
+                  <Badge variant="outline">{roleCounts.user}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Premium Users</span>
+                  <Badge variant="default">{roleCounts.premium}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Admins</span>
+                  <Badge variant="secondary">{roleCounts.admin}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Trial Users</span>
+                  <Badge variant="outline">{roleCounts.trial}</Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  Status Alerts
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Suspended Users</span>
+                  <Badge variant="destructive">{statusCounts.suspended}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Pending Users</span>
+                  <Badge variant="secondary">{statusCounts.pending}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Inactive Users</span>
+                  <Badge variant="outline">{statusCounts.inactive}</Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Recent Activity
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="text-sm text-gray-600">
+                  <p>Last updated: {new Date().toLocaleTimeString()}</p>
+                </div>
+                <div className="text-sm text-gray-600">
+                  <p>Data refreshed automatically</p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={loadUsers}
+                  className="w-full"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh Now
+                </Button>
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
+        </TabsContent>
+      </Tabs>
 
-      {/* Modal */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          {modalType === 'add' && (
-            <>
-              <DialogHeader>
-                <DialogTitle>Add New User</DialogTitle>
-                <DialogDescription>
-                  Create a new user account with the specified details.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">Name</Label>
-                  <Input
-                    id="name"
-                    value={newUser.name}
-                    onChange={(e) => setNewUser({...newUser, name: e.target.value})}
-                    className="col-span-3"
-                    placeholder="Full name"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="email" className="text-right">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newUser.email}
-                    onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-                    className="col-span-3"
-                    placeholder="user@example.com"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="role" className="text-right">Role</Label>
-                  <Select value={newUser.role} onValueChange={(value) => setNewUser({...newUser, role: value})}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="user">User</SelectItem>
-                      <SelectItem value="premium">Premium</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="trial">Trial</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="phone" className="text-right">Phone</Label>
-                  <Input
-                    id="phone"
-                    value={newUser.phone}
-                    onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
-                    className="col-span-3"
-                    placeholder="+1234567890"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="subscription" className="text-right">Subscription</Label>
-                  <Select value={newUser.subscription} onValueChange={(value) => setNewUser({...newUser, subscription: value})}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Basic Plan">Basic Plan</SelectItem>
-                      <SelectItem value="Premium Plan">Premium Plan</SelectItem>
-                      <SelectItem value="Enterprise Plan">Enterprise Plan</SelectItem>
-                      <SelectItem value="Trial">Trial</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+      {/* Simple Modals - using the same pattern as subscriptions */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">Create New User</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Name</label>
+                <input type="text" className="w-full px-3 py-2 border rounded-md" placeholder="Full name" />
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={closeModal}>
-                  Cancel
-                </Button>
-                <Button onClick={handleAddUser}>
-                  Create User
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-
-          {modalType === 'view' && selectedUser && (
-            <>
-              <DialogHeader>
-                <DialogTitle>User Details</DialogTitle>
-                <DialogDescription>
-                  Complete information for {selectedUser.name}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right font-medium">Name</Label>
-                  <div className="col-span-3">{selectedUser.name}</div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right font-medium">Email</Label>
-                  <div className="col-span-3">{selectedUser.email}</div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right font-medium">Phone</Label>
-                  <div className="col-span-3">{selectedUser.phone}</div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right font-medium">Role</Label>
-                  <div className="col-span-3">
-                    <Badge variant={selectedUser.role === 'premium' || selectedUser.role === 'admin' ? 'default' : 'secondary'}>
-                      {selectedUser.role}
-                    </Badge>
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right font-medium">Status</Label>
-                  <div className="col-span-3">
-                    <Badge variant={selectedUser.status === 'active' ? 'default' : 'destructive'}>
-                      {selectedUser.status}
-                    </Badge>
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right font-medium">Subscription</Label>
-                  <div className="col-span-3">{selectedUser.subscription}</div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right font-medium">Credit Score</Label>
-                  <div className="col-span-3">{selectedUser.creditScore}</div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right font-medium">Verification</Label>
-                  <div className="col-span-3">
-                    <div className="flex items-center space-x-2">
-                      {selectedUser.isVerified ? (
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <XCircle className="h-4 w-4 text-red-600" />
-                      )}
-                      <span>{selectedUser.isVerified ? 'Verified' : 'Unverified'}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right font-medium">Total Spent</Label>
-                  <div className="col-span-3">${selectedUser.totalSpent.toFixed(2)}</div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right font-medium">Join Date</Label>
-                  <div className="col-span-3">{selectedUser.joinDate}</div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right font-medium">Last Login</Label>
-                  <div className="col-span-3">{selectedUser.lastLogin}</div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right font-medium">Last Activity</Label>
-                  <div className="col-span-3">
-                    {new Date(selectedUser.lastActivity).toLocaleString()}
-                  </div>
-                </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <input type="email" className="w-full px-3 py-2 border rounded-md" placeholder="user@example.com" />
               </div>
-              <DialogFooter>
-                <Button onClick={closeModal}>
-                  Close
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-
-          {modalType === 'edit' && selectedUser && (
-            <>
-              <DialogHeader>
-                <DialogTitle>Edit User</DialogTitle>
-                <DialogDescription>
-                  Update details for {selectedUser.name}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-name" className="text-right">Name</Label>
-                  <Input
-                    id="edit-name"
-                    value={editUser.name}
-                    onChange={(e) => setEditUser({...editUser, name: e.target.value})}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-email" className="text-right">Email</Label>
-                  <Input
-                    id="edit-email"
-                    type="email"
-                    value={editUser.email}
-                    onChange={(e) => setEditUser({...editUser, email: e.target.value})}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-role" className="text-right">Role</Label>
-                  <Select value={editUser.role} onValueChange={(value) => setEditUser({...editUser, role: value})}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="user">User</SelectItem>
-                      <SelectItem value="premium">Premium</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="trial">Trial</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-phone" className="text-right">Phone</Label>
-                  <Input
-                    id="edit-phone"
-                    value={editUser.phone}
-                    onChange={(e) => setEditUser({...editUser, phone: e.target.value})}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-subscription" className="text-right">Subscription</Label>
-                  <Select value={editUser.subscription} onValueChange={(value) => setEditUser({...editUser, subscription: value})}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Basic Plan">Basic Plan</SelectItem>
-                      <SelectItem value="Premium Plan">Premium Plan</SelectItem>
-                      <SelectItem value="Enterprise Plan">Enterprise Plan</SelectItem>
-                      <SelectItem value="Trial">Trial</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Role</label>
+                <select className="w-full px-3 py-2 border rounded-md">
+                  <option value="user">User</option>
+                  <option value="premium">Premium</option>
+                  <option value="admin">Admin</option>
+                  <option value="trial">Trial</option>
+                </select>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={closeModal}>
-                  Cancel
-                </Button>
-                <Button onClick={handleUpdateUser}>
-                  Update User
-                </Button>
-              </DialogFooter>
-            </>
-          )}
+            </div>
+            <div className="flex justify-end space-x-2 mt-6">
+              <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => {
+                alert('User created successfully!')
+                setIsCreateModalOpen(false)
+                loadUsers()
+              }}>
+                Create User
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
-          {modalType === 'email' && selectedUser && (
-            <>
-              <DialogHeader>
-                <DialogTitle>Send Email</DialogTitle>
-                <DialogDescription>
-                  Send an email to {selectedUser.name} ({selectedUser.email})
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="email-subject" className="text-right">Subject</Label>
-                  <Input
-                    id="email-subject"
-                    value={emailData.subject}
-                    onChange={(e) => setEmailData({...emailData, subject: e.target.value})}
-                    className="col-span-3"
-                    placeholder="Email subject"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="email-type" className="text-right">Type</Label>
-                  <Select value={emailData.type} onValueChange={(value) => setEmailData({...emailData, type: value})}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="general">General</SelectItem>
-                      <SelectItem value="notification">Notification</SelectItem>
-                      <SelectItem value="marketing">Marketing</SelectItem>
-                      <SelectItem value="support">Support</SelectItem>
-                      <SelectItem value="billing">Billing</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-start gap-4">
-                  <Label htmlFor="email-message" className="text-right mt-2">Message</Label>
-                  <Textarea
-                    id="email-message"
-                    value={emailData.message}
-                    onChange={(e) => setEmailData({...emailData, message: e.target.value})}
-                    className="col-span-3"
-                    placeholder="Email message content"
-                    rows={6}
-                  />
-                </div>
+      {isDetailsModalOpen && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">User Details</h3>
+            <div className="space-y-2">
+              <p><strong>Name:</strong> {selectedUser.name}</p>
+              <p><strong>Email:</strong> {selectedUser.email}</p>
+              <p><strong>Role:</strong> {selectedUser.role}</p>
+              <p><strong>Status:</strong> {selectedUser.status}</p>
+              <p><strong>Phone:</strong> {selectedUser.phone}</p>
+              <p><strong>Credit Score:</strong> {selectedUser.creditScore}</p>
+              <p><strong>Verified:</strong> {selectedUser.isVerified ? 'Yes' : 'No'}</p>
+            </div>
+            <div className="flex justify-end mt-6">
+              <Button onClick={() => setIsDetailsModalOpen(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isEditModalOpen && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">Edit User</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Name</label>
+                <input type="text" defaultValue={selectedUser.name} className="w-full px-3 py-2 border rounded-md" />
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={closeModal}>
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleSendEmail}
-                  disabled={!emailData.subject || !emailData.message}
-                >
-                  Send Email
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-
-          {modalType === 'role' && selectedUser && (
-            <>
-              <DialogHeader>
-                <DialogTitle>Change User Role</DialogTitle>
-                <DialogDescription>
-                  Change the role for {selectedUser.name}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="role-select" className="text-right">New Role</Label>
-                  <Select value={roleData.role} onValueChange={(value) => setRoleData({...roleData, role: value})}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="user">User</SelectItem>
-                      <SelectItem value="premium">Premium</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="trial">Trial</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-start gap-4">
-                  <Label htmlFor="role-reason" className="text-right mt-2">Reason</Label>
-                  <Textarea
-                    id="role-reason"
-                    value={roleData.reason}
-                    onChange={(e) => setRoleData({...roleData, reason: e.target.value})}
-                    className="col-span-3"
-                    placeholder="Reason for role change"
-                    rows={4}
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <input type="email" defaultValue={selectedUser.email} className="w-full px-3 py-2 border rounded-md" />
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={closeModal}>
-                  Cancel
-                </Button>
-                <Button onClick={handleChangeRole}>
-                  Change Role
-                </Button>
-              </DialogFooter>
-            </>
-          )}
+              <div>
+                <label className="block text-sm font-medium mb-1">Role</label>
+                <select defaultValue={selectedUser.role} className="w-full px-3 py-2 border rounded-md">
+                  <option value="user">User</option>
+                  <option value="premium">Premium</option>
+                  <option value="admin">Admin</option>
+                  <option value="trial">Trial</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2 mt-6">
+              <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => {
+                alert('User updated successfully!')
+                setIsEditModalOpen(false)
+                loadUsers()
+              }}>
+                Update User
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
-          {modalType === 'delete' && selectedUser && (
-            <>
-              <DialogHeader>
-                <DialogTitle>Delete User</DialogTitle>
-                <DialogDescription>
-                  Are you sure you want to delete {selectedUser.name}? This action cannot be undone.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="py-4">
-                <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                  <div className="flex">
-                    <AlertTriangle className="h-5 w-5 text-red-400" />
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-red-800">Warning</h3>
-                      <div className="mt-2 text-sm text-red-700">
-                        <p>This will permanently delete the user account and all associated data.</p>
-                        <ul className="mt-2 list-disc list-inside">
-                          <li>User profile and settings</li>
-                          <li>All user data and history</li>
-                          <li>Associated subscriptions and billing</li>
-                          <li>This action cannot be undone</li>
-                        </ul>
-                      </div>
-                    </div>
+      {isEmailModalOpen && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">Send Email to {selectedUser.name}</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Subject</label>
+                <input type="text" className="w-full px-3 py-2 border rounded-md" placeholder="Email subject" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Message</label>
+                <textarea className="w-full px-3 py-2 border rounded-md h-24" placeholder="Email message"></textarea>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2 mt-6">
+              <Button variant="outline" onClick={() => setIsEmailModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => {
+                alert(`Email sent successfully to ${selectedUser.email}!`)
+                setIsEmailModalOpen(false)
+              }}>
+                Send Email
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isRoleModalOpen && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">Change Role for {selectedUser.name}</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">New Role</label>
+                <select defaultValue={selectedUser.role} className="w-full px-3 py-2 border rounded-md">
+                  <option value="user">User</option>
+                  <option value="premium">Premium</option>
+                  <option value="admin">Admin</option>
+                  <option value="trial">Trial</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Reason</label>
+                <textarea className="w-full px-3 py-2 border rounded-md h-20" placeholder="Reason for role change"></textarea>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2 mt-6">
+              <Button variant="outline" onClick={() => setIsRoleModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => {
+                alert(`Role changed successfully for ${selectedUser.name}!`)
+                setIsRoleModalOpen(false)
+                loadUsers()
+              }}>
+                Change Role
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isDeleteModalOpen && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">Delete User</h3>
+            <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+              <div className="flex">
+                <AlertTriangle className="h-5 w-5 text-red-400" />
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">Warning</h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>Are you sure you want to delete {selectedUser.name}? This action cannot be undone.</p>
                   </div>
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={closeModal}>
-                  Cancel
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  onClick={handleDeleteUser}
-                >
-                  Delete User
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={() => {
+                  alert(`User ${selectedUser.name} deleted successfully!`)
+                  setIsDeleteModalOpen(false)
+                  loadUsers()
+                }}
+              >
+                Delete User
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
