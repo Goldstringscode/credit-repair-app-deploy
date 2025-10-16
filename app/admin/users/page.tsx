@@ -6,6 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
+import { userService, type User, type UserFilters } from '@/lib/user-service'
+import CreateUserModal from '@/components/user-create-modal'
+import UserDetailsModal from '@/components/user-details-modal'
+import EditUserModal from '@/components/user-edit-modal'
+import EmailModal from '@/components/user-email-modal'
 import { 
   Search, 
   Download, 
@@ -29,28 +34,8 @@ import {
   Phone,
   ExternalLink
 } from 'lucide-react'
-import CreateUserModal from '@/components/user-create-modal'
-import EditUserModal from '@/components/user-edit-modal'
-import EmailModal from '@/components/user-email-modal'
 
-interface User {
-  id: string
-  name: string
-  email: string
-  role: string
-  status: string
-  joinDate: string
-  lastLogin: string
-  subscription: string
-  creditScore: number
-  phone: string
-  createdAt: string
-  isVerified: boolean
-  totalSpent: number
-  lastActivity: string
-}
-
-interface UserFilters {
+interface LocalUserFilters {
   status: string
   role: string
   search: string
@@ -80,18 +65,15 @@ export default function AdminUsersPage() {
     verifiedUsers: 0,
     newThisMonth: 0
   })
-  const [filters, setFilters] = useState<UserFilters>({
+  const [filters, setFilters] = useState<LocalUserFilters>({
     status: 'all',
     role: 'all',
     search: ''
   })
-  
-  // Modal states - using separate modals like subscriptions page
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
-  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
 
@@ -99,143 +81,30 @@ export default function AdminUsersPage() {
   const loadUsers = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/admin/users')
-      if (response.ok) {
-        const data = await response.json()
-        setUsers(data.data.users || [])
-        setFilteredUsers(data.data.users || [])
-        updateCounts(data.data.users || [])
+      const apiFilters: UserFilters = {
+        status: filters.status === 'all' ? undefined : filters.status,
+        role: filters.role === 'all' ? undefined : filters.role,
+        search: filters.search || undefined,
+        page: 1,
+        limit: 100
+      }
+
+      const response = await userService.getUsers(apiFilters)
+      
+      if (response.success && response.data) {
+        setUsers(response.data.users)
+        setFilteredUsers(response.data.users)
+        setStatusCounts(response.data.statusCounts)
+        setRoleCounts(response.data.roleCounts)
+        setMetrics(response.data.metrics)
       } else {
-        // Fallback to mock data if API fails
-        const mockUsers = getMockUsers()
-        setUsers(mockUsers)
-        setFilteredUsers(mockUsers)
-        updateCounts(mockUsers)
+        console.error('Failed to load users:', response.error)
       }
     } catch (error) {
       console.error('Error loading users:', error)
-      const mockUsers = getMockUsers()
-      setUsers(mockUsers)
-      setFilteredUsers(mockUsers)
-      updateCounts(mockUsers)
     } finally {
       setLoading(false)
     }
-  }
-
-  const getMockUsers = (): User[] => [
-    {
-      id: "1",
-      name: "John Doe",
-      email: "john@example.com",
-      role: "premium",
-      status: "active",
-      joinDate: "2024-01-15",
-      lastLogin: "2024-10-15",
-      subscription: "Premium Plan",
-      creditScore: 720,
-      phone: "+1234567890",
-      createdAt: "2024-01-15T10:30:00Z",
-      isVerified: true,
-      totalSpent: 299.99,
-      lastActivity: "2024-10-15T14:30:00Z"
-    },
-    {
-      id: "2",
-      name: "Jane Smith",
-      email: "jane@example.com",
-      role: "user",
-      status: "active",
-      joinDate: "2024-02-20",
-      lastLogin: "2024-10-14",
-      subscription: "Basic Plan",
-      creditScore: 680,
-      phone: "+1234567891",
-      createdAt: "2024-02-20T10:30:00Z",
-      isVerified: true,
-      totalSpent: 99.99,
-      lastActivity: "2024-10-14T16:20:00Z"
-    },
-    {
-      id: "3",
-      name: "Bob Johnson",
-      email: "bob@example.com",
-      role: "trial",
-      status: "pending",
-      joinDate: "2024-10-10",
-      lastLogin: "2024-10-15",
-      subscription: "Trial",
-      creditScore: 650,
-      phone: "+1234567892",
-      createdAt: "2024-10-10T10:30:00Z",
-      isVerified: false,
-      totalSpent: 0,
-      lastActivity: "2024-10-15T09:15:00Z"
-    },
-    {
-      id: "4",
-      name: "Alice Brown",
-      email: "alice@example.com",
-      role: "premium",
-      status: "suspended",
-      joinDate: "2024-03-05",
-      lastLogin: "2024-10-12",
-      subscription: "Premium Plan",
-      creditScore: 750,
-      phone: "+1234567893",
-      createdAt: "2024-03-05T10:30:00Z",
-      isVerified: true,
-      totalSpent: 599.98,
-      lastActivity: "2024-10-12T11:45:00Z"
-    },
-    {
-      id: "5",
-      name: "Charlie Wilson",
-      email: "charlie@example.com",
-      role: "admin",
-      status: "active",
-      joinDate: "2024-01-01",
-      lastLogin: "2024-10-15",
-      subscription: "Enterprise Plan",
-      creditScore: 800,
-      phone: "+1234567894",
-      createdAt: "2024-01-01T00:00:00Z",
-      isVerified: true,
-      totalSpent: 0,
-      lastActivity: "2024-10-15T17:30:00Z"
-    }
-  ]
-
-  const updateCounts = (userList: User[]) => {
-    const statusCounts = {
-      all: userList.length,
-      active: userList.filter(u => u.status === "active").length,
-      inactive: userList.filter(u => u.status === "inactive").length,
-      suspended: userList.filter(u => u.status === "suspended").length,
-      pending: userList.filter(u => u.status === "pending").length
-    }
-    
-    const roleCounts = {
-      user: userList.filter(u => u.role === "user").length,
-      premium: userList.filter(u => u.role === "premium").length,
-      admin: userList.filter(u => u.role === "admin").length,
-      trial: userList.filter(u => u.role === "trial").length
-    }
-    
-    const metrics = {
-      totalUsers: userList.length,
-      activeUsers: userList.filter(u => u.status === "active").length,
-      verifiedUsers: userList.filter(u => u.isVerified).length,
-      newThisMonth: userList.filter(u => {
-        const userDate = new Date(u.createdAt)
-        const now = new Date()
-        return userDate.getMonth() === now.getMonth() && userDate.getFullYear() === now.getFullYear()
-      }).length
-    }
-    
-    setStatusCounts(statusCounts)
-    setRoleCounts(roleCounts)
-    setMetrics(metrics)
   }
 
   useEffect(() => {
@@ -245,37 +114,11 @@ export default function AdminUsersPage() {
   // Reload when filters change
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      applyFilters()
+      loadUsers()
     }, 300) // Debounce search
 
     return () => clearTimeout(timeoutId)
-  }, [filters, users])
-
-  const applyFilters = () => {
-    let filtered = [...users]
-    
-    // Search filter
-    if (filters.search && filters.search.trim()) {
-      const searchTerm = filters.search.toLowerCase()
-      filtered = filtered.filter(user => 
-        user.name.toLowerCase().includes(searchTerm) ||
-        user.email.toLowerCase().includes(searchTerm) ||
-        user.id.toLowerCase().includes(searchTerm)
-      )
-    }
-    
-    // Status filter
-    if (filters.status !== 'all') {
-      filtered = filtered.filter(user => user.status === filters.status)
-    }
-    
-    // Role filter
-    if (filters.role !== 'all') {
-      filtered = filtered.filter(user => user.role === filters.role)
-    }
-    
-    setFilteredUsers(filtered)
-  }
+  }, [filters])
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -315,7 +158,18 @@ export default function AdminUsersPage() {
     )
   }
 
-  // Action handlers - simple like subscriptions page
+  // Action handlers - following subscriptions pattern exactly
+  const handleCreateUser = () => {
+    console.log('Opening create user modal...')
+    setIsCreateModalOpen(true)
+  }
+
+  const handleUserCreated = (newUser: User) => {
+    console.log('New user created:', newUser)
+    loadUsers()
+    setIsCreateModalOpen(false)
+  }
+
   const handleViewUser = (user: User) => {
     console.log('Viewing user:', user.id)
     setSelectedUser(user)
@@ -328,16 +182,21 @@ export default function AdminUsersPage() {
     setIsEditModalOpen(true)
   }
 
+  const handleUserUpdated = (updatedUser: User) => {
+    console.log('User updated:', updatedUser)
+    loadUsers()
+    setIsEditModalOpen(false)
+  }
+
   const handleEmailUser = (user: User) => {
     console.log('Send email to:', user.id)
     setSelectedUser(user)
     setIsEmailModalOpen(true)
   }
 
-  const handleChangeRole = (user: User) => {
-    console.log('Change role for:', user.id)
-    setSelectedUser(user)
-    setIsRoleModalOpen(true)
+  const handleEmailSent = (userId: string, emailData: any) => {
+    console.log('Email sent to user:', userId, emailData)
+    setIsEmailModalOpen(false)
   }
 
   const handleDeleteUser = (user: User) => {
@@ -346,39 +205,22 @@ export default function AdminUsersPage() {
     setIsDeleteModalOpen(true)
   }
 
-  const handleCreateUser = () => {
-    console.log('Opening create user modal...')
-    setIsCreateModalOpen(true)
-  }
-
-  const handleUserCreated = (newUser: User) => {
-    console.log('New user created:', newUser)
-    console.log('Refreshing user list...')
-    loadUsers()
-    setIsCreateModalOpen(false)
-  }
-
-  const handleUserUpdated = (updatedUser: User) => {
-    console.log('User updated:', updatedUser)
-    loadUsers()
-    setIsEditModalOpen(false)
-  }
-
-  const handleUserDeleted = (userId: string) => {
-    console.log('User deleted:', userId)
-    loadUsers()
-    setIsDeleteModalOpen(false)
-  }
-
-  const handleRoleChanged = (userId: string, newRole: string) => {
-    console.log('Role changed for user:', userId, 'to:', newRole)
-    loadUsers()
-    setIsRoleModalOpen(false)
-  }
-
-  const handleEmailSent = (userId: string, emailData: any) => {
-    console.log('Email sent to user:', userId, emailData)
-    setIsEmailModalOpen(false)
+  const handleDeleteUserConfirm = async () => {
+    if (!selectedUser) return
+    
+    try {
+      const response = await userService.deleteUser(selectedUser.id)
+      if (response.success) {
+        alert(`User ${selectedUser.name} deleted successfully!`)
+        loadUsers()
+        setIsDeleteModalOpen(false)
+      } else {
+        alert(`Failed to delete user: ${response.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      alert(`Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
   const handleExportUsers = () => {
@@ -596,14 +438,6 @@ export default function AdminUsersPage() {
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          onClick={() => handleChangeRole(user)}
-                          title="Change role"
-                        >
-                          <Shield className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
                           onClick={() => handleDeleteUser(user)}
                           title="Delete user"
                         >
@@ -725,93 +559,46 @@ export default function AdminUsersPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Create User Modal */}
-      {isCreateModalOpen && (
-        <CreateUserModal
-          isOpen={isCreateModalOpen}
-          onClose={() => setIsCreateModalOpen(false)}
-          onSuccess={handleUserCreated}
-        />
-      )}
+      {/* Modals - following subscriptions pattern exactly */}
+      <CreateUserModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handleUserCreated}
+      />
 
-      {/* User Details Modal */}
-      {isDetailsModalOpen && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h3 className="text-lg font-semibold mb-4">User Details</h3>
-            <div className="space-y-2">
-              <p><strong>Name:</strong> {selectedUser.name}</p>
-              <p><strong>Email:</strong> {selectedUser.email}</p>
-              <p><strong>Role:</strong> {selectedUser.role}</p>
-              <p><strong>Status:</strong> {selectedUser.status}</p>
-              <p><strong>Phone:</strong> {selectedUser.phone}</p>
-              <p><strong>Credit Score:</strong> {selectedUser.creditScore}</p>
-              <p><strong>Verified:</strong> {selectedUser.isVerified ? 'Yes' : 'No'}</p>
-            </div>
-            <div className="flex justify-end mt-6">
-              <Button onClick={() => setIsDetailsModalOpen(false)}>
-                Close
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <UserDetailsModal
+        isOpen={isDetailsModalOpen}
+        onClose={() => {
+          setIsDetailsModalOpen(false)
+          setSelectedUser(null)
+        }}
+        user={selectedUser}
+        onEdit={handleEditUser}
+        onDelete={handleDeleteUser}
+        onSendEmail={handleEmailUser}
+      />
 
-      {/* Edit User Modal */}
-      {isEditModalOpen && selectedUser && (
-        <EditUserModal
-          isOpen={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)}
-          onSuccess={handleUserUpdated}
-          user={selectedUser}
-        />
-      )}
+      <EditUserModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false)
+          setSelectedUser(null)
+        }}
+        user={selectedUser}
+        onSuccess={handleUserUpdated}
+      />
 
-      {/* Email Modal */}
-      {isEmailModalOpen && selectedUser && (
-        <EmailModal
-          isOpen={isEmailModalOpen}
-          onClose={() => setIsEmailModalOpen(false)}
-          onSuccess={handleEmailSent}
-          user={selectedUser}
-        />
-      )}
+      <EmailModal
+        isOpen={isEmailModalOpen}
+        onClose={() => {
+          setIsEmailModalOpen(false)
+          setSelectedUser(null)
+        }}
+        user={selectedUser}
+        onSuccess={handleEmailSent}
+      />
 
-      {isRoleModalOpen && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h3 className="text-lg font-semibold mb-4">Change Role for {selectedUser.name}</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">New Role</label>
-                <select defaultValue={selectedUser.role} className="w-full px-3 py-2 border rounded-md">
-                  <option value="user">User</option>
-                  <option value="premium">Premium</option>
-                  <option value="admin">Admin</option>
-                  <option value="trial">Trial</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Reason</label>
-                <textarea className="w-full px-3 py-2 border rounded-md h-20" placeholder="Reason for role change"></textarea>
-              </div>
-            </div>
-            <div className="flex justify-end space-x-2 mt-6">
-              <Button variant="outline" onClick={() => setIsRoleModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={() => {
-                alert(`Role changed successfully for ${selectedUser.name}!`)
-                setIsRoleModalOpen(false)
-                loadUsers()
-              }}>
-                Change Role
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-96">
@@ -833,11 +620,7 @@ export default function AdminUsersPage() {
               </Button>
               <Button 
                 variant="destructive" 
-                onClick={() => {
-                  alert(`User ${selectedUser.name} deleted successfully!`)
-                  setIsDeleteModalOpen(false)
-                  loadUsers()
-                }}
+                onClick={handleDeleteUserConfirm}
               >
                 Delete User
               </Button>
