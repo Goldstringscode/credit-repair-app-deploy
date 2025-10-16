@@ -207,11 +207,13 @@ export default function UsersPage() {
 
   // Handler functions
   const handleViewUser = (user: User) => {
+    console.log('View user clicked:', user)
     setSelectedUser(user)
     setIsViewUserOpen(true)
   }
 
   const handleEditUser = (user: User) => {
+    console.log('Edit user clicked:', user)
     setSelectedUser(user)
     setEditUser({
       name: user.name,
@@ -224,6 +226,7 @@ export default function UsersPage() {
   }
 
   const handleEmailUser = (user: User) => {
+    console.log('Email user clicked:', user)
     setSelectedUser(user)
     setEmailData({
       subject: "",
@@ -234,6 +237,7 @@ export default function UsersPage() {
   }
 
   const handleChangeRole = (user: User) => {
+    console.log('Change role clicked:', user)
     setSelectedUser(user)
     setRoleData({
       role: user.role,
@@ -243,11 +247,13 @@ export default function UsersPage() {
   }
 
   const handleDeleteUser = (user: User) => {
+    console.log('Delete user clicked:', user)
     setSelectedUser(user)
     setIsDeleteUserOpen(true)
   }
 
   const handleAddUser = async () => {
+    console.log('Adding user:', newUser)
     setIsLoading(true)
     try {
       const response = await fetch('/api/admin/users', {
