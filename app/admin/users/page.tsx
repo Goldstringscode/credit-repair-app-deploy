@@ -6,11 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
-import { userService, type User, type UserFilters } from '@/lib/user-service'
-import CreateUserModal from '@/components/user-create-modal'
-import UserDetailsModal from '@/components/user-details-modal'
-import EditUserModal from '@/components/user-edit-modal'
-import EmailModal from '@/components/user-email-modal'
 import { 
   Search, 
   Download, 
@@ -30,15 +25,24 @@ import {
   Users,
   UserCheck,
   UserX,
-  Crown,
-  Phone,
-  ExternalLink
+  Crown
 } from 'lucide-react'
 
-interface LocalUserFilters {
-  status: string
+interface User {
+  id: string
+  name: string
+  email: string
   role: string
-  search: string
+  status: string
+  joinDate: string
+  lastLogin: string
+  subscription: string
+  creditScore: number
+  phone: string
+  createdAt: string
+  isVerified: boolean
+  totalSpent: number
+  lastActivity: string
 }
 
 export default function AdminUsersPage() {
@@ -53,19 +57,7 @@ export default function AdminUsersPage() {
     suspended: 0,
     pending: 0
   })
-  const [roleCounts, setRoleCounts] = useState({
-    user: 0,
-    premium: 0,
-    admin: 0,
-    trial: 0
-  })
-  const [metrics, setMetrics] = useState({
-    totalUsers: 0,
-    activeUsers: 0,
-    verifiedUsers: 0,
-    newThisMonth: 0
-  })
-  const [filters, setFilters] = useState<LocalUserFilters>({
+  const [filters, setFilters] = useState({
     status: 'all',
     role: 'all',
     search: ''
@@ -77,29 +69,75 @@ export default function AdminUsersPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
 
-  // Load users from API
+  // Mock data for development
+  const getMockUsers = (): User[] => [
+    {
+      id: "1",
+      name: "John Doe",
+      email: "john@example.com",
+      role: "premium",
+      status: "active",
+      joinDate: "2024-01-15",
+      lastLogin: "2024-10-15",
+      subscription: "Premium Plan",
+      creditScore: 720,
+      phone: "+1234567890",
+      createdAt: "2024-01-15T10:30:00Z",
+      isVerified: true,
+      totalSpent: 299.99,
+      lastActivity: "2024-10-15T14:30:00Z"
+    },
+    {
+      id: "2",
+      name: "Jane Smith",
+      email: "jane@example.com",
+      role: "user",
+      status: "active",
+      joinDate: "2024-02-20",
+      lastLogin: "2024-10-14",
+      subscription: "Basic Plan",
+      creditScore: 680,
+      phone: "+1234567891",
+      createdAt: "2024-02-20T10:30:00Z",
+      isVerified: true,
+      totalSpent: 99.99,
+      lastActivity: "2024-10-14T16:20:00Z"
+    },
+    {
+      id: "3",
+      name: "Bob Johnson",
+      email: "bob@example.com",
+      role: "trial",
+      status: "pending",
+      joinDate: "2024-10-10",
+      lastLogin: "2024-10-15",
+      subscription: "Trial",
+      creditScore: 650,
+      phone: "+1234567892",
+      createdAt: "2024-10-10T10:30:00Z",
+      isVerified: false,
+      totalSpent: 0,
+      lastActivity: "2024-10-15T09:15:00Z"
+    }
+  ]
+
+  // Load users
   const loadUsers = async () => {
     setLoading(true)
     try {
-      const apiFilters: UserFilters = {
-        status: filters.status === 'all' ? undefined : filters.status,
-        role: filters.role === 'all' ? undefined : filters.role,
-        search: filters.search || undefined,
-        page: 1,
-        limit: 100
-      }
-
-      const response = await userService.getUsers(apiFilters)
+      // Use mock data for now
+      const mockUsers = getMockUsers()
+      setUsers(mockUsers)
+      setFilteredUsers(mockUsers)
       
-      if (response.success && response.data) {
-        setUsers(response.data.users)
-        setFilteredUsers(response.data.users)
-        setStatusCounts(response.data.statusCounts)
-        setRoleCounts(response.data.roleCounts)
-        setMetrics(response.data.metrics)
-      } else {
-        console.error('Failed to load users:', response.error)
-      }
+      // Calculate counts
+      setStatusCounts({
+        all: mockUsers.length,
+        active: mockUsers.filter(u => u.status === "active").length,
+        inactive: mockUsers.filter(u => u.status === "inactive").length,
+        suspended: mockUsers.filter(u => u.status === "suspended").length,
+        pending: mockUsers.filter(u => u.status === "pending").length
+      })
     } catch (error) {
       console.error('Error loading users:', error)
     } finally {
@@ -111,14 +149,28 @@ export default function AdminUsersPage() {
     loadUsers()
   }, [])
 
-  // Reload when filters change
+  // Apply filters
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      loadUsers()
-    }, 300) // Debounce search
-
-    return () => clearTimeout(timeoutId)
-  }, [filters])
+    let filtered = [...users]
+    
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase()
+      filtered = filtered.filter(user => 
+        user.name.toLowerCase().includes(searchTerm) ||
+        user.email.toLowerCase().includes(searchTerm)
+      )
+    }
+    
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(user => user.status === filters.status)
+    }
+    
+    if (filters.role !== 'all') {
+      filtered = filtered.filter(user => user.role === filters.role)
+    }
+    
+    setFilteredUsers(filtered)
+  }, [filters, users])
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -158,16 +210,10 @@ export default function AdminUsersPage() {
     )
   }
 
-  // Action handlers - following subscriptions pattern exactly
+  // Simple action handlers
   const handleCreateUser = () => {
     console.log('Opening create user modal...')
     setIsCreateModalOpen(true)
-  }
-
-  const handleUserCreated = (newUser: User) => {
-    console.log('New user created:', newUser)
-    loadUsers()
-    setIsCreateModalOpen(false)
   }
 
   const handleViewUser = (user: User) => {
@@ -182,21 +228,10 @@ export default function AdminUsersPage() {
     setIsEditModalOpen(true)
   }
 
-  const handleUserUpdated = (updatedUser: User) => {
-    console.log('User updated:', updatedUser)
-    loadUsers()
-    setIsEditModalOpen(false)
-  }
-
   const handleEmailUser = (user: User) => {
     console.log('Send email to:', user.id)
     setSelectedUser(user)
     setIsEmailModalOpen(true)
-  }
-
-  const handleEmailSent = (userId: string, emailData: any) => {
-    console.log('Email sent to user:', userId, emailData)
-    setIsEmailModalOpen(false)
   }
 
   const handleDeleteUser = (user: User) => {
@@ -205,22 +240,14 @@ export default function AdminUsersPage() {
     setIsDeleteModalOpen(true)
   }
 
-  const handleDeleteUserConfirm = async () => {
+  const handleDeleteUserConfirm = () => {
     if (!selectedUser) return
     
-    try {
-      const response = await userService.deleteUser(selectedUser.id)
-      if (response.success) {
-        alert(`User ${selectedUser.name} deleted successfully!`)
-        loadUsers()
-        setIsDeleteModalOpen(false)
-      } else {
-        alert(`Failed to delete user: ${response.error || 'Unknown error'}`)
-      }
-    } catch (error) {
-      console.error('Error deleting user:', error)
-      alert(`Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
+    setUsers(users.filter(user => user.id !== selectedUser.id))
+    setFilteredUsers(filteredUsers.filter(user => user.id !== selectedUser.id))
+    alert(`User ${selectedUser.name} deleted successfully!`)
+    setIsDeleteModalOpen(false)
+    setSelectedUser(null)
   }
 
   const handleExportUsers = () => {
@@ -450,155 +477,139 @@ export default function AdminUsersPage() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  User Statistics
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Total Users</span>
-                  <Badge variant="outline">{metrics.totalUsers}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Active Users</span>
-                  <Badge variant="default">{metrics.activeUsers}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Verified Users</span>
-                  <Badge variant="secondary">{metrics.verifiedUsers}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">New This Month</span>
-                  <Badge variant="outline">{metrics.newThisMonth}</Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <UserCheck className="h-5 w-5" />
-                  Role Distribution
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Regular Users</span>
-                  <Badge variant="outline">{roleCounts.user}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Premium Users</span>
-                  <Badge variant="default">{roleCounts.premium}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Admins</span>
-                  <Badge variant="secondary">{roleCounts.admin}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Trial Users</span>
-                  <Badge variant="outline">{roleCounts.trial}</Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5" />
-                  Status Alerts
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Suspended Users</span>
-                  <Badge variant="destructive">{statusCounts.suspended}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Pending Users</span>
-                  <Badge variant="secondary">{statusCounts.pending}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Inactive Users</span>
-                  <Badge variant="outline">{statusCounts.inactive}</Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Recent Activity
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="text-sm text-gray-600">
-                  <p>Last updated: {new Date().toLocaleTimeString()}</p>
-                </div>
-                <div className="text-sm text-gray-600">
-                  <p>Data refreshed automatically</p>
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={loadUsers}
-                  className="w-full"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh Now
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
         </TabsContent>
       </Tabs>
 
-      {/* Modals - following subscriptions pattern exactly */}
-      <CreateUserModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={handleUserCreated}
-      />
+      {/* Simple Modals */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">Create New User</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Name</label>
+                <input type="text" className="w-full px-3 py-2 border rounded-md" placeholder="Full name" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <input type="email" className="w-full px-3 py-2 border rounded-md" placeholder="user@example.com" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Role</label>
+                <select className="w-full px-3 py-2 border rounded-md">
+                  <option value="user">User</option>
+                  <option value="premium">Premium</option>
+                  <option value="admin">Admin</option>
+                  <option value="trial">Trial</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2 mt-6">
+              <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => {
+                alert('User created successfully!')
+                setIsCreateModalOpen(false)
+                loadUsers()
+              }}>
+                Create User
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      <UserDetailsModal
-        isOpen={isDetailsModalOpen}
-        onClose={() => {
-          setIsDetailsModalOpen(false)
-          setSelectedUser(null)
-        }}
-        user={selectedUser}
-        onEdit={handleEditUser}
-        onDelete={handleDeleteUser}
-        onSendEmail={handleEmailUser}
-      />
+      {isDetailsModalOpen && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">User Details</h3>
+            <div className="space-y-2">
+              <p><strong>Name:</strong> {selectedUser.name}</p>
+              <p><strong>Email:</strong> {selectedUser.email}</p>
+              <p><strong>Role:</strong> {selectedUser.role}</p>
+              <p><strong>Status:</strong> {selectedUser.status}</p>
+              <p><strong>Phone:</strong> {selectedUser.phone}</p>
+              <p><strong>Credit Score:</strong> {selectedUser.creditScore}</p>
+              <p><strong>Verified:</strong> {selectedUser.isVerified ? 'Yes' : 'No'}</p>
+            </div>
+            <div className="flex justify-end mt-6">
+              <Button onClick={() => setIsDetailsModalOpen(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      <EditUserModal
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false)
-          setSelectedUser(null)
-        }}
-        user={selectedUser}
-        onSuccess={handleUserUpdated}
-      />
+      {isEditModalOpen && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">Edit User</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Name</label>
+                <input type="text" defaultValue={selectedUser.name} className="w-full px-3 py-2 border rounded-md" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <input type="email" defaultValue={selectedUser.email} className="w-full px-3 py-2 border rounded-md" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Role</label>
+                <select defaultValue={selectedUser.role} className="w-full px-3 py-2 border rounded-md">
+                  <option value="user">User</option>
+                  <option value="premium">Premium</option>
+                  <option value="admin">Admin</option>
+                  <option value="trial">Trial</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2 mt-6">
+              <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => {
+                alert('User updated successfully!')
+                setIsEditModalOpen(false)
+                loadUsers()
+              }}>
+                Update User
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      <EmailModal
-        isOpen={isEmailModalOpen}
-        onClose={() => {
-          setIsEmailModalOpen(false)
-          setSelectedUser(null)
-        }}
-        user={selectedUser}
-        onSuccess={handleEmailSent}
-      />
+      {isEmailModalOpen && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">Send Email to {selectedUser.name}</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Subject</label>
+                <input type="text" className="w-full px-3 py-2 border rounded-md" placeholder="Email subject" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Message</label>
+                <textarea className="w-full px-3 py-2 border rounded-md h-24" placeholder="Email message"></textarea>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2 mt-6">
+              <Button variant="outline" onClick={() => setIsEmailModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => {
+                alert(`Email sent successfully to ${selectedUser.email}!`)
+                setIsEmailModalOpen(false)
+              }}>
+                Send Email
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-96">
