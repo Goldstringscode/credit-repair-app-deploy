@@ -353,6 +353,7 @@ export default function AdminUsersPage() {
 
   const handleUserCreated = (newUser: User) => {
     console.log('New user created:', newUser)
+    console.log('Refreshing user list...')
     loadUsers()
     setIsCreateModalOpen(false)
   }

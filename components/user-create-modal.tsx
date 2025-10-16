@@ -41,6 +41,8 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    console.log('Create user form submitted:', formData)
+    
     if (!formData.name || !formData.email) {
       alert('Name and email are required')
       return
@@ -49,6 +51,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
     setLoading(true)
     
     try {
+      console.log('Making API call to create user...')
       const response = await fetch('/api/admin/users', {
         method: 'POST',
         headers: {
@@ -57,8 +60,11 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
         body: JSON.stringify(formData),
       })
 
+      console.log('API response status:', response.status)
+      const result = await response.json()
+      console.log('API response data:', result)
+
       if (response.ok) {
-        const result = await response.json()
         alert(`User ${formData.name} created successfully!`)
         onSuccess(result.data.user)
         setFormData({
@@ -70,8 +76,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
         })
         onClose()
       } else {
-        const errorData = await response.json()
-        alert(`Failed to create user: ${errorData.error || 'Unknown error'}`)
+        alert(`Failed to create user: ${result.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Error creating user:', error)
