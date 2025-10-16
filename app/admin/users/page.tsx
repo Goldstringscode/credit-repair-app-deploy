@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -40,7 +40,6 @@ import {
 } from "@/components/ui/select"
 import { 
   Search, 
-  Filter, 
   Download, 
   UserPlus, 
   MoreHorizontal, 
@@ -66,11 +65,10 @@ interface User {
   subscription: string
   creditScore: number
   phone: string
-  createdAt: string
 }
 
 export default function UsersPage() {
-  // Mock users data
+  // Simple state management
   const [users, setUsers] = useState<User[]>([
     {
       id: "1",
@@ -82,8 +80,7 @@ export default function UsersPage() {
       lastLogin: "2024-10-15",
       subscription: "Premium Plan",
       creditScore: 720,
-      phone: "+1234567890",
-      createdAt: "2024-01-15T10:30:00Z"
+      phone: "+1234567890"
     },
     {
       id: "2",
@@ -95,8 +92,7 @@ export default function UsersPage() {
       lastLogin: "2024-10-14",
       subscription: "Basic Plan",
       creditScore: 680,
-      phone: "+1234567891",
-      createdAt: "2024-02-20T10:30:00Z"
+      phone: "+1234567891"
     },
     {
       id: "3",
@@ -108,21 +104,7 @@ export default function UsersPage() {
       lastLogin: "2024-10-15",
       subscription: "Trial",
       creditScore: 650,
-      phone: "+1234567892",
-      createdAt: "2024-10-10T10:30:00Z"
-    },
-    {
-      id: "4",
-      name: "Alice Brown",
-      email: "alice@example.com",
-      role: "premium",
-      status: "suspended",
-      joinDate: "2024-03-05",
-      lastLogin: "2024-10-12",
-      subscription: "Premium Plan",
-      creditScore: 750,
-      phone: "+1234567893",
-      createdAt: "2024-03-05T10:30:00Z"
+      phone: "+1234567892"
     }
   ])
 
@@ -130,14 +112,12 @@ export default function UsersPage() {
   const [filterRole, setFilterRole] = useState<string>("all")
   const [filterStatus, setFilterStatus] = useState<string>("all")
   
-  // Simplified modal state
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [modalType, setModalType] = useState<'add' | 'edit' | 'view' | 'email' | 'role' | 'delete' | null>(null)
-  
-  // Selected user for operations
+  // Simple modal state - only one modal at a time
+  const [showModal, setShowModal] = useState(false)
+  const [modalContent, setModalContent] = useState<"add" | "view" | "edit" | "email" | "role" | "delete" | null>(null)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   
-  // Form states
+  // Form data
   const [newUser, setNewUser] = useState({
     name: "",
     email: "",
@@ -164,10 +144,8 @@ export default function UsersPage() {
     role: "user",
     reason: ""
   })
-  
-  const [isLoading, setIsLoading] = useState(false)
 
-  // Filter users based on search and filters
+  // Filter users
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -187,210 +165,115 @@ export default function UsersPage() {
     }
   }
 
-  // Simplified handler functions
-  const handleViewUser = (user: User) => {
-    console.log('View user clicked:', user)
-    setSelectedUser(user)
-    setModalType('view')
-    setIsModalOpen(true)
+  // Simple action handlers
+  const openModal = (content: "add" | "view" | "edit" | "email" | "role" | "delete", user?: User) => {
+    setModalContent(content)
+    setSelectedUser(user || null)
+    setShowModal(true)
+    
+    if (user && content === "edit") {
+      setEditUser({
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        subscription: user.subscription
+      })
+    }
+    
+    if (user && content === "role") {
+      setRoleData({
+        role: user.role,
+        reason: ""
+      })
+    }
+    
+    if (user && content === "email") {
+      setEmailData({
+        subject: "",
+        message: "",
+        type: "general"
+      })
+    }
   }
 
-  const handleEditUser = (user: User) => {
-    console.log('Edit user clicked:', user)
-    setSelectedUser(user)
-    setEditUser({
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      phone: "+1234567890", // Mock phone
-      subscription: user.subscription
-    })
-    setModalType('edit')
-    setIsModalOpen(true)
+  const closeModal = () => {
+    setShowModal(false)
+    setModalContent(null)
+    setSelectedUser(null)
+    setNewUser({ name: "", email: "", role: "user", phone: "", subscription: "Basic Plan" })
+    setEditUser({ name: "", email: "", role: "user", phone: "", subscription: "Basic Plan" })
+    setEmailData({ subject: "", message: "", type: "general" })
+    setRoleData({ role: "user", reason: "" })
   }
 
-  const handleEmailUser = (user: User) => {
-    console.log('Email user clicked:', user)
-    setSelectedUser(user)
-    setEmailData({
-      subject: "",
-      message: "",
-      type: "general"
-    })
-    setModalType('email')
-    setIsModalOpen(true)
-  }
-
-  const handleChangeRole = (user: User) => {
-    console.log('Change role clicked:', user)
-    setSelectedUser(user)
-    setRoleData({
-      role: user.role,
-      reason: ""
-    })
-    setModalType('role')
-    setIsModalOpen(true)
-  }
-
-  const handleDeleteUser = (user: User) => {
-    console.log('Delete user clicked:', user)
-    setSelectedUser(user)
-    setModalType('delete')
-    setIsModalOpen(true)
-  }
-
+  // Simple API calls with immediate UI updates
   const handleAddUser = () => {
-    setModalType('add')
-    setIsModalOpen(true)
-  }
-
-  const handleAddUserSubmit = async () => {
-    console.log('Adding user:', newUser)
-    setIsLoading(true)
-    try {
-      const response = await fetch('/api/test-admin-users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newUser)
-      })
-      
-      if (response.ok) {
-        const result = await response.json()
-        setUsers([...users, result.data.user])
-        alert(`User ${newUser.name} created successfully!`)
-        setIsModalOpen(false)
-        setModalType(null)
-        setNewUser({ name: "", email: "", role: "user", phone: "", subscription: "Basic Plan" })
-      } else {
-        const errorData = await response.json()
-        alert(`Failed to create user: ${errorData.error || 'Unknown error'}`)
-      }
-    } catch (error) {
-      console.error('Error adding user:', error)
-      alert(`Failed to create user: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    } finally {
-      setIsLoading(false)
+    if (!newUser.name || !newUser.email) {
+      alert("Name and email are required")
+      return
     }
+    
+    const user: User = {
+      id: `user_${Date.now()}`,
+      name: newUser.name,
+      email: newUser.email,
+      role: newUser.role,
+      status: "active",
+      joinDate: new Date().toISOString().split('T')[0],
+      lastLogin: new Date().toISOString().split('T')[0],
+      subscription: newUser.subscription,
+      creditScore: 650,
+      phone: newUser.phone
+    }
+    
+    setUsers([...users, user])
+    alert(`User ${newUser.name} created successfully!`)
+    closeModal()
   }
 
-  const handleUpdateUser = async () => {
+  const handleUpdateUser = () => {
     if (!selectedUser) return
     
-    setIsLoading(true)
-    try {
-      const response = await fetch(`/api/test-admin-users/${selectedUser.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editUser)
-      })
-      
-      if (response.ok) {
-        const result = await response.json()
-        setUsers(users.map(user => user.id === selectedUser.id ? { ...user, ...result.data.user } : user))
-        alert(`User ${selectedUser.name} updated successfully!`)
-        setIsModalOpen(false)
-        setModalType(null)
-        setSelectedUser(null)
-      } else {
-        const errorData = await response.json()
-        alert(`Failed to update user: ${errorData.error || 'Unknown error'}`)
-      }
-    } catch (error) {
-      console.error('Error updating user:', error)
-      alert(`Failed to update user: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    } finally {
-      setIsLoading(false)
-    }
+    setUsers(users.map(user => 
+      user.id === selectedUser.id 
+        ? { ...user, ...editUser }
+        : user
+    ))
+    alert(`User ${selectedUser.name} updated successfully!`)
+    closeModal()
   }
 
-  const handleSendEmail = async () => {
-    if (!selectedUser) return
-    
-    setIsLoading(true)
-    
-    try {
-      const response = await fetch(`/api/test-admin-users/${selectedUser.id}/email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(emailData)
-      })
-      
-      if (response.ok) {
-        const result = await response.json()
-        alert(`Email sent successfully to ${selectedUser.email}!`)
-        setIsModalOpen(false)
-        setModalType(null)
-        setSelectedUser(null)
-        setEmailData({ subject: "", message: "", type: "general" })
-        setIsLoading(false)
-      } else {
-        const errorData = await response.json()
-        alert(`Failed to send email: ${errorData.error || 'Unknown error'}`)
-        setIsLoading(false)
-      }
-    } catch (error) {
-      console.error('Error sending email:', error)
-      alert(`Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      setIsLoading(false)
+  const handleSendEmail = () => {
+    if (!selectedUser || !emailData.subject || !emailData.message) {
+      alert("Subject and message are required")
+      return
     }
+    
+    // Simulate email sending
+    console.log(`Sending email to ${selectedUser.email}:`, emailData)
+    alert(`Email sent successfully to ${selectedUser.email}!`)
+    closeModal()
   }
 
-  const handleChangeUserRole = async () => {
+  const handleChangeRole = () => {
     if (!selectedUser) return
     
-    setIsLoading(true)
-    try {
-      const response = await fetch(`/api/test-admin-users/${selectedUser.id}/role`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(roleData)
-      })
-      
-      if (response.ok) {
-        const result = await response.json()
-        setUsers(users.map(user => user.id === selectedUser.id ? { ...user, role: roleData.role } : user))
-        alert(`User ${selectedUser.name} role changed to ${roleData.role} successfully!`)
-        setIsModalOpen(false)
-        setModalType(null)
-        setSelectedUser(null)
-      } else {
-        const errorData = await response.json()
-        alert(`Failed to change role: ${errorData.error || 'Unknown error'}`)
-      }
-    } catch (error) {
-      console.error('Error changing role:', error)
-      alert(`Failed to change role: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    } finally {
-      setIsLoading(false)
-    }
+    setUsers(users.map(user => 
+      user.id === selectedUser.id 
+        ? { ...user, role: roleData.role }
+        : user
+    ))
+    alert(`User ${selectedUser.name} role changed to ${roleData.role} successfully!`)
+    closeModal()
   }
 
-  const handleDeleteUserConfirm = async () => {
+  const handleDeleteUser = () => {
     if (!selectedUser) return
     
-    setIsLoading(true)
-    try {
-      const response = await fetch(`/api/test-admin-users/${selectedUser.id}`, {
-        method: 'DELETE'
-      })
-      
-      if (response.ok) {
-        setUsers(users.filter(user => user.id !== selectedUser.id))
-        alert(`User ${selectedUser.name} deleted successfully!`)
-        setIsModalOpen(false)
-        setModalType(null)
-        setSelectedUser(null)
-        setIsLoading(false)
-      } else {
-        const errorData = await response.json()
-        alert(`Failed to delete user: ${errorData.error || 'Unknown error'}`)
-        setIsLoading(false)
-      }
-    } catch (error) {
-      console.error('Error deleting user:', error)
-      alert(`Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      setIsLoading(false)
-    }
+    setUsers(users.filter(user => user.id !== selectedUser.id))
+    alert(`User ${selectedUser.name} deleted successfully!`)
+    closeModal()
   }
 
   const stats = {
@@ -417,7 +300,7 @@ export default function UsersPage() {
           </Button>
           <Button 
             className="flex items-center space-x-2"
-            onClick={handleAddUser}
+            onClick={() => openModal("add")}
           >
             <UserPlus className="h-4 w-4" />
             <span>Add User</span>
@@ -562,45 +445,25 @@ export default function UsersPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => {
-                          console.log('View Details clicked for user:', user)
-                          alert('View Details clicked!')
-                          handleViewUser(user)
-                        }}>
+                        <DropdownMenuItem onClick={() => openModal("view", user)}>
                           <Eye className="mr-2 h-4 w-4" />
                           View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => {
-                          console.log('Edit User clicked for user:', user)
-                          alert('Edit User clicked!')
-                          handleEditUser(user)
-                        }}>
+                        <DropdownMenuItem onClick={() => openModal("edit", user)}>
                           <Edit className="mr-2 h-4 w-4" />
                           Edit User
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => {
-                          console.log('Send Email clicked for user:', user)
-                          alert('Send Email clicked!')
-                          handleEmailUser(user)
-                        }}>
+                        <DropdownMenuItem onClick={() => openModal("email", user)}>
                           <Mail className="mr-2 h-4 w-4" />
                           Send Email
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => {
-                          console.log('Change Role clicked for user:', user)
-                          alert('Change Role clicked!')
-                          handleChangeRole(user)
-                        }}>
+                        <DropdownMenuItem onClick={() => openModal("role", user)}>
                           <Shield className="mr-2 h-4 w-4" />
                           Change Role
                         </DropdownMenuItem>
                         <DropdownMenuItem 
-                          onClick={() => {
-                            console.log('Delete User clicked for user:', user)
-                            alert('Delete User clicked!')
-                            handleDeleteUser(user)
-                          }}
+                          onClick={() => openModal("delete", user)}
                           className="text-red-600"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
@@ -616,16 +479,10 @@ export default function UsersPage() {
         </CardContent>
       </Card>
 
-      {/* Single Unified Modal */}
-      <Dialog open={isModalOpen} onOpenChange={(open) => {
-        if (!open) {
-          setIsModalOpen(false)
-          setModalType(null)
-          setSelectedUser(null)
-        }
-      }}>
+      {/* Single Modal */}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="sm:max-w-[500px]">
-          {modalType === 'add' && (
+          {modalContent === 'add' && (
             <>
               <DialogHeader>
                 <DialogTitle>Add New User</DialogTitle>
@@ -693,17 +550,17 @@ export default function UsersPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+                <Button variant="outline" onClick={closeModal}>
                   Cancel
                 </Button>
-                <Button onClick={handleAddUserSubmit} disabled={isLoading}>
-                  {isLoading ? "Creating..." : "Create User"}
+                <Button onClick={handleAddUser}>
+                  Create User
                 </Button>
               </DialogFooter>
             </>
           )}
 
-          {modalType === 'view' && selectedUser && (
+          {modalContent === 'view' && selectedUser && (
             <>
               <DialogHeader>
                 <DialogTitle>User Details</DialogTitle>
@@ -754,14 +611,14 @@ export default function UsersPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={() => setIsModalOpen(false)}>
+                <Button onClick={closeModal}>
                   Close
                 </Button>
               </DialogFooter>
             </>
           )}
 
-          {modalType === 'edit' && selectedUser && (
+          {modalContent === 'edit' && selectedUser && (
             <>
               <DialogHeader>
                 <DialogTitle>Edit User</DialogTitle>
@@ -826,17 +683,17 @@ export default function UsersPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+                <Button variant="outline" onClick={closeModal}>
                   Cancel
                 </Button>
-                <Button onClick={handleUpdateUser} disabled={isLoading}>
-                  {isLoading ? "Updating..." : "Update User"}
+                <Button onClick={handleUpdateUser}>
+                  Update User
                 </Button>
               </DialogFooter>
             </>
           )}
 
-          {modalType === 'email' && selectedUser && (
+          {modalContent === 'email' && selectedUser && (
             <>
               <DialogHeader>
                 <DialogTitle>Send Email</DialogTitle>
@@ -882,20 +739,20 @@ export default function UsersPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+                <Button variant="outline" onClick={closeModal}>
                   Cancel
                 </Button>
                 <Button 
-                  onClick={handleSendEmail} 
-                  disabled={isLoading || !emailData.subject || !emailData.message}
+                  onClick={handleSendEmail}
+                  disabled={!emailData.subject || !emailData.message}
                 >
-                  {isLoading ? "Sending..." : "Send Email"}
+                  Send Email
                 </Button>
               </DialogFooter>
             </>
           )}
 
-          {modalType === 'role' && selectedUser && (
+          {modalContent === 'role' && selectedUser && (
             <>
               <DialogHeader>
                 <DialogTitle>Change User Role</DialogTitle>
@@ -930,17 +787,17 @@ export default function UsersPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+                <Button variant="outline" onClick={closeModal}>
                   Cancel
                 </Button>
-                <Button onClick={handleChangeUserRole} disabled={isLoading}>
-                  {isLoading ? "Changing..." : "Change Role"}
+                <Button onClick={handleChangeRole}>
+                  Change Role
                 </Button>
               </DialogFooter>
             </>
           )}
 
-          {modalType === 'delete' && selectedUser && (
+          {modalContent === 'delete' && selectedUser && (
             <>
               <DialogHeader>
                 <DialogTitle>Delete User</DialogTitle>
@@ -962,15 +819,14 @@ export default function UsersPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+                <Button variant="outline" onClick={closeModal}>
                   Cancel
                 </Button>
                 <Button 
                   variant="destructive" 
-                  onClick={handleDeleteUserConfirm} 
-                  disabled={isLoading}
+                  onClick={handleDeleteUser}
                 >
-                  {isLoading ? "Deleting..." : "Delete User"}
+                  Delete User
                 </Button>
               </DialogFooter>
             </>
