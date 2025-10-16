@@ -168,6 +168,35 @@ export default function UsersPage() {
   const [emailSent, setEmailSent] = useState(false)
   const [emailError, setEmailError] = useState<string | null>(null)
 
+  // Cleanup function to reset all modal states
+  const resetAllStates = () => {
+    setIsEmailUserOpen(false)
+    setIsEditUserOpen(false)
+    setIsViewUserOpen(false)
+    setIsChangeRoleOpen(false)
+    setIsDeleteUserOpen(false)
+    setIsAddUserOpen(false)
+    setEmailSent(false)
+    setEmailError(null)
+    setEmailData({ subject: "", message: "", type: "general" })
+    setEditUser({ name: "", email: "", role: "user", phone: "", subscription: "Basic Plan" })
+    setRoleData({ role: "", reason: "" })
+    setSelectedUser(null)
+    setIsLoading(false)
+  }
+
+  // Cleanup effect to ensure no modal states are left open
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        resetAllStates()
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [])
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -317,10 +346,7 @@ export default function UsersPage() {
         
         // Show success message for 2 seconds then close modal
         setTimeout(() => {
-          setIsEmailUserOpen(false)
-          setEmailData({ subject: "", message: "", type: "general" })
-          setEmailSent(false)
-          setEmailError(null)
+          resetAllStates()
         }, 2000)
       } else {
         const errorData = await response.json()
@@ -841,7 +867,15 @@ export default function UsersPage() {
       </Dialog>
 
       {/* Send Email Modal */}
-      <Dialog open={isEmailUserOpen} onOpenChange={setIsEmailUserOpen}>
+      <Dialog open={isEmailUserOpen} onOpenChange={(open) => {
+        if (!open) {
+          // Reset all email-related states when closing
+          setEmailSent(false)
+          setEmailError(null)
+          setEmailData({ subject: "", message: "", type: "general" })
+        }
+        setIsEmailUserOpen(open)
+      }}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Send Email</DialogTitle>
@@ -936,12 +970,7 @@ export default function UsersPage() {
           <DialogFooter>
             <Button 
               variant="outline" 
-              onClick={() => {
-                setIsEmailUserOpen(false)
-                setEmailSent(false)
-                setEmailError(null)
-                setEmailData({ subject: "", message: "", type: "general" })
-              }}
+              onClick={resetAllStates}
               disabled={isLoading}
             >
               {emailSent ? "Close" : "Cancel"}
