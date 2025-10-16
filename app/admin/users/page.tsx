@@ -68,6 +68,15 @@ export default function AdminUsersPage() {
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  
+  // Create user form state
+  const [newUser, setNewUser] = useState({
+    name: '',
+    email: '',
+    role: 'user',
+    phone: '',
+    subscription: 'Basic Plan'
+  })
 
   // Mock data for development
   const getMockUsers = (): User[] => [
@@ -213,7 +222,58 @@ export default function AdminUsersPage() {
   // Simple action handlers
   const handleCreateUser = () => {
     console.log('Opening create user modal...')
+    setNewUser({
+      name: '',
+      email: '',
+      role: 'user',
+      phone: '',
+      subscription: 'Basic Plan'
+    })
     setIsCreateModalOpen(true)
+  }
+
+  const handleCreateUserSubmit = () => {
+    if (!newUser.name || !newUser.email) {
+      alert('Name and email are required')
+      return
+    }
+
+    const user: User = {
+      id: `user_${Date.now()}`,
+      name: newUser.name,
+      email: newUser.email,
+      role: newUser.role,
+      status: 'active',
+      joinDate: new Date().toISOString().split('T')[0],
+      lastLogin: new Date().toISOString().split('T')[0],
+      subscription: newUser.subscription,
+      creditScore: 650,
+      phone: newUser.phone,
+      createdAt: new Date().toISOString(),
+      isVerified: false,
+      totalSpent: 0,
+      lastActivity: new Date().toISOString()
+    }
+
+    setUsers([...users, user])
+    setFilteredUsers([...filteredUsers, user])
+    
+    // Update counts
+    setStatusCounts(prev => ({
+      ...prev,
+      all: prev.all + 1,
+      active: prev.active + 1
+    }))
+
+    alert(`User ${newUser.name} created successfully!`)
+    setIsCreateModalOpen(false)
+    setNewUser({
+      name: '',
+      email: '',
+      role: 'user',
+      phone: '',
+      subscription: 'Basic Plan'
+    })
   }
 
   const handleViewUser = (user: User) => {
@@ -480,27 +540,66 @@ export default function AdminUsersPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Simple Modals */}
+      {/* Create User Modal */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-96">
             <h3 className="text-lg font-semibold mb-4">Create New User</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Name</label>
-                <input type="text" className="w-full px-3 py-2 border rounded-md" placeholder="Full name" />
+                <label className="block text-sm font-medium mb-1">Name *</label>
+                <input 
+                  type="text" 
+                  className="w-full px-3 py-2 border rounded-md" 
+                  placeholder="Full name"
+                  value={newUser.name}
+                  onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
-                <input type="email" className="w-full px-3 py-2 border rounded-md" placeholder="user@example.com" />
+                <label className="block text-sm font-medium mb-1">Email *</label>
+                <input 
+                  type="email" 
+                  className="w-full px-3 py-2 border rounded-md" 
+                  placeholder="user@example.com"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Role</label>
-                <select className="w-full px-3 py-2 border rounded-md">
+                <select 
+                  className="w-full px-3 py-2 border rounded-md"
+                  value={newUser.role}
+                  onChange={(e) => setNewUser({...newUser, role: e.target.value})}
+                >
                   <option value="user">User</option>
                   <option value="premium">Premium</option>
                   <option value="admin">Admin</option>
                   <option value="trial">Trial</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Phone</label>
+                <input 
+                  type="text" 
+                  className="w-full px-3 py-2 border rounded-md" 
+                  placeholder="+1234567890"
+                  value={newUser.phone}
+                  onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Subscription</label>
+                <select 
+                  className="w-full px-3 py-2 border rounded-md"
+                  value={newUser.subscription}
+                  onChange={(e) => setNewUser({...newUser, subscription: e.target.value})}
+                >
+                  <option value="Basic Plan">Basic Plan</option>
+                  <option value="Premium Plan">Premium Plan</option>
+                  <option value="Enterprise Plan">Enterprise Plan</option>
+                  <option value="Trial">Trial</option>
                 </select>
               </div>
             </div>
@@ -508,11 +607,7 @@ export default function AdminUsersPage() {
               <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={() => {
-                alert('User created successfully!')
-                setIsCreateModalOpen(false)
-                loadUsers()
-              }}>
+              <Button onClick={handleCreateUserSubmit}>
                 Create User
               </Button>
             </div>
