@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -51,7 +51,13 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
-  Clock
+  Clock,
+  RefreshCw,
+  Filter,
+  Users,
+  UserCheck,
+  UserX,
+  Crown
 } from "lucide-react"
 
 interface User {
@@ -65,59 +71,37 @@ interface User {
   subscription: string
   creditScore: number
   phone: string
+  createdAt: string
+  isVerified: boolean
+  totalSpent: number
+  lastActivity: string
 }
 
-export default function UsersPage() {
-  // Simple state management
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: "1",
-      name: "John Doe",
-      email: "john@example.com",
-      role: "premium",
-      status: "active",
-      joinDate: "2024-01-15",
-      lastLogin: "2024-10-15",
-      subscription: "Premium Plan",
-      creditScore: 720,
-      phone: "+1234567890"
-    },
-    {
-      id: "2",
-      name: "Jane Smith",
-      email: "jane@example.com",
-      role: "user",
-      status: "active",
-      joinDate: "2024-02-20",
-      lastLogin: "2024-10-14",
-      subscription: "Basic Plan",
-      creditScore: 680,
-      phone: "+1234567891"
-    },
-    {
-      id: "3",
-      name: "Bob Johnson",
-      email: "bob@example.com",
-      role: "trial",
-      status: "pending",
-      joinDate: "2024-10-10",
-      lastLogin: "2024-10-15",
-      subscription: "Trial",
-      creditScore: 650,
-      phone: "+1234567892"
-    }
-  ])
+interface UserStats {
+  total: number
+  active: number
+  premium: number
+  trial: number
+  verified: number
+  newThisMonth: number
+}
 
+export default function AdminUsersPage() {
+  // State management
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [filterRole, setFilterRole] = useState<string>("all")
   const [filterStatus, setFilterStatus] = useState<string>("all")
+  const [sortBy, setSortBy] = useState<string>("name")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
   
-  // Simple modal state - only one modal at a time
-  const [showModal, setShowModal] = useState(false)
-  const [modalContent, setModalContent] = useState<"add" | "view" | "edit" | "email" | "role" | "delete" | null>(null)
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [modalType, setModalType] = useState<"add" | "view" | "edit" | "email" | "role" | "delete" | null>(null)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   
-  // Form data
+  // Form states
   const [newUser, setNewUser] = useState({
     name: "",
     email: "",
@@ -145,15 +129,150 @@ export default function UsersPage() {
     reason: ""
   })
 
-  // Filter users
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesRole = filterRole === "all" || user.role === filterRole
-    const matchesStatus = filterStatus === "all" || user.status === filterStatus
-    
-    return matchesSearch && matchesRole && matchesStatus
-  })
+  // Load users on component mount
+  useEffect(() => {
+    loadUsers()
+  }, [])
+
+  const loadUsers = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/admin/users')
+      if (response.ok) {
+        const data = await response.json()
+        setUsers(data.data.users || [])
+      } else {
+        // Fallback to mock data if API fails
+        setUsers(getMockUsers())
+      }
+    } catch (error) {
+      console.error('Error loading users:', error)
+      setUsers(getMockUsers())
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getMockUsers = (): User[] => [
+    {
+      id: "1",
+      name: "John Doe",
+      email: "john@example.com",
+      role: "premium",
+      status: "active",
+      joinDate: "2024-01-15",
+      lastLogin: "2024-10-15",
+      subscription: "Premium Plan",
+      creditScore: 720,
+      phone: "+1234567890",
+      createdAt: "2024-01-15T10:30:00Z",
+      isVerified: true,
+      totalSpent: 299.99,
+      lastActivity: "2024-10-15T14:30:00Z"
+    },
+    {
+      id: "2",
+      name: "Jane Smith",
+      email: "jane@example.com",
+      role: "user",
+      status: "active",
+      joinDate: "2024-02-20",
+      lastLogin: "2024-10-14",
+      subscription: "Basic Plan",
+      creditScore: 680,
+      phone: "+1234567891",
+      createdAt: "2024-02-20T10:30:00Z",
+      isVerified: true,
+      totalSpent: 99.99,
+      lastActivity: "2024-10-14T16:20:00Z"
+    },
+    {
+      id: "3",
+      name: "Bob Johnson",
+      email: "bob@example.com",
+      role: "trial",
+      status: "pending",
+      joinDate: "2024-10-10",
+      lastLogin: "2024-10-15",
+      subscription: "Trial",
+      creditScore: 650,
+      phone: "+1234567892",
+      createdAt: "2024-10-10T10:30:00Z",
+      isVerified: false,
+      totalSpent: 0,
+      lastActivity: "2024-10-15T09:15:00Z"
+    },
+    {
+      id: "4",
+      name: "Alice Brown",
+      email: "alice@example.com",
+      role: "premium",
+      status: "suspended",
+      joinDate: "2024-03-05",
+      lastLogin: "2024-10-12",
+      subscription: "Premium Plan",
+      creditScore: 750,
+      phone: "+1234567893",
+      createdAt: "2024-03-05T10:30:00Z",
+      isVerified: true,
+      totalSpent: 599.98,
+      lastActivity: "2024-10-12T11:45:00Z"
+    },
+    {
+      id: "5",
+      name: "Charlie Wilson",
+      email: "charlie@example.com",
+      role: "admin",
+      status: "active",
+      joinDate: "2024-01-01",
+      lastLogin: "2024-10-15",
+      subscription: "Enterprise Plan",
+      creditScore: 800,
+      phone: "+1234567894",
+      createdAt: "2024-01-01T00:00:00Z",
+      isVerified: true,
+      totalSpent: 0,
+      lastActivity: "2024-10-15T17:30:00Z"
+    }
+  ]
+
+  // Filter and sort users
+  const filteredUsers = users
+    .filter(user => {
+      const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesRole = filterRole === "all" || user.role === filterRole
+      const matchesStatus = filterStatus === "all" || user.status === filterStatus
+      
+      return matchesSearch && matchesRole && matchesStatus
+    })
+    .sort((a, b) => {
+      let aValue = a[sortBy as keyof User]
+      let bValue = b[sortBy as keyof User]
+      
+      if (typeof aValue === 'string') aValue = aValue.toLowerCase()
+      if (typeof bValue === 'string') bValue = bValue.toLowerCase()
+      
+      if (sortOrder === 'asc') {
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0
+      }
+    })
+
+  // Calculate stats
+  const stats: UserStats = {
+    total: users.length,
+    active: users.filter(u => u.status === "active").length,
+    premium: users.filter(u => u.role === "premium").length,
+    trial: users.filter(u => u.role === "trial").length,
+    verified: users.filter(u => u.isVerified).length,
+    newThisMonth: users.filter(u => {
+      const userDate = new Date(u.createdAt)
+      const now = new Date()
+      return userDate.getMonth() === now.getMonth() && userDate.getFullYear() === now.getFullYear()
+    }).length
+  }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -165,13 +284,23 @@ export default function UsersPage() {
     }
   }
 
-  // Simple action handlers
-  const openModal = (content: "add" | "view" | "edit" | "email" | "role" | "delete", user?: User) => {
-    setModalContent(content)
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case "admin": return <Crown className="h-4 w-4 text-purple-600" />
+      case "premium": return <UserCheck className="h-4 w-4 text-blue-600" />
+      case "user": return <Users className="h-4 w-4 text-gray-600" />
+      case "trial": return <Clock className="h-4 w-4 text-yellow-600" />
+      default: return <Users className="h-4 w-4 text-gray-600" />
+    }
+  }
+
+  // Modal handlers
+  const openModal = (type: "add" | "view" | "edit" | "email" | "role" | "delete", user?: User) => {
+    setModalType(type)
     setSelectedUser(user || null)
-    setShowModal(true)
+    setIsModalOpen(true)
     
-    if (user && content === "edit") {
+    if (user && type === "edit") {
       setEditUser({
         name: user.name,
         email: user.email,
@@ -181,14 +310,14 @@ export default function UsersPage() {
       })
     }
     
-    if (user && content === "role") {
+    if (user && type === "role") {
       setRoleData({
         role: user.role,
         reason: ""
       })
     }
     
-    if (user && content === "email") {
+    if (user && type === "email") {
       setEmailData({
         subject: "",
         message: "",
@@ -198,8 +327,8 @@ export default function UsersPage() {
   }
 
   const closeModal = () => {
-    setShowModal(false)
-    setModalContent(null)
+    setIsModalOpen(false)
+    setModalType(null)
     setSelectedUser(null)
     setNewUser({ name: "", email: "", role: "user", phone: "", subscription: "Basic Plan" })
     setEditUser({ name: "", email: "", role: "user", phone: "", subscription: "Basic Plan" })
@@ -207,80 +336,166 @@ export default function UsersPage() {
     setRoleData({ role: "user", reason: "" })
   }
 
-  // Simple API calls with immediate UI updates
-  const handleAddUser = () => {
+  // API handlers
+  const handleAddUser = async () => {
     if (!newUser.name || !newUser.email) {
       alert("Name and email are required")
       return
     }
     
-    const user: User = {
-      id: `user_${Date.now()}`,
-      name: newUser.name,
-      email: newUser.email,
-      role: newUser.role,
-      status: "active",
-      joinDate: new Date().toISOString().split('T')[0],
-      lastLogin: new Date().toISOString().split('T')[0],
-      subscription: newUser.subscription,
-      creditScore: 650,
-      phone: newUser.phone
+    try {
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newUser)
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        setUsers([...users, result.data.user])
+        alert(`User ${newUser.name} created successfully!`)
+        closeModal()
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to create user: ${errorData.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error creating user:', error)
+      alert(`Failed to create user: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
-    
-    setUsers([...users, user])
-    alert(`User ${newUser.name} created successfully!`)
-    closeModal()
   }
 
-  const handleUpdateUser = () => {
+  const handleUpdateUser = async () => {
     if (!selectedUser) return
     
-    setUsers(users.map(user => 
-      user.id === selectedUser.id 
-        ? { ...user, ...editUser }
-        : user
-    ))
-    alert(`User ${selectedUser.name} updated successfully!`)
-    closeModal()
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editUser)
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        setUsers(users.map(user => user.id === selectedUser.id ? { ...user, ...result.data.user } : user))
+        alert(`User ${selectedUser.name} updated successfully!`)
+        closeModal()
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to update user: ${errorData.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error updating user:', error)
+      alert(`Failed to update user: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
-  const handleSendEmail = () => {
+  const handleSendEmail = async () => {
     if (!selectedUser || !emailData.subject || !emailData.message) {
       alert("Subject and message are required")
       return
     }
     
-    // Simulate email sending
-    console.log(`Sending email to ${selectedUser.email}:`, emailData)
-    alert(`Email sent successfully to ${selectedUser.email}!`)
-    closeModal()
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}/email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailData)
+      })
+      
+      if (response.ok) {
+        alert(`Email sent successfully to ${selectedUser.email}!`)
+        closeModal()
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to send email: ${errorData.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error sending email:', error)
+      alert(`Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
-  const handleChangeRole = () => {
+  const handleChangeRole = async () => {
     if (!selectedUser) return
     
-    setUsers(users.map(user => 
-      user.id === selectedUser.id 
-        ? { ...user, role: roleData.role }
-        : user
-    ))
-    alert(`User ${selectedUser.name} role changed to ${roleData.role} successfully!`)
-    closeModal()
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}/role`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(roleData)
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        setUsers(users.map(user => user.id === selectedUser.id ? { ...user, role: roleData.role } : user))
+        alert(`User ${selectedUser.name} role changed to ${roleData.role} successfully!`)
+        closeModal()
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to change role: ${errorData.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error changing role:', error)
+      alert(`Failed to change role: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
-  const handleDeleteUser = () => {
+  const handleDeleteUser = async () => {
     if (!selectedUser) return
     
-    setUsers(users.filter(user => user.id !== selectedUser.id))
-    alert(`User ${selectedUser.name} deleted successfully!`)
-    closeModal()
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
+        method: 'DELETE'
+      })
+      
+      if (response.ok) {
+        setUsers(users.filter(user => user.id !== selectedUser.id))
+        alert(`User ${selectedUser.name} deleted successfully!`)
+        closeModal()
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to delete user: ${errorData.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      alert(`Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
-  const stats = {
-    total: users.length,
-    active: users.filter(u => u.status === "active").length,
-    premium: users.filter(u => u.role === "premium").length,
-    trial: users.filter(u => u.role === "trial").length
+  const handleExportUsers = () => {
+    const csvContent = [
+      ['Name', 'Email', 'Role', 'Status', 'Subscription', 'Credit Score', 'Join Date', 'Last Login'],
+      ...filteredUsers.map(user => [
+        user.name,
+        user.email,
+        user.role,
+        user.status,
+        user.subscription,
+        user.creditScore.toString(),
+        user.joinDate,
+        user.lastLogin
+      ])
+    ].map(row => row.join(',')).join('\n')
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `users-export-${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    window.URL.revokeObjectURL(url)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex items-center space-x-2">
+          <RefreshCw className="h-4 w-4 animate-spin" />
+          <span>Loading users...</span>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -294,7 +509,11 @@ export default function UsersPage() {
           </p>
         </div>
         <div className="flex items-center space-x-2">
-          <Button variant="outline" className="flex items-center space-x-2">
+          <Button variant="outline" onClick={loadUsers} className="flex items-center space-x-2">
+            <RefreshCw className="h-4 w-4" />
+            <span>Refresh</span>
+          </Button>
+          <Button variant="outline" onClick={handleExportUsers} className="flex items-center space-x-2">
             <Download className="h-4 w-4" />
             <span>Export</span>
           </Button>
@@ -309,10 +528,11 @@ export default function UsersPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
@@ -321,6 +541,7 @@ export default function UsersPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+            <UserCheck className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.active}</div>
@@ -329,6 +550,7 @@ export default function UsersPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Premium Users</CardTitle>
+            <Crown className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.premium}</div>
@@ -337,17 +559,39 @@ export default function UsersPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Trial Users</CardTitle>
+            <Clock className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.trial}</div>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Verified</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.verified}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">New This Month</CardTitle>
+            <UserPlus className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.newThisMonth}</div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Filters */}
+      {/* Filters and Search */}
       <Card>
         <CardHeader>
-          <CardTitle>Filters</CardTitle>
+          <CardTitle className="flex items-center space-x-2">
+            <Filter className="h-5 w-5" />
+            <span>Filters & Search</span>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
@@ -355,7 +599,7 @@ export default function UsersPage() {
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search users..."
+                  placeholder="Search users by name or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8"
@@ -387,6 +631,26 @@ export default function UsersPage() {
                   <SelectItem value="pending">Pending</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="role">Role</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                  <SelectItem value="creditScore">Credit Score</SelectItem>
+                  <SelectItem value="joinDate">Join Date</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                className="w-[40px] p-0"
+              >
+                {sortOrder === 'asc' ? '↑' : '↓'}
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -395,94 +659,129 @@ export default function UsersPage() {
       {/* Users Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Users</CardTitle>
+          <CardTitle>Users ({filteredUsers.length})</CardTitle>
           <CardDescription>
-            A list of all users in your platform.
+            A comprehensive list of all users in your platform.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Subscription</TableHead>
-                <TableHead>Credit Score</TableHead>
-                <TableHead>Last Login</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">
-                    <div>
-                      <div className="font-medium">{user.name}</div>
-                      <div className="text-sm text-muted-foreground">{user.email}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={user.role === 'premium' ? 'default' : 'secondary'}>
-                      {user.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-2">
-                      {getStatusIcon(user.status)}
-                      <span className="capitalize">{user.status}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{user.subscription}</TableCell>
-                  <TableCell>{user.creditScore}</TableCell>
-                  <TableCell>{user.lastLogin}</TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => openModal("view", user)}>
-                          <Eye className="mr-2 h-4 w-4" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openModal("edit", user)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit User
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openModal("email", user)}>
-                          <Mail className="mr-2 h-4 w-4" />
-                          Send Email
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => openModal("role", user)}>
-                          <Shield className="mr-2 h-4 w-4" />
-                          Change Role
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => openModal("delete", user)}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete User
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Subscription</TableHead>
+                  <TableHead>Credit Score</TableHead>
+                  <TableHead>Verification</TableHead>
+                  <TableHead>Last Activity</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">
+                      <div>
+                        <div className="font-medium">{user.name}</div>
+                        <div className="text-sm text-muted-foreground">{user.email}</div>
+                        <div className="text-xs text-muted-foreground">{user.phone}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        {getRoleIcon(user.role)}
+                        <Badge variant={user.role === 'premium' || user.role === 'admin' ? 'default' : 'secondary'}>
+                          {user.role}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        {getStatusIcon(user.status)}
+                        <span className="capitalize">{user.status}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={user.subscription.includes('Premium') ? 'default' : 'secondary'}>
+                        {user.subscription}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-mono">{user.creditScore}</span>
+                        <Badge variant={user.creditScore >= 700 ? 'default' : user.creditScore >= 600 ? 'secondary' : 'destructive'}>
+                          {user.creditScore >= 700 ? 'Excellent' : user.creditScore >= 600 ? 'Good' : 'Fair'}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        {user.isVerified ? (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-600" />
+                        )}
+                        <span className="text-sm">{user.isVerified ? 'Verified' : 'Unverified'}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <div>{new Date(user.lastActivity).toLocaleDateString()}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(user.lastActivity).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => openModal("view", user)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openModal("edit", user)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit User
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openModal("email", user)}>
+                            <Mail className="mr-2 h-4 w-4" />
+                            Send Email
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => openModal("role", user)}>
+                            <Shield className="mr-2 h-4 w-4" />
+                            Change Role
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => openModal("delete", user)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete User
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Single Modal */}
-      <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="sm:max-w-[500px]">
-          {modalContent === 'add' && (
+      {/* Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          {modalType === 'add' && (
             <>
               <DialogHeader>
                 <DialogTitle>Add New User</DialogTitle>
@@ -522,6 +821,7 @@ export default function UsersPage() {
                       <SelectItem value="user">User</SelectItem>
                       <SelectItem value="premium">Premium</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="trial">Trial</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -545,6 +845,7 @@ export default function UsersPage() {
                       <SelectItem value="Basic Plan">Basic Plan</SelectItem>
                       <SelectItem value="Premium Plan">Premium Plan</SelectItem>
                       <SelectItem value="Enterprise Plan">Enterprise Plan</SelectItem>
+                      <SelectItem value="Trial">Trial</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -560,12 +861,12 @@ export default function UsersPage() {
             </>
           )}
 
-          {modalContent === 'view' && selectedUser && (
+          {modalType === 'view' && selectedUser && (
             <>
               <DialogHeader>
                 <DialogTitle>User Details</DialogTitle>
                 <DialogDescription>
-                  View details for {selectedUser.name}
+                  Complete information for {selectedUser.name}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -578,9 +879,13 @@ export default function UsersPage() {
                   <div className="col-span-3">{selectedUser.email}</div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right font-medium">Phone</Label>
+                  <div className="col-span-3">{selectedUser.phone}</div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
                   <Label className="text-right font-medium">Role</Label>
                   <div className="col-span-3">
-                    <Badge variant={selectedUser.role === 'premium' ? 'default' : 'secondary'}>
+                    <Badge variant={selectedUser.role === 'premium' || selectedUser.role === 'admin' ? 'default' : 'secondary'}>
                       {selectedUser.role}
                     </Badge>
                   </div>
@@ -602,12 +907,35 @@ export default function UsersPage() {
                   <div className="col-span-3">{selectedUser.creditScore}</div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right font-medium">Verification</Label>
+                  <div className="col-span-3">
+                    <div className="flex items-center space-x-2">
+                      {selectedUser.isVerified ? (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-600" />
+                      )}
+                      <span>{selectedUser.isVerified ? 'Verified' : 'Unverified'}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right font-medium">Total Spent</Label>
+                  <div className="col-span-3">${selectedUser.totalSpent.toFixed(2)}</div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
                   <Label className="text-right font-medium">Join Date</Label>
                   <div className="col-span-3">{selectedUser.joinDate}</div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label className="text-right font-medium">Last Login</Label>
                   <div className="col-span-3">{selectedUser.lastLogin}</div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right font-medium">Last Activity</Label>
+                  <div className="col-span-3">
+                    {new Date(selectedUser.lastActivity).toLocaleString()}
+                  </div>
                 </div>
               </div>
               <DialogFooter>
@@ -618,7 +946,7 @@ export default function UsersPage() {
             </>
           )}
 
-          {modalContent === 'edit' && selectedUser && (
+          {modalType === 'edit' && selectedUser && (
             <>
               <DialogHeader>
                 <DialogTitle>Edit User</DialogTitle>
@@ -656,6 +984,7 @@ export default function UsersPage() {
                       <SelectItem value="user">User</SelectItem>
                       <SelectItem value="premium">Premium</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="trial">Trial</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -678,6 +1007,7 @@ export default function UsersPage() {
                       <SelectItem value="Basic Plan">Basic Plan</SelectItem>
                       <SelectItem value="Premium Plan">Premium Plan</SelectItem>
                       <SelectItem value="Enterprise Plan">Enterprise Plan</SelectItem>
+                      <SelectItem value="Trial">Trial</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -693,7 +1023,7 @@ export default function UsersPage() {
             </>
           )}
 
-          {modalContent === 'email' && selectedUser && (
+          {modalType === 'email' && selectedUser && (
             <>
               <DialogHeader>
                 <DialogTitle>Send Email</DialogTitle>
@@ -723,6 +1053,7 @@ export default function UsersPage() {
                       <SelectItem value="notification">Notification</SelectItem>
                       <SelectItem value="marketing">Marketing</SelectItem>
                       <SelectItem value="support">Support</SelectItem>
+                      <SelectItem value="billing">Billing</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -734,7 +1065,7 @@ export default function UsersPage() {
                     onChange={(e) => setEmailData({...emailData, message: e.target.value})}
                     className="col-span-3"
                     placeholder="Email message content"
-                    rows={4}
+                    rows={6}
                   />
                 </div>
               </div>
@@ -752,7 +1083,7 @@ export default function UsersPage() {
             </>
           )}
 
-          {modalContent === 'role' && selectedUser && (
+          {modalType === 'role' && selectedUser && (
             <>
               <DialogHeader>
                 <DialogTitle>Change User Role</DialogTitle>
@@ -771,6 +1102,7 @@ export default function UsersPage() {
                       <SelectItem value="user">User</SelectItem>
                       <SelectItem value="premium">Premium</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="trial">Trial</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -782,7 +1114,7 @@ export default function UsersPage() {
                     onChange={(e) => setRoleData({...roleData, reason: e.target.value})}
                     className="col-span-3"
                     placeholder="Reason for role change"
-                    rows={3}
+                    rows={4}
                   />
                 </div>
               </div>
@@ -797,7 +1129,7 @@ export default function UsersPage() {
             </>
           )}
 
-          {modalContent === 'delete' && selectedUser && (
+          {modalType === 'delete' && selectedUser && (
             <>
               <DialogHeader>
                 <DialogTitle>Delete User</DialogTitle>
@@ -813,6 +1145,12 @@ export default function UsersPage() {
                       <h3 className="text-sm font-medium text-red-800">Warning</h3>
                       <div className="mt-2 text-sm text-red-700">
                         <p>This will permanently delete the user account and all associated data.</p>
+                        <ul className="mt-2 list-disc list-inside">
+                          <li>User profile and settings</li>
+                          <li>All user data and history</li>
+                          <li>Associated subscriptions and billing</li>
+                          <li>This action cannot be undone</li>
+                        </ul>
                       </div>
                     </div>
                   </div>
