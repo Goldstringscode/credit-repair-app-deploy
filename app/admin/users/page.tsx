@@ -324,17 +324,32 @@ export default function UsersPage() {
       if (response.ok) {
         const result = await response.json()
         alert(`Email sent successfully to ${selectedUser.email}!`)
+        
+        // Reset all modal states
         setIsEmailUserOpen(false)
+        setIsEditUserOpen(false)
+        setIsViewUserOpen(false)
+        setIsChangeRoleOpen(false)
+        setIsDeleteUserOpen(false)
+        setIsAddUserOpen(false)
+        
+        // Reset all data states
         setSelectedUser(null)
         setEmailData({ subject: "", message: "", type: "general" })
+        setEditUser({ name: "", email: "", role: "user", phone: "", subscription: "Basic Plan" })
+        setRoleData({ role: "user", reason: "" })
+        setNewUser({ name: "", email: "", role: "user", phone: "", subscription: "Basic Plan" })
+        
+        // Reset loading and error states
+        setIsLoading(false)
       } else {
         const errorData = await response.json()
         alert(`Failed to send email: ${errorData.error || 'Unknown error'}`)
+        setIsLoading(false)
       }
     } catch (error) {
       console.error('Error sending email:', error)
       alert(`Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    } finally {
       setIsLoading(false)
     }
   }
@@ -380,19 +395,55 @@ export default function UsersPage() {
       if (response.ok) {
         setUsers(users.filter(user => user.id !== selectedUser.id))
         alert(`User ${selectedUser.name} deleted successfully!`)
+        
+        // Reset all states
         setIsDeleteUserOpen(false)
+        setIsEmailUserOpen(false)
+        setIsEditUserOpen(false)
+        setIsViewUserOpen(false)
+        setIsChangeRoleOpen(false)
+        setIsAddUserOpen(false)
         setSelectedUser(null)
+        setIsLoading(false)
       } else {
         const errorData = await response.json()
         alert(`Failed to delete user: ${errorData.error || 'Unknown error'}`)
+        setIsLoading(false)
       }
     } catch (error) {
       console.error('Error deleting user:', error)
       alert(`Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    } finally {
       setIsLoading(false)
     }
   }
+
+  // Comprehensive reset function
+  const resetAllStates = () => {
+    setIsEmailUserOpen(false)
+    setIsEditUserOpen(false)
+    setIsViewUserOpen(false)
+    setIsChangeRoleOpen(false)
+    setIsDeleteUserOpen(false)
+    setIsAddUserOpen(false)
+    setSelectedUser(null)
+    setEmailData({ subject: "", message: "", type: "general" })
+    setEditUser({ name: "", email: "", role: "user", phone: "", subscription: "Basic Plan" })
+    setRoleData({ role: "user", reason: "" })
+    setNewUser({ name: "", email: "", role: "user", phone: "", subscription: "Basic Plan" })
+    setIsLoading(false)
+  }
+
+  // Handle escape key to reset all states
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        resetAllStates()
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [])
 
   const stats = {
     total: users.length,
@@ -876,7 +927,13 @@ export default function UsersPage() {
       </Dialog>
 
       {/* Send Email Modal */}
-      <Dialog open={isEmailUserOpen} onOpenChange={setIsEmailUserOpen}>
+      <Dialog open={isEmailUserOpen} onOpenChange={(open) => {
+        if (!open) {
+          resetAllStates()
+        } else {
+          setIsEmailUserOpen(true)
+        }
+      }}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Send Email</DialogTitle>
@@ -937,7 +994,7 @@ export default function UsersPage() {
           <DialogFooter>
             <Button 
               variant="outline" 
-              onClick={() => setIsEmailUserOpen(false)}
+              onClick={resetAllStates}
               disabled={isLoading}
             >
               Cancel
