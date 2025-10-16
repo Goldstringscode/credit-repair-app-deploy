@@ -29,6 +29,9 @@ import {
   Phone,
   ExternalLink
 } from 'lucide-react'
+import CreateUserModal from '@/components/user-create-modal'
+import EditUserModal from '@/components/user-edit-modal'
+import EmailModal from '@/components/user-email-modal'
 
 interface User {
   id: string
@@ -721,46 +724,16 @@ export default function AdminUsersPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Simple Modals - using the same pattern as subscriptions */}
+      {/* Create User Modal */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h3 className="text-lg font-semibold mb-4">Create New User</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Name</label>
-                <input type="text" className="w-full px-3 py-2 border rounded-md" placeholder="Full name" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
-                <input type="email" className="w-full px-3 py-2 border rounded-md" placeholder="user@example.com" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Role</label>
-                <select className="w-full px-3 py-2 border rounded-md">
-                  <option value="user">User</option>
-                  <option value="premium">Premium</option>
-                  <option value="admin">Admin</option>
-                  <option value="trial">Trial</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex justify-end space-x-2 mt-6">
-              <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={() => {
-                alert('User created successfully!')
-                setIsCreateModalOpen(false)
-                loadUsers()
-              }}>
-                Create User
-              </Button>
-            </div>
-          </div>
-        </div>
+        <CreateUserModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSuccess={handleUserCreated}
+        />
       )}
 
+      {/* User Details Modal */}
       {isDetailsModalOpen && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-96">
@@ -783,72 +756,24 @@ export default function AdminUsersPage() {
         </div>
       )}
 
+      {/* Edit User Modal */}
       {isEditModalOpen && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h3 className="text-lg font-semibold mb-4">Edit User</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Name</label>
-                <input type="text" defaultValue={selectedUser.name} className="w-full px-3 py-2 border rounded-md" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
-                <input type="email" defaultValue={selectedUser.email} className="w-full px-3 py-2 border rounded-md" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Role</label>
-                <select defaultValue={selectedUser.role} className="w-full px-3 py-2 border rounded-md">
-                  <option value="user">User</option>
-                  <option value="premium">Premium</option>
-                  <option value="admin">Admin</option>
-                  <option value="trial">Trial</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex justify-end space-x-2 mt-6">
-              <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={() => {
-                alert('User updated successfully!')
-                setIsEditModalOpen(false)
-                loadUsers()
-              }}>
-                Update User
-              </Button>
-            </div>
-          </div>
-        </div>
+        <EditUserModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSuccess={handleUserUpdated}
+          user={selectedUser}
+        />
       )}
 
+      {/* Email Modal */}
       {isEmailModalOpen && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h3 className="text-lg font-semibold mb-4">Send Email to {selectedUser.name}</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Subject</label>
-                <input type="text" className="w-full px-3 py-2 border rounded-md" placeholder="Email subject" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Message</label>
-                <textarea className="w-full px-3 py-2 border rounded-md h-24" placeholder="Email message"></textarea>
-              </div>
-            </div>
-            <div className="flex justify-end space-x-2 mt-6">
-              <Button variant="outline" onClick={() => setIsEmailModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={() => {
-                alert(`Email sent successfully to ${selectedUser.email}!`)
-                setIsEmailModalOpen(false)
-              }}>
-                Send Email
-              </Button>
-            </div>
-          </div>
-        </div>
+        <EmailModal
+          isOpen={isEmailModalOpen}
+          onClose={() => setIsEmailModalOpen(false)}
+          onSuccess={handleEmailSent}
+          user={selectedUser}
+        />
       )}
 
       {isRoleModalOpen && selectedUser && (
