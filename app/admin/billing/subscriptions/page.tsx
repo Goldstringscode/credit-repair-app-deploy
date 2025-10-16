@@ -91,30 +91,62 @@ export default function AdminSubscriptionManagement() {
   const [advancedFilters, setAdvancedFilters] = useState<any>(null)
   const [selectedSubscriptions, setSelectedSubscriptions] = useState<Subscription[]>([])
 
-  // Load subscriptions from API
+  // Load subscriptions from unified API
   const loadSubscriptions = async () => {
     setLoading(true)
     try {
-      const apiFilters: SubscriptionFilters = {
-        status: filters.status === 'all' ? undefined : filters.status,
-        plan: filters.plan === 'all' ? undefined : filters.plan,
-        search: filters.search || undefined,
-        page: 1,
-        limit: 100
-      }
+      const queryParams = new URLSearchParams()
+      if (filters.status !== 'all') queryParams.append('status', filters.status)
+      if (filters.plan !== 'all') queryParams.append('plan', filters.plan)
+      if (filters.search) queryParams.append('search', filters.search)
 
-      const response = await subscriptionService.getSubscriptions(apiFilters)
-      
-      if (response.success) {
-        setSubscriptions(response.data.subscriptions)
-        setFilteredSubscriptions(response.data.subscriptions) // Initialize filtered subscriptions
-        setStatusCounts(response.data.statusCounts)
-        setMetrics(response.data.metrics)
+      const response = await fetch(`/api/admin/subscriptions?${queryParams.toString()}`)
+      const result = await response.json()
+
+      if (result.success) {
+        setSubscriptions(result.data.subscriptions)
+        setFilteredSubscriptions(result.data.subscriptions)
+        setStatusCounts(result.data.statusCounts)
+        setMetrics(result.data.metrics || {})
       } else {
-        console.error('Failed to load subscriptions:', response.error)
+        console.error('Failed to load subscriptions:', result.error)
+        // Fallback to subscription service
+        const apiFilters: SubscriptionFilters = {
+          status: filters.status === 'all' ? undefined : filters.status,
+          plan: filters.plan === 'all' ? undefined : filters.plan,
+          search: filters.search || undefined,
+          page: 1,
+          limit: 100
+        }
+        const response = await subscriptionService.getSubscriptions(apiFilters)
+        if (response.success) {
+          setSubscriptions(response.data.subscriptions)
+          setFilteredSubscriptions(response.data.subscriptions)
+          setStatusCounts(response.data.statusCounts)
+          setMetrics(response.data.metrics)
+        }
       }
     } catch (error) {
       console.error('Error loading subscriptions:', error)
+      // Fallback to subscription service
+      try {
+        const apiFilters: SubscriptionFilters = {
+          status: filters.status === 'all' ? undefined : filters.status,
+          plan: filters.plan === 'all' ? undefined : filters.plan,
+          search: filters.search || undefined,
+          page: 1,
+          limit: 100
+        }
+        const response = await subscriptionService.getSubscriptions(apiFilters)
+        if (response.success) {
+          setSubscriptions(response.data.subscriptions)
+          setFilteredSubscriptions(response.data.subscriptions)
+          setStatusCounts(response.data.statusCounts)
+          setMetrics(response.data.metrics)
+        }
+      } catch (fallbackError) {
+        console.error('Fallback error:', fallbackError)
+      }
     } finally {
       setLoading(false)
     }

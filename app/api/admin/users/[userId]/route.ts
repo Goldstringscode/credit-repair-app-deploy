@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { databaseService } from "@/lib/database-service"
 
-// GET - Get specific user details
+// GET - Get specific user
 export async function GET(
   request: NextRequest,
   { params }: { params: { userId: string } }
@@ -8,8 +9,8 @@ export async function GET(
   try {
     const { userId } = params
 
-    // Mock user details
-    const userDetails = {
+    // For now, return mock data - will be replaced with real database query
+    const mockUser = {
       id: userId,
       name: "John Doe",
       email: "john@example.com",
@@ -21,57 +22,22 @@ export async function GET(
       creditScore: 720,
       phone: "+1234567890",
       createdAt: "2024-01-15T10:30:00Z",
-      address: {
-        street: "123 Main St",
-        city: "New York",
-        state: "NY",
-        zipCode: "10001",
-        country: "USA"
-      },
-      preferences: {
-        emailNotifications: true,
-        smsNotifications: false,
-        marketingEmails: true
-      },
-      subscriptionHistory: [
-        {
-          plan: "Basic Plan",
-          startDate: "2024-01-15",
-          endDate: "2024-02-15",
-          status: "completed"
-        },
-        {
-          plan: "Premium Plan",
-          startDate: "2024-02-15",
-          endDate: null,
-          status: "active"
-        }
-      ],
-      activity: [
-        {
-          action: "Login",
-          timestamp: "2024-10-15T10:30:00Z",
-          ip: "192.168.1.1"
-        },
-        {
-          action: "Credit Score Updated",
-          timestamp: "2024-10-14T15:20:00Z",
-          ip: "192.168.1.1"
-        }
-      ]
+      isVerified: true,
+      totalSpent: 299.99,
+      lastActivity: "2024-10-15T14:30:00Z"
     }
 
     return NextResponse.json({
       success: true,
-      data: userDetails
+      data: { user: mockUser }
     })
 
   } catch (error) {
-    console.error('Error fetching user details:', error)
+    console.error('Error fetching user:', error)
     return NextResponse.json(
       { 
         success: false, 
-        error: "Failed to fetch user details",
+        error: "Failed to fetch user",
         details: error instanceof Error ? error.message : "Unknown error"
       },
       { status: 500 }
@@ -86,22 +52,18 @@ export async function PUT(
 ) {
   try {
     const { userId } = params
-    const updates = await request.json()
+    const body = await request.json()
+    const { name, email, role, phone, subscription } = body
 
-    // Mock user update
-    const updatedUser = {
-      id: userId,
-      ...updates,
-      updatedAt: new Date().toISOString()
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        user: updatedUser,
-        message: "User updated successfully"
-      }
+    const result = await databaseService.updateUser(userId, {
+      name,
+      email,
+      role,
+      phone,
+      subscription
     })
+
+    return NextResponse.json(result)
 
   } catch (error) {
     console.error('Error updating user:', error)
@@ -124,11 +86,8 @@ export async function DELETE(
   try {
     const { userId } = params
 
-    // Mock user deletion
-    return NextResponse.json({
-      success: true,
-      message: "User deleted successfully"
-    })
+    const result = await databaseService.deleteUser(userId)
+    return NextResponse.json(result)
 
   } catch (error) {
     console.error('Error deleting user:', error)

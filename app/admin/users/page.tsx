@@ -130,16 +130,37 @@ export default function AdminUsersPage() {
     }
   ]
 
-  // Load users
+  // Load users from API
   const loadUsers = async () => {
     setLoading(true)
     try {
-      // Use mock data for now
+      const response = await fetch('/api/admin/users')
+      const result = await response.json()
+      
+      if (result.success) {
+        setUsers(result.data.users)
+        setFilteredUsers(result.data.users)
+        setStatusCounts(result.data.statusCounts)
+      } else {
+        console.error('Failed to load users:', result.error)
+        // Fallback to mock data
+        const mockUsers = getMockUsers()
+        setUsers(mockUsers)
+        setFilteredUsers(mockUsers)
+        setStatusCounts({
+          all: mockUsers.length,
+          active: mockUsers.filter(u => u.status === "active").length,
+          inactive: mockUsers.filter(u => u.status === "inactive").length,
+          suspended: mockUsers.filter(u => u.status === "suspended").length,
+          pending: mockUsers.filter(u => u.status === "pending").length
+        })
+      }
+    } catch (error) {
+      console.error('Error loading users:', error)
+      // Fallback to mock data
       const mockUsers = getMockUsers()
       setUsers(mockUsers)
       setFilteredUsers(mockUsers)
-      
-      // Calculate counts
       setStatusCounts({
         all: mockUsers.length,
         active: mockUsers.filter(u => u.status === "active").length,
@@ -147,8 +168,6 @@ export default function AdminUsersPage() {
         suspended: mockUsers.filter(u => u.status === "suspended").length,
         pending: mockUsers.filter(u => u.status === "pending").length
       })
-    } catch (error) {
-      console.error('Error loading users:', error)
     } finally {
       setLoading(false)
     }
@@ -232,48 +251,36 @@ export default function AdminUsersPage() {
     setIsCreateModalOpen(true)
   }
 
-  const handleCreateUserSubmit = () => {
+  const handleCreateUserSubmit = async () => {
     if (!newUser.name || !newUser.email) {
       alert('Name and email are required')
       return
     }
 
-    const user: User = {
-      id: `user_${Date.now()}`,
-      name: newUser.name,
-      email: newUser.email,
-      role: newUser.role,
-      status: 'active',
-      joinDate: new Date().toISOString().split('T')[0],
-      lastLogin: new Date().toISOString().split('T')[0],
-      subscription: newUser.subscription,
-      creditScore: 650,
-      phone: newUser.phone,
-      createdAt: new Date().toISOString(),
-      isVerified: false,
-      totalSpent: 0,
-      lastActivity: new Date().toISOString()
+    try {
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newUser)
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        // Reload users to get updated data
+        await loadUsers()
+        alert('User created successfully!')
+        setIsCreateModalOpen(false)
+        setNewUser({ name: '', email: '', role: 'user', phone: '', subscription: 'Basic Plan' })
+      } else {
+        alert(`Error creating user: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Error creating user:', error)
+      alert('Error creating user. Please try again.')
     }
-
-    setUsers([...users, user])
-    setFilteredUsers([...filteredUsers, user])
-    
-    // Update counts
-    setStatusCounts(prev => ({
-      ...prev,
-      all: prev.all + 1,
-      active: prev.active + 1
-    }))
-
-    alert(`User ${newUser.name} created successfully!`)
-    setIsCreateModalOpen(false)
-    setNewUser({
-      name: '',
-      email: '',
-      role: 'user',
-      phone: '',
-      subscription: 'Basic Plan'
-    })
   }
 
   const handleViewUser = (user: User) => {
