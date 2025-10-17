@@ -130,19 +130,33 @@ export default function AdminUsersPage() {
     }
   ]
 
-  // Load users from API
+  // Load users from API with error handling
   const loadUsers = async () => {
     setLoading(true)
     try {
+      console.log('Loading users...')
       const response = await fetch('/api/admin/users')
-      const result = await response.json()
+      console.log('Response received:', response.status)
       
-      if (result.success) {
-        setUsers(result.data.users)
-        setFilteredUsers(result.data.users)
-        setStatusCounts(result.data.statusCounts)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const result = await response.json()
+      console.log('Result:', result)
+      
+      if (result.success && result.data) {
+        setUsers(result.data.users || [])
+        setFilteredUsers(result.data.users || [])
+        setStatusCounts(result.data.statusCounts || {
+          all: 0,
+          active: 0,
+          inactive: 0,
+          suspended: 0,
+          pending: 0
+        })
       } else {
-        console.error('Failed to load users:', result.error)
+        console.error('API returned unsuccessful response:', result)
         // Fallback to mock data
         const mockUsers = getMockUsers()
         setUsers(mockUsers)
@@ -180,67 +194,27 @@ export default function AdminUsersPage() {
   // Apply filters
   useEffect(() => {
     let filtered = [...users]
-    
+
     if (filters.search) {
-      const searchTerm = filters.search.toLowerCase()
       filtered = filtered.filter(user => 
-        user.name.toLowerCase().includes(searchTerm) ||
-        user.email.toLowerCase().includes(searchTerm)
+        user.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+        user.email.toLowerCase().includes(filters.search.toLowerCase())
       )
     }
-    
+
     if (filters.status !== 'all') {
       filtered = filtered.filter(user => user.status === filters.status)
     }
-    
+
     if (filters.role !== 'all') {
       filtered = filtered.filter(user => user.role === filters.role)
     }
-    
+
     setFilteredUsers(filtered)
-  }, [filters, users])
+  }, [users, filters])
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      active: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
-      inactive: { color: 'bg-gray-100 text-gray-800', icon: UserX },
-      suspended: { color: 'bg-red-100 text-red-800', icon: AlertTriangle },
-      pending: { color: 'bg-yellow-100 text-yellow-800', icon: Clock }
-    }
-
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.active
-    const Icon = config.icon
-
-    return (
-      <Badge className={`${config.color} border-0`}>
-        <Icon className="h-3 w-3 mr-1" />
-        {status.toUpperCase()}
-      </Badge>
-    )
-  }
-
-  const getRoleBadge = (role: string) => {
-    const roleConfig = {
-      admin: { color: 'bg-purple-100 text-purple-800', icon: Crown },
-      premium: { color: 'bg-blue-100 text-blue-800', icon: UserCheck },
-      user: { color: 'bg-gray-100 text-gray-800', icon: Users },
-      trial: { color: 'bg-yellow-100 text-yellow-800', icon: Clock }
-    }
-
-    const config = roleConfig[role as keyof typeof roleConfig] || roleConfig.user
-    const Icon = config.icon
-
-    return (
-      <Badge className={`${config.color} border-0`}>
-        <Icon className="h-3 w-3 mr-1" />
-        {role.toUpperCase()}
-      </Badge>
-    )
-  }
-
-  // Simple action handlers
   const handleCreateUser = () => {
-    console.log('Opening create user modal...')
+    console.log('Creating user...')
     setNewUser({
       name: '',
       email: '',
@@ -258,6 +232,7 @@ export default function AdminUsersPage() {
     }
 
     try {
+      console.log('Submitting user:', newUser)
       const response = await fetch('/api/admin/users', {
         method: 'POST',
         headers: {
@@ -266,7 +241,9 @@ export default function AdminUsersPage() {
         body: JSON.stringify(newUser)
       })
 
+      console.log('Create user response:', response.status)
       const result = await response.json()
+      console.log('Create user result:', result)
 
       if (result.success) {
         // Reload users to get updated data
@@ -296,281 +273,322 @@ export default function AdminUsersPage() {
   }
 
   const handleEmailUser = (user: User) => {
-    console.log('Send email to:', user.id)
+    console.log('Emailing user:', user.id)
     setSelectedUser(user)
     setIsEmailModalOpen(true)
   }
 
   const handleDeleteUser = (user: User) => {
-    console.log('Delete user:', user.id)
+    console.log('Deleting user:', user.id)
     setSelectedUser(user)
     setIsDeleteModalOpen(true)
   }
 
   const handleDeleteUserConfirm = () => {
-    if (!selectedUser) return
-    
-    setUsers(users.filter(user => user.id !== selectedUser.id))
-    setFilteredUsers(filteredUsers.filter(user => user.id !== selectedUser.id))
-    alert(`User ${selectedUser.name} deleted successfully!`)
-    setIsDeleteModalOpen(false)
-    setSelectedUser(null)
+    if (selectedUser) {
+      console.log('Confirming delete for user:', selectedUser.id)
+      // Remove from local state
+      setUsers(prev => prev.filter(u => u.id !== selectedUser.id))
+      setFilteredUsers(prev => prev.filter(u => u.id !== selectedUser.id))
+      
+      // Update counts
+      setStatusCounts(prev => ({
+        ...prev,
+        all: prev.all - 1,
+        [selectedUser.status]: prev[selectedUser.status as keyof typeof prev] - 1
+      }))
+      
+      alert(`User ${selectedUser.name} deleted successfully!`)
+      setIsDeleteModalOpen(false)
+      setSelectedUser(null)
+    }
   }
 
-  const handleExportUsers = () => {
-    console.log('Exporting users...')
-    const csvContent = [
-      ['ID', 'Name', 'Email', 'Role', 'Status', 'Subscription', 'Credit Score', 'Phone', 'Join Date', 'Last Login'].join(','),
-      ...filteredUsers.map(user => [
-        user.id,
-        user.name,
-        user.email,
-        user.role,
-        user.status,
-        user.subscription,
-        user.creditScore,
-        user.phone,
-        user.joinDate,
-        user.lastLogin
-      ].join(','))
-    ].join('\n')
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'active': return <CheckCircle className="h-4 w-4 text-green-500" />
+      case 'inactive': return <XCircle className="h-4 w-4 text-gray-500" />
+      case 'suspended': return <AlertTriangle className="h-4 w-4 text-red-500" />
+      case 'pending': return <Clock className="h-4 w-4 text-yellow-500" />
+      default: return <Clock className="h-4 w-4 text-gray-500" />
+    }
+  }
 
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `users-${new Date().toISOString().split('T')[0]}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    window.URL.revokeObjectURL(url)
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'active': return <Badge className="bg-green-100 text-green-800">Active</Badge>
+      case 'inactive': return <Badge className="bg-gray-100 text-gray-800">Inactive</Badge>
+      case 'suspended': return <Badge className="bg-red-100 text-red-800">Suspended</Badge>
+      case 'pending': return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
+      default: return <Badge className="bg-gray-100 text-gray-800">{status}</Badge>
+    }
+  }
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'admin': return <Crown className="h-4 w-4 text-purple-500" />
+      case 'premium': return <UserCheck className="h-4 w-4 text-blue-500" />
+      case 'user': return <Users className="h-4 w-4 text-gray-500" />
+      case 'trial': return <Clock className="h-4 w-4 text-yellow-500" />
+      default: return <Users className="h-4 w-4 text-gray-500" />
+    }
   }
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Loading users...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">User Management</h1>
-            <p className="text-gray-600">Manage users, roles, and permissions across your platform</p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={loadUsers}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-            <Button variant="outline" onClick={handleExportUsers}>
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
-            <Button onClick={handleCreateUser}>
-              <UserPlus className="h-4 w-4 mr-2" />
-              Add User
-            </Button>
-          </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">User Management</h1>
+          <p className="text-gray-600">Manage user accounts, roles, and permissions</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={loadUsers}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          <Button variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+          <Button onClick={handleCreateUser}>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Add User
+          </Button>
         </div>
       </div>
 
-      <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="all">All ({statusCounts.all})</TabsTrigger>
-          <TabsTrigger value="active">Active ({statusCounts.active})</TabsTrigger>
-          <TabsTrigger value="inactive">Inactive ({statusCounts.inactive})</TabsTrigger>
-          <TabsTrigger value="suspended">Suspended ({statusCounts.suspended})</TabsTrigger>
-          <TabsTrigger value="pending">Pending ({statusCounts.pending})</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={selectedTab} className="space-y-6">
-          {/* Filters */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Filters & Search</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search users..."
-                    value={filters.search}
-                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                    className="pl-10"
-                  />
-                </div>
-                <select
-                  value={filters.status}
-                  onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">All Statuses</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="suspended">Suspended</option>
-                  <option value="pending">Pending</option>
-                </select>
-                <select
-                  value={filters.role}
-                  onChange={(e) => setFilters(prev => ({ ...prev, role: e.target.value }))}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">All Roles</option>
-                  <option value="user">User</option>
-                  <option value="premium">Premium</option>
-                  <option value="admin">Admin</option>
-                  <option value="trial">Trial</option>
-                </select>
-                <Button variant="outline" onClick={loadUsers}>
-                  <Filter className="h-4 w-4 mr-2" />
-                  Apply Filters
-                </Button>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Users</p>
+                <p className="text-2xl font-bold">{statusCounts.all}</p>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Users Table */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Users</CardTitle>
-                  <CardDescription>
-                    {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} found
-                  </CardDescription>
-                </div>
+              <Users className="h-8 w-8 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Active</p>
+                <p className="text-2xl font-bold text-green-600">{statusCounts.active}</p>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="border rounded-lg overflow-hidden">
-                <div className="grid grid-cols-12 gap-4 p-4 bg-gray-50 font-medium text-sm">
-                  <div className="col-span-3">User</div>
-                  <div className="col-span-2">Role</div>
-                  <div className="col-span-1">Status</div>
-                  <div className="col-span-2">Subscription</div>
-                  <div className="col-span-1">Credit Score</div>
-                  <div className="col-span-1">Verification</div>
-                  <div className="col-span-2">Actions</div>
-                </div>
+              <UserCheck className="h-8 w-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Inactive</p>
+                <p className="text-2xl font-bold text-gray-600">{statusCounts.inactive}</p>
+              </div>
+              <UserX className="h-8 w-8 text-gray-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Suspended</p>
+                <p className="text-2xl font-bold text-red-600">{statusCounts.suspended}</p>
+              </div>
+              <AlertTriangle className="h-8 w-8 text-red-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Pending</p>
+                <p className="text-2xl font-bold text-yellow-600">{statusCounts.pending}</p>
+              </div>
+              <Clock className="h-8 w-8 text-yellow-500" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters and Search */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search users..."
+                  value={filters.search}
+                  onChange={(e) => setFilters({...filters, search: e.target.value})}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <select
+                className="px-3 py-2 border rounded-md"
+                value={filters.status}
+                onChange={(e) => setFilters({...filters, status: e.target.value})}
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="suspended">Suspended</option>
+                <option value="pending">Pending</option>
+              </select>
+              <select
+                className="px-3 py-2 border rounded-md"
+                value={filters.role}
+                onChange={(e) => setFilters({...filters, role: e.target.value})}
+              >
+                <option value="all">All Roles</option>
+                <option value="admin">Admin</option>
+                <option value="premium">Premium</option>
+                <option value="user">User</option>
+                <option value="trial">Trial</option>
+              </select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Users Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Users ({filteredUsers.length})</CardTitle>
+          <CardDescription>
+            Manage user accounts and permissions
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-3">User</th>
+                  <th className="text-left p-3">Role</th>
+                  <th className="text-left p-3">Status</th>
+                  <th className="text-left p-3">Subscription</th>
+                  <th className="text-left p-3">Join Date</th>
+                  <th className="text-left p-3">Last Login</th>
+                  <th className="text-left p-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
                 {filteredUsers.map((user) => (
-                  <div key={user.id} className="grid grid-cols-12 gap-4 p-4 border-t hover:bg-gray-50">
-                    <div className="col-span-3 flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                        <span className="text-white text-xs font-medium">
-                          {user.name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
-                        </span>
+                  <tr key={user.id} className="border-b hover:bg-gray-50">
+                    <td className="p-3">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                          {user.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-medium">{user.name}</p>
+                          <p className="text-sm text-gray-500">{user.email}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">{user.name}</p>
-                        <p className="text-sm text-gray-500">{user.email}</p>
-                        <p className="text-xs text-gray-400">ID: {user.id}</p>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center space-x-2">
+                        {getRoleIcon(user.role)}
+                        <span className="capitalize">{user.role}</span>
                       </div>
-                    </div>
-                    <div className="col-span-2">
-                      {getRoleBadge(user.role)}
-                    </div>
-                    <div className="col-span-1">
-                      {getStatusBadge(user.status)}
-                    </div>
-                    <div className="col-span-2">
-                      <Badge variant="outline">{user.subscription}</Badge>
-                      <p className="text-xs text-gray-500 mt-1">${user.totalSpent.toFixed(2)} spent</p>
-                    </div>
-                    <div className="col-span-1">
-                      <p className="font-medium">{user.creditScore}</p>
-                      <p className="text-xs text-gray-500">
-                        {user.creditScore >= 700 ? 'Excellent' : user.creditScore >= 600 ? 'Good' : 'Fair'}
-                      </p>
-                    </div>
-                    <div className="col-span-1">
-                      <div className="flex items-center space-x-1">
-                        {user.isVerified ? (
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <XCircle className="h-4 w-4 text-red-600" />
-                        )}
-                        <span className="text-xs">{user.isVerified ? 'Verified' : 'Unverified'}</span>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center space-x-2">
+                        {getStatusIcon(user.status)}
+                        {getStatusBadge(user.status)}
                       </div>
-                    </div>
-                    <div className="col-span-2">
-                      <div className="flex space-x-1">
-                        <Button 
-                          variant="ghost" 
+                    </td>
+                    <td className="p-3">
+                      <span className="text-sm">{user.subscription}</span>
+                    </td>
+                    <td className="p-3">
+                      <span className="text-sm">{user.joinDate}</span>
+                    </td>
+                    <td className="p-3">
+                      <span className="text-sm">{user.lastLogin}</span>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleViewUser(user)}
-                          title="View user details"
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleEditUser(user)}
-                          title="Edit user"
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleEmailUser(user)}
-                          title="Send email"
                         >
                           <Mail className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleDeleteUser(user)}
-                          title="Delete user"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                    </div>
-                  </div>
+                    </td>
+                  </tr>
                 ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Create User Modal */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h3 className="text-lg font-semibold mb-4">Create New User</h3>
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Create New User</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Name *</label>
-                <input 
-                  type="text" 
-                  className="w-full px-3 py-2 border rounded-md" 
-                  placeholder="Full name"
+                <label className="block text-sm font-medium mb-1">Name</label>
+                <Input
                   value={newUser.name}
                   onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+                  placeholder="Enter name"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Email *</label>
-                <input 
-                  type="email" 
-                  className="w-full px-3 py-2 border rounded-md" 
-                  placeholder="user@example.com"
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <Input
+                  type="email"
                   value={newUser.email}
                   onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                  placeholder="Enter email"
                 />
               </div>
               <div>
@@ -588,12 +606,10 @@ export default function AdminUsersPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Phone</label>
-                <input 
-                  type="text" 
-                  className="w-full px-3 py-2 border rounded-md" 
-                  placeholder="+1234567890"
+                <Input
                   value={newUser.phone}
                   onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
+                  placeholder="Enter phone"
                 />
               </div>
               <div>
@@ -623,120 +639,21 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {isDetailsModalOpen && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h3 className="text-lg font-semibold mb-4">User Details</h3>
-            <div className="space-y-2">
-              <p><strong>Name:</strong> {selectedUser.name}</p>
-              <p><strong>Email:</strong> {selectedUser.email}</p>
-              <p><strong>Role:</strong> {selectedUser.role}</p>
-              <p><strong>Status:</strong> {selectedUser.status}</p>
-              <p><strong>Phone:</strong> {selectedUser.phone}</p>
-              <p><strong>Credit Score:</strong> {selectedUser.creditScore}</p>
-              <p><strong>Verified:</strong> {selectedUser.isVerified ? 'Yes' : 'No'}</p>
-            </div>
-            <div className="flex justify-end mt-6">
-              <Button onClick={() => setIsDetailsModalOpen(false)}>
-                Close
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isEditModalOpen && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h3 className="text-lg font-semibold mb-4">Edit User</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Name</label>
-                <input type="text" defaultValue={selectedUser.name} className="w-full px-3 py-2 border rounded-md" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
-                <input type="email" defaultValue={selectedUser.email} className="w-full px-3 py-2 border rounded-md" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Role</label>
-                <select defaultValue={selectedUser.role} className="w-full px-3 py-2 border rounded-md">
-                  <option value="user">User</option>
-                  <option value="premium">Premium</option>
-                  <option value="admin">Admin</option>
-                  <option value="trial">Trial</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex justify-end space-x-2 mt-6">
-              <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={() => {
-                alert('User updated successfully!')
-                setIsEditModalOpen(false)
-                loadUsers()
-              }}>
-                Update User
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isEmailModalOpen && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h3 className="text-lg font-semibold mb-4">Send Email to {selectedUser.name}</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Subject</label>
-                <input type="text" className="w-full px-3 py-2 border rounded-md" placeholder="Email subject" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Message</label>
-                <textarea className="w-full px-3 py-2 border rounded-md h-24" placeholder="Email message"></textarea>
-              </div>
-            </div>
-            <div className="flex justify-end space-x-2 mt-6">
-              <Button variant="outline" onClick={() => setIsEmailModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={() => {
-                alert(`Email sent successfully to ${selectedUser.email}!`)
-                setIsEmailModalOpen(false)
-              }}>
-                Send Email
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h3 className="text-lg font-semibold mb-4">Delete User</h3>
-            <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
-              <div className="flex">
-                <AlertTriangle className="h-5 w-5 text-red-400" />
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">Warning</h3>
-                  <div className="mt-2 text-sm text-red-700">
-                    <p>Are you sure you want to delete {selectedUser.name}? This action cannot be undone.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Delete User</h2>
+            <p className="mb-4">
+              Are you sure you want to delete <strong>{selectedUser.name}</strong>? 
+              This action cannot be undone.
+            </p>
             <div className="flex justify-end space-x-2">
               <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
                 Cancel
               </Button>
-              <Button 
-                variant="destructive" 
-                onClick={handleDeleteUserConfirm}
-              >
-                Delete User
+              <Button variant="destructive" onClick={handleDeleteUserConfirm}>
+                Delete
               </Button>
             </div>
           </div>
