@@ -44,7 +44,11 @@ export interface Subscription {
 class DatabaseService {
   // User Management
   async getUsers(filters: any = {}) {
+    console.log('Database service getUsers called with filters:', filters)
+    console.log('Supabase client available:', !!supabase)
+    
     if (!supabase) {
+      console.log('No Supabase client, using mock data')
       return this.getMockUsers(filters)
     }
 

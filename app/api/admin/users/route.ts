@@ -4,6 +4,7 @@ import { databaseService } from "@/lib/database-service"
 // GET - Get all users with filtering and pagination
 export async function GET(request: NextRequest) {
   try {
+    console.log('API: GET /api/admin/users called')
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
@@ -19,7 +20,9 @@ export async function GET(request: NextRequest) {
       limit
     }
 
+    console.log('API: Calling databaseService.getUsers with filters:', filters)
     const result = await databaseService.getUsers(filters)
+    console.log('API: Database service returned:', result)
     return NextResponse.json(result)
 
   } catch (error) {

@@ -119,8 +119,9 @@ export default function AdminUsersPage() {
         search: filters.search || undefined
       }
       
+      console.log('Calling userService.getUsers with filters:', userFilters)
       const result = await userService.getUsers(userFilters)
-      console.log('Users loaded:', result)
+      console.log('Users loaded result:', result)
       
       if (result.success && result.data) {
         setUsers(result.data.users || [])
