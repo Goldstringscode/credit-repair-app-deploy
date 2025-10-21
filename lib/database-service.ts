@@ -244,6 +244,16 @@ class DatabaseService {
   }
 
   private calculateStatusCounts(users: any[]) {
+    if (!users || !Array.isArray(users)) {
+      return {
+        all: 0,
+        active: 0,
+        inactive: 0,
+        suspended: 0,
+        pending: 0
+      }
+    }
+    
     return {
       all: users.length,
       active: users.filter(u => u.status === 'active').length,
@@ -254,6 +264,15 @@ class DatabaseService {
   }
 
   private calculateRoleCounts(users: any[]) {
+    if (!users || !Array.isArray(users)) {
+      return {
+        user: 0,
+        premium: 0,
+        admin: 0,
+        trial: 0
+      }
+    }
+    
     return {
       user: users.filter(u => u.role === 'user').length,
       premium: users.filter(u => u.role === 'premium').length,
@@ -263,6 +282,15 @@ class DatabaseService {
   }
 
   private calculateUserMetrics(users: any[]) {
+    if (!users || !Array.isArray(users)) {
+      return {
+        totalUsers: 0,
+        activeUsers: 0,
+        verifiedUsers: 0,
+        newThisMonth: 0
+      }
+    }
+    
     const now = new Date()
     const thisMonth = now.getMonth()
     const thisYear = now.getFullYear()
@@ -336,6 +364,22 @@ class DatabaseService {
         isVerified: true,
         totalSpent: 99.99,
         lastActivity: "2024-10-14T16:20:00Z"
+      },
+      {
+        id: "3",
+        name: "Bob Johnson",
+        email: "bob@example.com",
+        role: "trial",
+        status: "pending",
+        joinDate: "2024-10-10",
+        lastLogin: "2024-10-15",
+        subscription: "Trial",
+        creditScore: 650,
+        phone: "+1234567892",
+        createdAt: "2024-10-10T10:30:00Z",
+        isVerified: false,
+        totalSpent: 0,
+        lastActivity: "2024-10-15T09:15:00Z"
       }
     ]
 
