@@ -50,6 +50,8 @@ const SUBSCRIPTIONS = [
 ]
 
 export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUserModalProps) {
+  console.log('CreateUserModal rendering with isOpen:', isOpen)
+  
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<UserFormData>({
     name: '',

@@ -199,7 +199,9 @@ export default function AdminUsersPage() {
 
   const handleCreateUser = () => {
     console.log('Opening create user modal...')
+    console.log('Current modal state:', isCreateModalOpen)
     setIsCreateModalOpen(true)
+    console.log('Modal state set to true')
   }
 
   const handleUserCreated = (newUser: User) => {
@@ -358,7 +360,10 @@ export default function AdminUsersPage() {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button onClick={handleCreateUser}>
+          <Button onClick={(e) => {
+            console.log('Add User button clicked!', e)
+            handleCreateUser()
+          }}>
             <UserPlus className="h-4 w-4 mr-2" />
             Add User
           </Button>
@@ -565,9 +570,13 @@ export default function AdminUsersPage() {
       </Card>
 
       {/* Create User Modal */}
+      {console.log('Rendering CreateUserModal with isOpen:', isCreateModalOpen)}
       <CreateUserModal
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        onClose={() => {
+          console.log('Modal close requested')
+          setIsCreateModalOpen(false)
+        }}
         onSuccess={handleUserCreated}
       />
 
