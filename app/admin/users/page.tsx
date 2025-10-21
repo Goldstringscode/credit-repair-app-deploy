@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
+import CreateUserModal from '@/components/user-create-modal'
+import { userService, type User, type UserFilters } from '@/lib/user-service'
 import { 
   Search, 
   Download, 
@@ -28,22 +30,7 @@ import {
   Crown
 } from 'lucide-react'
 
-interface User {
-  id: string
-  name: string
-  email: string
-  role: string
-  status: string
-  joinDate: string
-  lastLogin: string
-  subscription: string
-  creditScore: number
-  phone: string
-  createdAt: string
-  isVerified: boolean
-  totalSpent: number
-  lastActivity: string
-}
+// User interface is now imported from user-service
 
 export default function AdminUsersPage() {
   const [selectedTab, setSelectedTab] = useState("all")
@@ -68,15 +55,6 @@ export default function AdminUsersPage() {
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
-  
-  // Create user form state
-  const [newUser, setNewUser] = useState({
-    name: '',
-    email: '',
-    role: 'user',
-    phone: '',
-    subscription: 'Basic Plan'
-  })
 
   // Mock data for development
   const getMockUsers = (): User[] => [
@@ -130,20 +108,19 @@ export default function AdminUsersPage() {
     }
   ]
 
-  // Load users from API with error handling
+  // Load users using user service
   const loadUsers = async () => {
     setLoading(true)
     try {
       console.log('Loading users...')
-      const response = await fetch('/api/admin/users')
-      console.log('Response received:', response.status)
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+      const userFilters: UserFilters = {
+        status: filters.status !== 'all' ? filters.status : undefined,
+        role: filters.role !== 'all' ? filters.role : undefined,
+        search: filters.search || undefined
       }
       
-      const result = await response.json()
-      console.log('Result:', result)
+      const result = await userService.getUsers(userFilters)
+      console.log('Users loaded:', result)
       
       if (result.success && result.data) {
         setUsers(result.data.users || [])
@@ -156,7 +133,7 @@ export default function AdminUsersPage() {
           pending: 0
         })
       } else {
-        console.error('API returned unsuccessful response:', result)
+        console.error('Failed to load users:', result.error)
         // Fallback to mock data
         const mockUsers = getMockUsers()
         setUsers(mockUsers)
@@ -214,51 +191,17 @@ export default function AdminUsersPage() {
   }, [users, filters])
 
   const handleCreateUser = () => {
-    console.log('Creating user...')
-    setNewUser({
-      name: '',
-      email: '',
-      role: 'user',
-      phone: '',
-      subscription: 'Basic Plan'
-    })
+    console.log('Opening create user modal...')
     setIsCreateModalOpen(true)
   }
 
-  const handleCreateUserSubmit = async () => {
-    if (!newUser.name || !newUser.email) {
-      alert('Name and email are required')
-      return
-    }
-
-    try {
-      console.log('Submitting user:', newUser)
-      const response = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newUser)
-      })
-
-      console.log('Create user response:', response.status)
-      const result = await response.json()
-      console.log('Create user result:', result)
-
-      if (result.success) {
-        // Reload users to get updated data
-        await loadUsers()
-        alert('User created successfully!')
-        setIsCreateModalOpen(false)
-        setNewUser({ name: '', email: '', role: 'user', phone: '', subscription: 'Basic Plan' })
-      } else {
-        alert(`Error creating user: ${result.error}`)
-      }
-    } catch (error) {
-      console.error('Error creating user:', error)
-      alert('Error creating user. Please try again.')
-    }
+  const handleUserCreated = (newUser: User) => {
+    console.log('New user created:', newUser)
+    // Reload users to show the new one
+    loadUsers()
+    setIsCreateModalOpen(false)
   }
+
 
   const handleViewUser = (user: User) => {
     console.log('Viewing user:', user.id)
@@ -284,24 +227,53 @@ export default function AdminUsersPage() {
     setIsDeleteModalOpen(true)
   }
 
-  const handleDeleteUserConfirm = () => {
+  const handleDeleteUserConfirm = async () => {
     if (selectedUser) {
       console.log('Confirming delete for user:', selectedUser.id)
-      // Remove from local state
-      setUsers(prev => prev.filter(u => u.id !== selectedUser.id))
-      setFilteredUsers(prev => prev.filter(u => u.id !== selectedUser.id))
-      
-      // Update counts
-      setStatusCounts(prev => ({
-        ...prev,
-        all: prev.all - 1,
-        [selectedUser.status]: prev[selectedUser.status as keyof typeof prev] - 1
-      }))
-      
-      alert(`User ${selectedUser.name} deleted successfully!`)
+      try {
+        const result = await userService.deleteUser(selectedUser.id)
+        if (result.success) {
+          // Reload users to get updated data
+          await loadUsers()
+          alert(`User ${selectedUser.name} deleted successfully!`)
+        } else {
+          alert(`Error deleting user: ${result.error}`)
+        }
+      } catch (error) {
+        console.error('Error deleting user:', error)
+        alert('Error deleting user. Please try again.')
+      }
       setIsDeleteModalOpen(false)
       setSelectedUser(null)
     }
+  }
+
+  const handleExportUsers = () => {
+    console.log('Exporting users...')
+    // Create CSV export
+    const csvContent = [
+      ['ID', 'Name', 'Email', 'Role', 'Status', 'Subscription', 'Join Date', 'Last Login'].join(','),
+      ...filteredUsers.map(user => [
+        user.id,
+        user.name,
+        user.email,
+        user.role,
+        user.status,
+        user.subscription,
+        user.joinDate,
+        user.lastLogin
+      ].join(','))
+    ].join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `users-${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
   }
 
   const getStatusIcon = (status: string) => {
@@ -358,7 +330,7 @@ export default function AdminUsersPage() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleExportUsers}>
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
@@ -569,75 +541,11 @@ export default function AdminUsersPage() {
       </Card>
 
       {/* Create User Modal */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Create New User</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Name</label>
-                <Input
-                  value={newUser.name}
-                  onChange={(e) => setNewUser({...newUser, name: e.target.value})}
-                  placeholder="Enter name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
-                <Input
-                  type="email"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-                  placeholder="Enter email"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Role</label>
-                <select 
-                  className="w-full px-3 py-2 border rounded-md"
-                  value={newUser.role}
-                  onChange={(e) => setNewUser({...newUser, role: e.target.value})}
-                >
-                  <option value="user">User</option>
-                  <option value="premium">Premium</option>
-                  <option value="admin">Admin</option>
-                  <option value="trial">Trial</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Phone</label>
-                <Input
-                  value={newUser.phone}
-                  onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
-                  placeholder="Enter phone"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Subscription</label>
-                <select 
-                  className="w-full px-3 py-2 border rounded-md"
-                  value={newUser.subscription}
-                  onChange={(e) => setNewUser({...newUser, subscription: e.target.value})}
-                >
-                  <option value="Basic Plan">Basic Plan</option>
-                  <option value="Premium Plan">Premium Plan</option>
-                  <option value="Enterprise Plan">Enterprise Plan</option>
-                  <option value="Executive Account">Executive Account</option>
-                  <option value="Trial">Trial</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex justify-end space-x-2 mt-6">
-              <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateUserSubmit}>
-                Create User
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CreateUserModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handleUserCreated}
+      />
 
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && selectedUser && (
