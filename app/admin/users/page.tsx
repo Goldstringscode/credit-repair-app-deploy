@@ -33,7 +33,8 @@ import {
 // User interface is now imported from user-service
 
 export default function AdminUsersPage() {
-  console.log('AdminUsersPage component rendering')
+  console.log('AdminUsersPage component rendering - Cache busted version')
+  console.log('Build timestamp:', new Date().toISOString())
   
   const [selectedTab, setSelectedTab] = useState("all")
   const [loading, setLoading] = useState(true)
@@ -367,6 +368,7 @@ export default function AdminUsersPage() {
         <div>
           <h1 className="text-3xl font-bold mb-2">User Management</h1>
           <p className="text-gray-600">Manage user accounts, roles, and permissions</p>
+          <p className="text-xs text-blue-600">Version: {new Date().toISOString()}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={loadUsers}>
