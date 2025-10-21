@@ -34,7 +34,6 @@ import {
 
 export default function AdminUsersPage() {
   console.log('AdminUsersPage component rendering')
-  alert('AdminUsersPage component loaded!')
   
   const [selectedTab, setSelectedTab] = useState("all")
   const [loading, setLoading] = useState(true)
@@ -188,6 +187,8 @@ export default function AdminUsersPage() {
   }
 
   useEffect(() => {
+    console.log('AdminUsersPage component mounted on client side')
+    alert('AdminUsersPage component loaded!')
     loadUsers()
   }, [])
 
