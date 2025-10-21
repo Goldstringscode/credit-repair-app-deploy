@@ -33,6 +33,8 @@ import {
 // User interface is now imported from user-service
 
 export default function AdminUsersPage() {
+  console.log('AdminUsersPage component rendering')
+  
   const [selectedTab, setSelectedTab] = useState("all")
   const [loading, setLoading] = useState(true)
   const [users, setUsers] = useState<User[]>([])
@@ -55,6 +57,7 @@ export default function AdminUsersPage() {
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   // Mock data for development
   const getMockUsers = (): User[] => [
@@ -111,6 +114,7 @@ export default function AdminUsersPage() {
   // Load users using user service
   const loadUsers = async () => {
     setLoading(true)
+    setError(null)
     try {
       console.log('Loading users...')
       const userFilters: UserFilters = {
@@ -135,6 +139,7 @@ export default function AdminUsersPage() {
         })
       } else {
         console.error('Failed to load users:', result.error)
+        setError(result.error || 'Failed to load users')
         // Fallback to mock data
         const mockUsers = getMockUsers()
         setUsers(mockUsers)
@@ -149,6 +154,7 @@ export default function AdminUsersPage() {
       }
     } catch (error) {
       console.error('Error loading users:', error)
+      setError(error instanceof Error ? error.message : 'Unknown error occurred')
       // Fallback to mock data
       const mockUsers = getMockUsers()
       setUsers(mockUsers)
@@ -313,6 +319,23 @@ export default function AdminUsersPage() {
         <div className="text-center">
           <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
           <p>Loading users...</p>
+          <p className="text-sm text-gray-500 mt-2">Debug: Loading state active</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600 font-medium">Error loading users</p>
+          <p className="text-sm text-gray-500 mt-2">{error}</p>
+          <Button onClick={loadUsers} className="mt-4">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Try Again
+          </Button>
         </div>
       </div>
     )
