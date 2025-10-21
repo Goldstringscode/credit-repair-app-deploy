@@ -362,6 +362,7 @@ export default function AdminUsersPage() {
           </Button>
           <Button onClick={(e) => {
             console.log('Add User button clicked!', e)
+            alert('Add User button clicked!')
             handleCreateUser()
           }}>
             <UserPlus className="h-4 w-4 mr-2" />
@@ -571,6 +572,28 @@ export default function AdminUsersPage() {
 
       {/* Create User Modal */}
       {console.log('Rendering CreateUserModal with isOpen:', isCreateModalOpen)}
+      
+      {/* Simple Test Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Test Modal - Add User</h2>
+            <p className="mb-4">This is a simple test modal to verify the button works.</p>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => {
+                console.log('Test modal button clicked')
+                setIsCreateModalOpen(false)
+              }}>
+                Test Button
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <CreateUserModal
         isOpen={isCreateModalOpen}
         onClose={() => {
