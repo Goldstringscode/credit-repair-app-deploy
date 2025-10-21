@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
-import CreateUserModal from '@/components/user-create-modal'
-import { userService, type User, type UserFilters } from '@/lib/user-service'
+// import CreateUserModal from '@/components/user-create-modal'
+// import { userService, type User, type UserFilters } from '@/lib/user-service'
 import { 
   Search, 
   Download, 
@@ -34,6 +34,7 @@ import {
 
 export default function AdminUsersPage() {
   console.log('AdminUsersPage component rendering')
+  alert('AdminUsersPage component loaded!')
   
   const [selectedTab, setSelectedTab] = useState("all")
   const [loading, setLoading] = useState(true)
@@ -124,8 +125,23 @@ export default function AdminUsersPage() {
       }
       
       console.log('Calling userService.getUsers with filters:', userFilters)
-      const result = await userService.getUsers(userFilters)
-      console.log('Users loaded result:', result)
+      // const result = await userService.getUsers(userFilters)
+      // console.log('Users loaded result:', result)
+      
+      // Mock result for testing
+      const result = {
+        success: true,
+        data: {
+          users: getMockUsers(),
+          statusCounts: {
+            all: 3,
+            active: 2,
+            inactive: 0,
+            suspended: 0,
+            pending: 1
+          }
+        }
+      }
       
       if (result.success && result.data) {
         setUsers(result.data.users || [])
@@ -368,6 +384,11 @@ export default function AdminUsersPage() {
             <UserPlus className="h-4 w-4 mr-2" />
             Add User
           </Button>
+          
+          {/* Simple test button */}
+          <Button onClick={() => alert('Test button works!')} variant="outline">
+            Test Button
+          </Button>
         </div>
       </div>
 
@@ -594,14 +615,14 @@ export default function AdminUsersPage() {
         </div>
       )}
       
-      <CreateUserModal
+      {/* <CreateUserModal
         isOpen={isCreateModalOpen}
         onClose={() => {
           console.log('Modal close requested')
           setIsCreateModalOpen(false)
         }}
         onSuccess={handleUserCreated}
-      />
+      /> */}
 
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && selectedUser && (
