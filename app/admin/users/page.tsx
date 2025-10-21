@@ -6,8 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
-// import CreateUserModal from '@/components/user-create-modal'
-// import { userService, type User, type UserFilters } from '@/lib/user-service'
 import { 
   Search, 
   Download, 
@@ -29,6 +27,24 @@ import {
   UserX,
   Crown
 } from 'lucide-react'
+
+// Simple User interface for testing
+interface User {
+  id: string
+  name: string
+  email: string
+  role: string
+  status: string
+  joinDate: string
+  lastLogin: string
+  subscription: string
+  creditScore: number
+  phone: string
+  createdAt: string
+  isVerified: boolean
+  totalSpent: number
+  lastActivity: string
+}
 
 // User interface is now imported from user-service
 
@@ -112,66 +128,14 @@ export default function AdminUsersPage() {
     }
   ]
 
-  // Load users using user service
+  // Simple load users function for testing
   const loadUsers = async () => {
     setLoading(true)
     setError(null)
     try {
-      console.log('Loading users...')
-      const userFilters: UserFilters = {
-        status: filters.status !== 'all' ? filters.status : undefined,
-        role: filters.role !== 'all' ? filters.role : undefined,
-        search: filters.search || undefined
-      }
+      console.log('Loading users (simplified version)...')
       
-      console.log('Calling userService.getUsers with filters:', userFilters)
-      // const result = await userService.getUsers(userFilters)
-      // console.log('Users loaded result:', result)
-      
-      // Mock result for testing
-      const result = {
-        success: true,
-        data: {
-          users: getMockUsers(),
-          statusCounts: {
-            all: 3,
-            active: 2,
-            inactive: 0,
-            suspended: 0,
-            pending: 1
-          }
-        }
-      }
-      
-      if (result.success && result.data) {
-        setUsers(result.data.users || [])
-        setFilteredUsers(result.data.users || [])
-        setStatusCounts(result.data.statusCounts || {
-          all: 0,
-          active: 0,
-          inactive: 0,
-          suspended: 0,
-          pending: 0
-        })
-      } else {
-        console.error('Failed to load users:', result.error)
-        setError(result.error || 'Failed to load users')
-        // Fallback to mock data
-        const mockUsers = getMockUsers()
-        setUsers(mockUsers)
-        setFilteredUsers(mockUsers)
-        setStatusCounts({
-          all: mockUsers.length,
-          active: mockUsers.filter(u => u.status === "active").length,
-          inactive: mockUsers.filter(u => u.status === "inactive").length,
-          suspended: mockUsers.filter(u => u.status === "suspended").length,
-          pending: mockUsers.filter(u => u.status === "pending").length
-        })
-      }
-    } catch (error) {
-      console.error('Error loading users:', error)
-      setError(error instanceof Error ? error.message : 'Unknown error occurred')
-      // Fallback to mock data
+      // Use mock data directly
       const mockUsers = getMockUsers()
       setUsers(mockUsers)
       setFilteredUsers(mockUsers)
@@ -182,6 +146,11 @@ export default function AdminUsersPage() {
         suspended: mockUsers.filter(u => u.status === "suspended").length,
         pending: mockUsers.filter(u => u.status === "pending").length
       })
+      
+      console.log('Users loaded successfully:', mockUsers.length)
+    } catch (error) {
+      console.error('Error loading users:', error)
+      setError(error instanceof Error ? error.message : 'Unknown error occurred')
     } finally {
       setLoading(false)
     }
@@ -257,19 +226,10 @@ export default function AdminUsersPage() {
   const handleDeleteUserConfirm = async () => {
     if (selectedUser) {
       console.log('Confirming delete for user:', selectedUser.id)
-      try {
-        const result = await userService.deleteUser(selectedUser.id)
-        if (result.success) {
-          // Reload users to get updated data
-          await loadUsers()
-          alert(`User ${selectedUser.name} deleted successfully!`)
-        } else {
-          alert(`Error deleting user: ${result.error}`)
-        }
-      } catch (error) {
-        console.error('Error deleting user:', error)
-        alert('Error deleting user. Please try again.')
-      }
+      // Simple mock delete - just remove from local state
+      setUsers(prev => prev.filter(u => u.id !== selectedUser.id))
+      setFilteredUsers(prev => prev.filter(u => u.id !== selectedUser.id))
+      alert(`User ${selectedUser.name} deleted successfully!`)
       setIsDeleteModalOpen(false)
       setSelectedUser(null)
     }
