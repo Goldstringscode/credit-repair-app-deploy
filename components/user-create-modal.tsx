@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { userService } from '@/lib/user-service'
 import { 
   User as UserIcon, 
   Mail, 
@@ -24,7 +23,7 @@ import {
 interface CreateUserModalProps {
   isOpen: boolean
   onClose: () => void
-  onSuccess?: (user: any) => void
+  onUserCreated: (user: any) => void
 }
 
 interface UserFormData {
@@ -33,6 +32,7 @@ interface UserFormData {
   role: string
   phone: string
   subscription: string
+  status: string
 }
 
 const ROLES = [
@@ -49,16 +49,22 @@ const SUBSCRIPTIONS = [
   { id: 'Trial', name: 'Trial', price: 'Free' }
 ]
 
-export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUserModalProps) {
-  console.log('CreateUserModal rendering with isOpen:', isOpen)
-  
+const STATUSES = [
+  { id: 'active', name: 'Active', description: 'User is active and can use the platform' },
+  { id: 'inactive', name: 'Inactive', description: 'User account is inactive' },
+  { id: 'pending', name: 'Pending', description: 'User account is pending approval' },
+  { id: 'suspended', name: 'Suspended', description: 'User account is suspended' }
+]
+
+export default function CreateUserModal({ isOpen, onClose, onUserCreated }: CreateUserModalProps) {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<UserFormData>({
     name: '',
     email: '',
     role: 'user',
     phone: '',
-    subscription: 'Basic Plan'
+    subscription: 'Basic Plan',
+    status: 'active'
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,24 +79,39 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
     
     try {
       console.log('Creating user with data:', formData)
-      const response = await userService.createUser(formData)
       
-      if (response.success) {
-        console.log('User created successfully:', response.data)
-        alert(`User ${formData.name} created successfully!`)
-        onSuccess?.(response.data?.user)
-        setFormData({
-          name: '',
-          email: '',
-          role: 'user',
-          phone: '',
-          subscription: 'Basic Plan'
-        })
-        onClose()
-      } else {
-        console.error('Failed to create user:', response.error)
-        alert(`Failed to create user: ${response.error || 'Unknown error'}`)
+      // Create new user object
+      const newUser = {
+        id: Date.now().toString(), // Simple ID generation
+        name: formData.name,
+        email: formData.email,
+        role: formData.role,
+        status: formData.status,
+        joinDate: new Date().toISOString().split('T')[0],
+        lastLogin: new Date().toISOString().split('T')[0],
+        subscription: formData.subscription,
+        creditScore: Math.floor(Math.random() * 200) + 500, // Random credit score
+        phone: formData.phone,
+        createdAt: new Date().toISOString(),
+        isVerified: formData.status === 'active',
+        totalSpent: formData.subscription === 'Trial' ? 0 : Math.floor(Math.random() * 500),
+        lastActivity: new Date().toISOString()
       }
+
+      console.log('User created successfully:', newUser)
+      onUserCreated(newUser)
+      
+      // Reset form
+      setFormData({
+        name: '',
+        email: '',
+        role: 'user',
+        phone: '',
+        subscription: 'Basic Plan',
+        status: 'active'
+      })
+      
+      onClose()
     } catch (error) {
       console.error('Error creating user:', error)
       alert(`Failed to create user: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -108,6 +129,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
 
   const selectedRole = ROLES.find(role => role.id === formData.role)
   const selectedSubscription = SUBSCRIPTIONS.find(sub => sub.id === formData.subscription)
+  const selectedStatus = STATUSES.find(status => status.id === formData.status)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -182,41 +204,42 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
               </CardContent>
             </Card>
 
-            {/* Role Selection */}
+            {/* Role and Status */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">User Role</CardTitle>
+                <CardTitle className="text-lg">User Role & Status</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    {ROLES.map((role) => (
-                      <div
-                        key={role.id}
-                        className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                          formData.role === role.id
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                        onClick={() => handleInputChange('role', role.id)}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-4 h-4 rounded-full border-2 ${
-                            formData.role === role.id
-                              ? 'border-blue-500 bg-blue-500'
-                              : 'border-gray-300'
-                          }`}>
-                            {formData.role === role.id && (
-                              <div className="w-2 h-2 bg-white rounded-full mx-auto mt-0.5"></div>
-                            )}
-                          </div>
-                          <div>
-                            <div className="font-medium">{role.name}</div>
-                            <div className="text-sm text-gray-500">{role.description}</div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="role">User Role</Label>
+                    <Select value={formData.role} onValueChange={(value) => handleInputChange('role', value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ROLES.map((role) => (
+                          <SelectItem key={role.id} value={role.id}>
+                            {role.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="status">User Status</Label>
+                    <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUSES.map((status) => (
+                          <SelectItem key={status.id} value={status.id}>
+                            {status.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </CardContent>
@@ -241,6 +264,16 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
                     <span className="text-sm text-gray-600">Role:</span>
                     <Badge variant={selectedRole?.id === 'admin' ? 'default' : 'secondary'}>
                       {selectedRole?.name || 'Not selected'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Status:</span>
+                    <Badge variant={
+                      selectedStatus?.id === 'active' ? 'default' : 
+                      selectedStatus?.id === 'suspended' ? 'destructive' : 
+                      'secondary'
+                    }>
+                      {selectedStatus?.name || 'Not selected'}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">

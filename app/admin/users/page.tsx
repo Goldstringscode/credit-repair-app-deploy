@@ -5,6 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import CreateUserModal from '@/components/user-create-modal'
+import UserDetailsModal from '@/components/user-details-modal'
+import UserEditModal from '@/components/user-edit-modal'
+import UserEmailModal from '@/components/user-email-modal'
 import {
   Search,
   Download,
@@ -59,6 +63,9 @@ export default function AdminUsersPage() {
     search: ''
   })
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -173,19 +180,34 @@ export default function AdminUsersPage() {
     setIsCreateModalOpen(true)
   }
 
+  const handleUserCreated = (newUser: User) => {
+    console.log('New user created:', newUser)
+    setUsers(prev => [...prev, newUser])
+    setFilteredUsers(prev => [...prev, newUser])
+    setStatusCounts(prev => ({
+      ...prev,
+      all: prev.all + 1,
+      [newUser.status]: prev[newUser.status as keyof typeof prev] + 1
+    }))
+    setIsCreateModalOpen(false)
+  }
+
   const handleViewUser = (user: User) => {
     console.log('Viewing user:', user.id)
-    alert(`Viewing user: ${user.name} (${user.email})`)
+    setSelectedUser(user)
+    setIsDetailsModalOpen(true)
   }
 
   const handleEditUser = (user: User) => {
     console.log('Editing user:', user.id)
-    alert(`Editing user: ${user.name}`)
+    setSelectedUser(user)
+    setIsEditModalOpen(true)
   }
 
   const handleEmailUser = (user: User) => {
     console.log('Emailing user:', user.id)
-    alert(`Sending email to: ${user.name} (${user.email})`)
+    setSelectedUser(user)
+    setIsEmailModalOpen(true)
   }
 
   const handleDeleteUser = (user: User) => {
@@ -197,13 +219,25 @@ export default function AdminUsersPage() {
   const handleDeleteUserConfirm = async () => {
     if (selectedUser) {
       console.log('Confirming delete for user:', selectedUser.id)
-      // Simple mock delete - just remove from local state
+      // Remove from local state
       setUsers(prev => prev.filter(u => u.id !== selectedUser.id))
       setFilteredUsers(prev => prev.filter(u => u.id !== selectedUser.id))
-      alert(`User ${selectedUser.name} deleted successfully!`)
+      setStatusCounts(prev => ({
+        ...prev,
+        all: prev.all - 1,
+        [selectedUser.status]: prev[selectedUser.status as keyof typeof prev] - 1
+      }))
       setIsDeleteModalOpen(false)
       setSelectedUser(null)
     }
+  }
+
+  const handleUserUpdated = (updatedUser: User) => {
+    console.log('User updated:', updatedUser)
+    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u))
+    setFilteredUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u))
+    setIsEditModalOpen(false)
+    setSelectedUser(null)
   }
 
   const handleExportUsers = () => {
@@ -514,26 +548,34 @@ export default function AdminUsersPage() {
         </CardContent>
       </Card>
 
-      {/* Simple Create User Modal */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Create New User</h2>
-            <p className="mb-4">This is a simplified create user modal. In production, this would have a full form.</p>
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={() => {
-                alert('User creation functionality would be implemented here!')
-                setIsCreateModalOpen(false)
-              }}>
-                Create User
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modals */}
+      <CreateUserModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onUserCreated={handleUserCreated}
+      />
+
+      <UserDetailsModal
+        isOpen={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        user={selectedUser}
+        onEdit={handleEditUser}
+        onEmail={handleEmailUser}
+        onDelete={handleDeleteUser}
+      />
+
+      <UserEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        user={selectedUser}
+        onUserUpdated={handleUserUpdated}
+      />
+
+      <UserEmailModal
+        isOpen={isEmailModalOpen}
+        onClose={() => setIsEmailModalOpen(false)}
+        user={selectedUser}
+      />
 
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && selectedUser && (

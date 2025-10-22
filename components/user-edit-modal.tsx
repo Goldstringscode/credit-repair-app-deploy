@@ -8,32 +8,38 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { userService, type User } from '@/lib/user-service'
 import { 
   User as UserIcon, 
   Mail, 
   Shield, 
   Phone, 
-  Calendar, 
-  DollarSign,
-  CheckCircle,
-  AlertCircle,
-  Loader2
+  Loader2,
+  Save,
+  X
 } from 'lucide-react'
 
-interface EditUserModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSuccess?: (user: User) => void
-  user: User | null
-}
-
-interface UserFormData {
+interface User {
+  id: string
   name: string
   email: string
   role: string
-  phone: string
+  status: string
+  joinDate: string
+  lastLogin: string
   subscription: string
+  creditScore: number
+  phone: string
+  createdAt: string
+  isVerified: boolean
+  totalSpent: number
+  lastActivity: string
+}
+
+interface UserEditModalProps {
+  isOpen: boolean
+  onClose: () => void
+  user: User | null
+  onUserUpdated: (user: User) => void
 }
 
 const ROLES = [
@@ -50,14 +56,23 @@ const SUBSCRIPTIONS = [
   { id: 'Trial', name: 'Trial', price: 'Free' }
 ]
 
-export default function EditUserModal({ isOpen, onClose, onSuccess, user }: EditUserModalProps) {
+const STATUSES = [
+  { id: 'active', name: 'Active', description: 'User is active and can use the platform' },
+  { id: 'inactive', name: 'Inactive', description: 'User account is inactive' },
+  { id: 'pending', name: 'Pending', description: 'User account is pending approval' },
+  { id: 'suspended', name: 'Suspended', description: 'User account is suspended' }
+]
+
+export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: UserEditModalProps) {
   const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState<UserFormData>({
+  const [formData, setFormData] = useState({
     name: '',
     email: '',
     role: 'user',
     phone: '',
-    subscription: 'Basic Plan'
+    subscription: 'Basic Plan',
+    status: 'active',
+    creditScore: 0
   })
 
   useEffect(() => {
@@ -67,7 +82,9 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
         email: user.email,
         role: user.role,
         phone: user.phone,
-        subscription: user.subscription
+        subscription: user.subscription,
+        status: user.status,
+        creditScore: user.creditScore
       })
     }
   }, [user])
@@ -86,17 +103,24 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
     
     try {
       console.log('Updating user with data:', formData)
-      const response = await userService.updateUser(user.id, formData)
       
-      if (response.success) {
-        console.log('User updated successfully:', response.data)
-        alert(`User ${formData.name} updated successfully!`)
-        onSuccess?.(response.data?.user)
-        onClose()
-      } else {
-        console.error('Failed to update user:', response.error)
-        alert(`Failed to update user: ${response.error || 'Unknown error'}`)
+      // Create updated user object
+      const updatedUser = {
+        ...user,
+        name: formData.name,
+        email: formData.email,
+        role: formData.role,
+        phone: formData.phone,
+        subscription: formData.subscription,
+        status: formData.status,
+        creditScore: formData.creditScore,
+        isVerified: formData.status === 'active',
+        lastActivity: new Date().toISOString()
       }
+
+      console.log('User updated successfully:', updatedUser)
+      onUserUpdated(updatedUser)
+      onClose()
     } catch (error) {
       console.error('Error updating user:', error)
       alert(`Failed to update user: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -105,7 +129,7 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
     }
   }
 
-  const handleInputChange = (field: keyof UserFormData, value: string) => {
+  const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -114,6 +138,9 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
 
   const selectedRole = ROLES.find(role => role.id === formData.role)
   const selectedSubscription = SUBSCRIPTIONS.find(sub => sub.id === formData.subscription)
+  const selectedStatus = STATUSES.find(status => status.id === formData.status)
+
+  if (!user) return null
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -121,10 +148,10 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserIcon className="h-5 w-5" />
-            Edit User
+            Edit User - {user.name}
           </DialogTitle>
           <DialogDescription>
-            Update details for {user?.name}
+            Update user information and settings.
           </DialogDescription>
         </DialogHeader>
         
@@ -138,9 +165,9 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="edit-name">Full Name *</Label>
+                    <Label htmlFor="name">Full Name *</Label>
                     <Input
-                      id="edit-name"
+                      id="name"
                       value={formData.name}
                       onChange={(e) => handleInputChange('name', e.target.value)}
                       placeholder="Enter full name"
@@ -148,9 +175,9 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="edit-email">Email Address *</Label>
+                    <Label htmlFor="email">Email Address *</Label>
                     <Input
-                      id="edit-email"
+                      id="email"
                       type="email"
                       value={formData.email}
                       onChange={(e) => handleInputChange('email', e.target.value)}
@@ -161,69 +188,82 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="edit-phone">Phone Number</Label>
+                    <Label htmlFor="phone">Phone Number</Label>
                     <Input
-                      id="edit-phone"
+                      id="phone"
                       value={formData.phone}
                       onChange={(e) => handleInputChange('phone', e.target.value)}
                       placeholder="+1234567890"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="edit-subscription">Subscription Plan</Label>
-                    <Select value={formData.subscription} onValueChange={(value) => handleInputChange('subscription', value)}>
+                    <Label htmlFor="creditScore">Credit Score</Label>
+                    <Input
+                      id="creditScore"
+                      type="number"
+                      value={formData.creditScore}
+                      onChange={(e) => handleInputChange('creditScore', parseInt(e.target.value) || 0)}
+                      placeholder="Credit score"
+                      min="300"
+                      max="850"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Role and Status */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">User Role & Status</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="role">User Role</Label>
+                    <Select value={formData.role} onValueChange={(value) => handleInputChange('role', value)}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {SUBSCRIPTIONS.map((sub) => (
-                          <SelectItem key={sub.id} value={sub.id}>
-                            {sub.name} - {sub.price}
+                        {ROLES.map((role) => (
+                          <SelectItem key={role.id} value={role.id}>
+                            {role.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="status">User Status</Label>
+                    <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUSES.map((status) => (
+                          <SelectItem key={status.id} value={status.id}>
+                            {status.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Role Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">User Role</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    {ROLES.map((role) => (
-                      <div
-                        key={role.id}
-                        className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                          formData.role === role.id
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                        onClick={() => handleInputChange('role', role.id)}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-4 h-4 rounded-full border-2 ${
-                            formData.role === role.id
-                              ? 'border-blue-500 bg-blue-500'
-                              : 'border-gray-300'
-                          }`}>
-                            {formData.role === role.id && (
-                              <div className="w-2 h-2 bg-white rounded-full mx-auto mt-0.5"></div>
-                            )}
-                          </div>
-                          <div>
-                            <div className="font-medium">{role.name}</div>
-                            <div className="text-sm text-gray-500">{role.description}</div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="subscription">Subscription Plan</Label>
+                  <Select value={formData.subscription} onValueChange={(value) => handleInputChange('subscription', value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SUBSCRIPTIONS.map((sub) => (
+                        <SelectItem key={sub.id} value={sub.id}>
+                          {sub.name} - {sub.price}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>
@@ -231,7 +271,7 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
             {/* Summary */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Updated User Summary</CardTitle>
+                <CardTitle className="text-lg">Updated Information</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -250,12 +290,22 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Status:</span>
+                    <Badge variant={
+                      selectedStatus?.id === 'active' ? 'default' : 
+                      selectedStatus?.id === 'suspended' ? 'destructive' : 
+                      'secondary'
+                    }>
+                      {selectedStatus?.name || 'Not selected'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Subscription:</span>
                     <span className="font-medium">{selectedSubscription?.name || 'Not selected'}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Phone:</span>
-                    <span className="font-medium">{formData.phone || 'Not provided'}</span>
+                    <span className="text-sm text-gray-600">Credit Score:</span>
+                    <span className="font-medium">{formData.creditScore}</span>
                   </div>
                 </div>
               </CardContent>
@@ -264,6 +314,7 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
           
           <div className="flex justify-end space-x-2">
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+              <X className="h-4 w-4 mr-2" />
               Cancel
             </Button>
             <Button type="submit" disabled={loading || !formData.name || !formData.email}>
@@ -273,7 +324,10 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                   Updating User...
                 </>
               ) : (
-                'Update User'
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Update User
+                </>
               )}
             </Button>
           </div>
