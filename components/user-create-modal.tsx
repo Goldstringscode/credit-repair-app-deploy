@@ -133,7 +133,7 @@ export default function CreateUserModal({ isOpen, onClose, onUserCreated }: Crea
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserIcon className="h-5 w-5" />
@@ -289,7 +289,7 @@ export default function CreateUserModal({ isOpen, onClose, onUserCreated }: Crea
             </Card>
           </div>
           
-          <div className="flex justify-end space-x-2">
+          <div className="flex justify-end space-x-2 pt-4 border-t bg-white sticky bottom-0">
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               Cancel
             </Button>

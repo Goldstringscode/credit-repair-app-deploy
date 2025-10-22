@@ -144,7 +144,7 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserIcon className="h-5 w-5" />
@@ -312,7 +312,7 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: 
             </Card>
           </div>
           
-          <div className="flex justify-end space-x-2">
+          <div className="flex justify-end space-x-2 pt-4 border-t bg-white sticky bottom-0">
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               <X className="h-4 w-4 mr-2" />
               Cancel
