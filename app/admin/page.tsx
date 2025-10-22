@@ -256,11 +256,34 @@ export default function AdminPage() {
                     <Download className="h-4 w-4 mr-2" />
                     Export
                   </Button>
-                  <Button size="sm">Add User</Button>
+                  <Link href="/admin/users">
+                    <Button size="sm">Add User</Button>
+                  </Link>
+                  <Link href="/admin/users">
+                    <Button variant="outline" size="sm">
+                      <Users className="h-4 w-4 mr-2" />
+                      Full Users Page
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
+              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium text-blue-900">Full User Management</h3>
+                    <p className="text-sm text-blue-700">Access the complete user management system with advanced features</p>
+                  </div>
+                  <Link href="/admin/users">
+                    <Button className="bg-blue-600 hover:bg-blue-700">
+                      <Users className="h-4 w-4 mr-2" />
+                      Go to Users Page
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+              
               <div className="flex items-center space-x-2 mb-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
