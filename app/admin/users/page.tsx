@@ -4,34 +4,45 @@ import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
-import CreateUserModal from '@/components/user-create-modal'
-import { userService, type User, type UserFilters } from '@/lib/user-service'
 import {
   Search,
   Download,
   UserPlus,
-  MoreHorizontal,
   Eye,
   Edit,
   Mail,
-  Shield,
   Trash2,
   CheckCircle,
   XCircle,
   AlertTriangle,
   Clock,
   RefreshCw,
-  Filter,
   Users,
   UserCheck,
   UserX,
   Crown
 } from 'lucide-react'
 
+// Simple User interface
+interface User {
+  id: string
+  name: string
+  email: string
+  role: string
+  status: string
+  joinDate: string
+  lastLogin: string
+  subscription: string
+  creditScore: number
+  phone: string
+  createdAt: string
+  isVerified: boolean
+  totalSpent: number
+  lastActivity: string
+}
+
 export default function AdminUsersPage() {
-  const [selectedTab, setSelectedTab] = useState("all")
   const [loading, setLoading] = useState(true)
   const [users, setUsers] = useState<User[]>([])
   const [filteredUsers, setFilteredUsers] = useState<User[]>([])
@@ -48,23 +59,81 @@ export default function AdminUsersPage() {
     search: ''
   })
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Mock data for development
+  const getMockUsers = (): User[] => [
+    {
+      id: "1",
+      name: "John Doe",
+      email: "john@example.com",
+      role: "premium",
+      status: "active",
+      joinDate: "2024-01-15",
+      lastLogin: "2024-10-15",
+      subscription: "Premium Plan",
+      creditScore: 720,
+      phone: "+1234567890",
+      createdAt: "2024-01-15T10:30:00Z",
+      isVerified: true,
+      totalSpent: 299.99,
+      lastActivity: "2024-10-15T14:30:00Z"
+    },
+    {
+      id: "2",
+      name: "Jane Smith",
+      email: "jane@example.com",
+      role: "user",
+      status: "active",
+      joinDate: "2024-02-20",
+      lastLogin: "2024-10-14",
+      subscription: "Basic Plan",
+      creditScore: 680,
+      phone: "+1234567891",
+      createdAt: "2024-02-20T10:30:00Z",
+      isVerified: true,
+      totalSpent: 99.99,
+      lastActivity: "2024-10-14T16:20:00Z"
+    },
+    {
+      id: "3",
+      name: "Bob Johnson",
+      email: "bob@example.com",
+      role: "trial",
+      status: "pending",
+      joinDate: "2024-10-10",
+      lastLogin: "2024-10-15",
+      subscription: "Trial",
+      creditScore: 650,
+      phone: "+1234567892",
+      createdAt: "2024-10-10T10:30:00Z",
+      isVerified: false,
+      totalSpent: 0,
+      lastActivity: "2024-10-15T09:15:00Z"
+    }
+  ]
 
   const loadUsers = async () => {
     setLoading(true)
     setError(null)
     try {
       console.log('Loading users...')
-      const response = await userService.getUsers()
-      setUsers(response.users)
-      setFilteredUsers(response.users)
-      setStatusCounts(response.statusCounts)
-      console.log('Users loaded successfully:', response.users.length)
+      
+      // Use mock data for now
+      const mockUsers = getMockUsers()
+      setUsers(mockUsers)
+      setFilteredUsers(mockUsers)
+      setStatusCounts({
+        all: mockUsers.length,
+        active: mockUsers.filter(u => u.status === "active").length,
+        inactive: mockUsers.filter(u => u.status === "inactive").length,
+        suspended: mockUsers.filter(u => u.status === "suspended").length,
+        pending: mockUsers.filter(u => u.status === "pending").length
+      })
+
+      console.log('Users loaded successfully:', mockUsers.length)
     } catch (error) {
       console.error('Error loading users:', error)
       setError(error instanceof Error ? error.message : 'Unknown error occurred')
@@ -104,28 +173,19 @@ export default function AdminUsersPage() {
     setIsCreateModalOpen(true)
   }
 
-  const handleUserCreated = (newUser: User) => {
-    console.log('New user created:', newUser)
-    loadUsers()
-    setIsCreateModalOpen(false)
-  }
-
   const handleViewUser = (user: User) => {
     console.log('Viewing user:', user.id)
-    setSelectedUser(user)
-    setIsDetailsModalOpen(true)
+    alert(`Viewing user: ${user.name} (${user.email})`)
   }
 
   const handleEditUser = (user: User) => {
     console.log('Editing user:', user.id)
-    setSelectedUser(user)
-    setIsEditModalOpen(true)
+    alert(`Editing user: ${user.name}`)
   }
 
   const handleEmailUser = (user: User) => {
     console.log('Emailing user:', user.id)
-    setSelectedUser(user)
-    setIsEmailModalOpen(true)
+    alert(`Sending email to: ${user.name} (${user.email})`)
   }
 
   const handleDeleteUser = (user: User) => {
@@ -136,16 +196,13 @@ export default function AdminUsersPage() {
 
   const handleDeleteUserConfirm = async () => {
     if (selectedUser) {
-      try {
-        await userService.deleteUser(selectedUser.id)
-        await loadUsers()
-        setIsDeleteModalOpen(false)
-        setSelectedUser(null)
-        console.log('User deleted successfully')
-      } catch (error) {
-        console.error('Error deleting user:', error)
-        alert('Error deleting user. Please try again.')
-      }
+      console.log('Confirming delete for user:', selectedUser.id)
+      // Simple mock delete - just remove from local state
+      setUsers(prev => prev.filter(u => u.id !== selectedUser.id))
+      setFilteredUsers(prev => prev.filter(u => u.id !== selectedUser.id))
+      alert(`User ${selectedUser.name} deleted successfully!`)
+      setIsDeleteModalOpen(false)
+      setSelectedUser(null)
     }
   }
 
@@ -457,13 +514,25 @@ export default function AdminUsersPage() {
         </CardContent>
       </Card>
 
-      {/* Modals */}
+      {/* Simple Create User Modal */}
       {isCreateModalOpen && (
-        <CreateUserModal
-          isOpen={isCreateModalOpen}
-          onClose={() => setIsCreateModalOpen(false)}
-          onUserCreated={handleUserCreated}
-        />
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Create New User</h2>
+            <p className="mb-4">This is a simplified create user modal. In production, this would have a full form.</p>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => {
+                alert('User creation functionality would be implemented here!')
+                setIsCreateModalOpen(false)
+              }}>
+                Create User
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delete Confirmation Modal */}
