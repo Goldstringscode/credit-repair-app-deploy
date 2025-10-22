@@ -4,31 +4,25 @@ import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { 
   Search, 
   Download, 
   UserPlus, 
-  MoreHorizontal, 
   Eye, 
   Edit, 
   Mail, 
-  Shield, 
   Trash2,
   CheckCircle,
   XCircle,
   AlertTriangle,
   Clock,
   RefreshCw,
-  Filter,
   Users,
   UserCheck,
   UserX,
   Crown
 } from 'lucide-react'
-import CreateUserModal from '@/components/user-create-modal'
-import { userService } from '@/lib/user-service'
 
 // User interface
 interface User {
@@ -48,6 +42,58 @@ interface User {
   lastActivity: string
 }
 
+// Mock data for testing
+const getMockUsers = (): User[] => [
+  {
+    id: '1',
+    name: 'John Doe',
+    email: 'john@example.com',
+    role: 'admin',
+    status: 'active',
+    joinDate: '2024-01-15',
+    lastLogin: '2024-10-22',
+    subscription: 'premium',
+    creditScore: 750,
+    phone: '+1-555-0123',
+    createdAt: '2024-01-15T10:00:00Z',
+    isVerified: true,
+    totalSpent: 299.99,
+    lastActivity: '2024-10-22T14:30:00Z'
+  },
+  {
+    id: '2',
+    name: 'Jane Smith',
+    email: 'jane@example.com',
+    role: 'user',
+    status: 'active',
+    joinDate: '2024-02-20',
+    lastLogin: '2024-10-21',
+    subscription: 'basic',
+    creditScore: 680,
+    phone: '+1-555-0124',
+    createdAt: '2024-02-20T09:15:00Z',
+    isVerified: true,
+    totalSpent: 99.99,
+    lastActivity: '2024-10-21T16:45:00Z'
+  },
+  {
+    id: '3',
+    name: 'Bob Johnson',
+    email: 'bob@example.com',
+    role: 'premium',
+    status: 'pending',
+    joinDate: '2024-10-20',
+    lastLogin: 'Never',
+    subscription: 'premium',
+    creditScore: 720,
+    phone: '+1-555-0125',
+    createdAt: '2024-10-20T11:30:00Z',
+    isVerified: false,
+    totalSpent: 0,
+    lastActivity: '2024-10-20T11:30:00Z'
+  }
+]
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [filteredUsers, setFilteredUsers] = useState<User[]>([])
@@ -56,7 +102,6 @@ export default function AdminUsersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [roleFilter, setRoleFilter] = useState('all')
-  const [showCreateModal, setShowCreateModal] = useState(false)
   const [statusCounts, setStatusCounts] = useState({
     all: 0,
     active: 0,
@@ -65,23 +110,28 @@ export default function AdminUsersPage() {
     pending: 0
   })
 
-  // Load users function
+  // Load users function with mock data
   const loadUsers = async () => {
     setLoading(true)
     setError(null)
     try {
-      console.log('Loading users...')
-      const response = await userService.getUsers({
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-        role: roleFilter !== 'all' ? roleFilter : undefined,
-        search: searchTerm || undefined
+      console.log('Loading users with mock data...')
+      
+      // Use mock data instead of API calls
+      const mockUsers = getMockUsers()
+      setUsers(mockUsers)
+      setFilteredUsers(mockUsers)
+      
+      // Calculate status counts
+      setStatusCounts({
+        all: mockUsers.length,
+        active: mockUsers.filter(u => u.status === "active").length,
+        inactive: mockUsers.filter(u => u.status === "inactive").length,
+        suspended: mockUsers.filter(u => u.status === "suspended").length,
+        pending: mockUsers.filter(u => u.status === "pending").length
       })
       
-      setUsers(response.users)
-      setFilteredUsers(response.users)
-      setStatusCounts(response.statusCounts)
-      
-      console.log('Users loaded successfully:', response.users.length)
+      console.log('Users loaded successfully:', mockUsers.length)
     } catch (error) {
       console.error('Error loading users:', error)
       setError(error instanceof Error ? error.message : 'Unknown error occurred')
@@ -117,20 +167,22 @@ export default function AdminUsersPage() {
     setFilteredUsers(filtered)
   }, [users, searchTerm, statusFilter, roleFilter])
 
-  // Handle user creation
-  const handleUserCreated = (newUser: User) => {
-    console.log('User created:', newUser)
-    setShowCreateModal(false)
-    loadUsers() // Reload users
-  }
-
   // Handle user deletion
   const handleDeleteUser = async (userId: string) => {
     if (confirm('Are you sure you want to delete this user?')) {
       try {
-        await userService.deleteUser(userId)
-        console.log('User deleted:', userId)
-        loadUsers() // Reload users
+        console.log('Deleting user:', userId)
+        // Remove from local state
+        const updatedUsers = users.filter(user => user.id !== userId)
+        setUsers(updatedUsers)
+        setFilteredUsers(updatedUsers.filter(user => {
+          if (searchTerm) {
+            return user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                   user.email.toLowerCase().includes(searchTerm.toLowerCase())
+          }
+          return true
+        }))
+        console.log('User deleted successfully')
       } catch (error) {
         console.error('Error deleting user:', error)
         alert('Failed to delete user')
@@ -140,27 +192,33 @@ export default function AdminUsersPage() {
 
   // Export users to CSV
   const handleExportUsers = () => {
-    const csvContent = [
-      ['Name', 'Email', 'Role', 'Status', 'Join Date', 'Last Login', 'Subscription', 'Credit Score'],
-      ...filteredUsers.map(user => [
-        user.name,
-        user.email,
-        user.role,
-        user.status,
-        user.joinDate,
-        user.lastLogin,
-        user.subscription,
-        user.creditScore.toString()
-      ])
-    ].map(row => row.join(',')).join('\n')
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `users-export-${new Date().toISOString().split('T')[0]}.csv`
-    a.click()
-    window.URL.revokeObjectURL(url)
+    try {
+      const csvContent = [
+        ['Name', 'Email', 'Role', 'Status', 'Join Date', 'Last Login', 'Subscription', 'Credit Score'],
+        ...filteredUsers.map(user => [
+          user.name,
+          user.email,
+          user.role,
+          user.status,
+          user.joinDate,
+          user.lastLogin,
+          user.subscription,
+          user.creditScore.toString()
+        ])
+      ].map(row => row.join(',')).join('\n')
+      
+      const blob = new Blob([csvContent], { type: 'text/csv' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `users-export-${new Date().toISOString().split('T')[0]}.csv`
+      a.click()
+      window.URL.revokeObjectURL(url)
+      console.log('Users exported successfully')
+    } catch (error) {
+      console.error('Error exporting users:', error)
+      alert('Failed to export users')
+    }
   }
 
   const getStatusIcon = (status: string) => {
@@ -222,7 +280,7 @@ export default function AdminUsersPage() {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button onClick={() => setShowCreateModal(true)}>
+          <Button onClick={() => alert('Add User functionality coming soon!')}>
             <UserPlus className="h-4 w-4 mr-2" />
             Add User
           </Button>
@@ -406,13 +464,13 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center space-x-2">
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => alert('View user details')}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => alert('Edit user')}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => alert('Send email')}>
                             <Mail className="h-4 w-4" />
                           </Button>
                           <Button 
@@ -432,15 +490,6 @@ export default function AdminUsersPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* Create User Modal */}
-      {showCreateModal && (
-        <CreateUserModal
-          isOpen={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-          onUserCreated={handleUserCreated}
-        />
-      )}
     </div>
   )
 }
