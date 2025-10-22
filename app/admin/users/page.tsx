@@ -159,6 +159,20 @@ export default function AdminUsersPage() {
   useEffect(() => {
     console.log('AdminUsersPage component mounted on client side')
     alert('AdminUsersPage component loaded!')
+    
+    // Test if basic JavaScript works
+    try {
+      console.log('Testing basic JavaScript functionality...')
+      const testFunction = () => {
+        console.log('Test function works!')
+        return 'success'
+      }
+      const result = testFunction()
+      console.log('JavaScript test result:', result)
+    } catch (error) {
+      console.error('JavaScript test failed:', error)
+    }
+    
     loadUsers()
   }, [])
 
@@ -339,19 +353,29 @@ export default function AdminUsersPage() {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button onClick={(e) => {
-            console.log('Add User button clicked!', e)
+          <Button onClick={() => {
+            console.log('Add User button clicked!')
             alert('Add User button clicked!')
-            handleCreateUser()
           }}>
             <UserPlus className="h-4 w-4 mr-2" />
             Add User
           </Button>
           
           {/* Simple test button */}
-          <Button onClick={() => alert('Test button works!')} variant="outline">
+          <Button onClick={() => {
+            console.log('Test button clicked!')
+            alert('Test button works!')
+          }} variant="outline">
             Test Button
           </Button>
+          
+          {/* HTML button test */}
+          <button onClick={() => {
+            console.log('HTML button clicked!')
+            alert('HTML button works!')
+          }} style={{padding: '8px 16px', margin: '4px', border: '1px solid #ccc'}}>
+            HTML Button
+          </button>
         </div>
       </div>
 
