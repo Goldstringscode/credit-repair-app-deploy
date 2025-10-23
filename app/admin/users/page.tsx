@@ -9,6 +9,7 @@ import CreateUserModal from '@/components/user-create-modal'
 import UserDetailsModal from '@/components/user-details-modal'
 import UserEditModal from '@/components/user-edit-modal'
 import UserEmailModal from '@/components/user-email-modal'
+import { databaseService } from '@/lib/database-service'
 import {
   Search,
   Download,
@@ -128,19 +129,42 @@ export default function AdminUsersPage() {
     try {
       console.log('Loading users...')
       
-      // Use mock data for now
-      const mockUsers = getMockUsers()
-      setUsers(mockUsers)
-      setFilteredUsers(mockUsers)
-      setStatusCounts({
-        all: mockUsers.length,
-        active: mockUsers.filter(u => u.status === "active").length,
-        inactive: mockUsers.filter(u => u.status === "inactive").length,
-        suspended: mockUsers.filter(u => u.status === "suspended").length,
-        pending: mockUsers.filter(u => u.status === "pending").length
-      })
+      // Use unified database service
+      const response = await databaseService.getUsers()
+      
+      if (response.success && response.data) {
+        console.log('Database response:', response)
+        setUsers(response.data.users)
+        setFilteredUsers(response.data.users)
+        setStatusCounts(response.data.statusCounts)
+        setMetrics(response.data.metrics)
+        console.log('Users loaded from database:', response.data.users.length)
+      } else {
+        console.log('Database failed, using mock data:', response.error)
+        // Fallback to mock data
+        const mockUsers = getMockUsers()
+        setUsers(mockUsers)
+        setFilteredUsers(mockUsers)
+        setStatusCounts({
+          all: mockUsers.length,
+          active: mockUsers.filter(u => u.status === "active").length,
+          inactive: mockUsers.filter(u => u.status === "inactive").length,
+          suspended: mockUsers.filter(u => u.status === "suspended").length,
+          pending: mockUsers.filter(u => u.status === "pending").length
+        })
 
-      console.log('Users loaded successfully:', mockUsers.length)
+        setMetrics({
+          totalUsers: mockUsers.length,
+          activeUsers: mockUsers.filter(u => u.status === "active").length,
+          verifiedUsers: mockUsers.filter(u => u.isVerified).length,
+          newThisMonth: mockUsers.filter(u => {
+            const userDate = new Date(u.createdAt)
+            const now = new Date()
+            return userDate.getMonth() === now.getMonth() && userDate.getFullYear() === now.getFullYear()
+          }).length
+        })
+        console.log('Users loaded from mock data:', mockUsers.length)
+      }
     } catch (error) {
       console.error('Error loading users:', error)
       setError(error instanceof Error ? error.message : 'Unknown error occurred')
@@ -180,16 +204,31 @@ export default function AdminUsersPage() {
     setIsCreateModalOpen(true)
   }
 
-  const handleUserCreated = (newUser: User) => {
+  const handleUserCreated = async (newUser: User) => {
     console.log('New user created:', newUser)
-    setUsers(prev => [...prev, newUser])
-    setFilteredUsers(prev => [...prev, newUser])
-    setStatusCounts(prev => ({
-      ...prev,
-      all: prev.all + 1,
-      [newUser.status]: prev[newUser.status as keyof typeof prev] + 1
-    }))
-    setIsCreateModalOpen(false)
+    try {
+      // Call unified database service
+      const response = await databaseService.createUser(newUser)
+      
+      if (response.success && response.data) {
+        const createdUser = response.data.user
+        setUsers(prev => [...prev, createdUser])
+        setFilteredUsers(prev => [...prev, createdUser])
+        setStatusCounts(prev => ({
+          ...prev,
+          all: prev.all + 1,
+          [createdUser.status]: prev[createdUser.status as keyof typeof prev] + 1
+        }))
+        setIsCreateModalOpen(false)
+        alert('User created successfully!')
+      } else {
+        console.error('Failed to create user:', response.error)
+        alert(`Failed to create user: ${response.error}`)
+      }
+    } catch (error) {
+      console.error('Error creating user:', error)
+      alert('An error occurred while creating the user. Please try again.')
+    }
   }
 
   const handleViewUser = (user: User) => {
@@ -219,25 +258,54 @@ export default function AdminUsersPage() {
   const handleDeleteUserConfirm = async () => {
     if (selectedUser) {
       console.log('Confirming delete for user:', selectedUser.id)
-      // Remove from local state
-      setUsers(prev => prev.filter(u => u.id !== selectedUser.id))
-      setFilteredUsers(prev => prev.filter(u => u.id !== selectedUser.id))
-      setStatusCounts(prev => ({
-        ...prev,
-        all: prev.all - 1,
-        [selectedUser.status]: prev[selectedUser.status as keyof typeof prev] - 1
-      }))
-      setIsDeleteModalOpen(false)
-      setSelectedUser(null)
+      try {
+        // Call unified database service
+        const response = await databaseService.deleteUser(selectedUser.id)
+        
+        if (response.success) {
+          // Remove from local state
+          setUsers(prev => prev.filter(u => u.id !== selectedUser.id))
+          setFilteredUsers(prev => prev.filter(u => u.id !== selectedUser.id))
+          setStatusCounts(prev => ({
+            ...prev,
+            all: prev.all - 1,
+            [selectedUser.status]: prev[selectedUser.status as keyof typeof prev] - 1
+          }))
+          setIsDeleteModalOpen(false)
+          setSelectedUser(null)
+          alert('User deleted successfully!')
+        } else {
+          console.error('Failed to delete user:', response.error)
+          alert(`Failed to delete user: ${response.error}`)
+        }
+      } catch (error) {
+        console.error('Error deleting user:', error)
+        alert('An error occurred while deleting the user. Please try again.')
+      }
     }
   }
 
-  const handleUserUpdated = (updatedUser: User) => {
+  const handleUserUpdated = async (updatedUser: User) => {
     console.log('User updated:', updatedUser)
-    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u))
-    setFilteredUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u))
-    setIsEditModalOpen(false)
-    setSelectedUser(null)
+    try {
+      // Call unified database service
+      const response = await databaseService.updateUser(updatedUser.id, updatedUser)
+      
+      if (response.success && response.data) {
+        const updatedUserData = response.data.user
+        setUsers(prev => prev.map(u => u.id === updatedUserData.id ? updatedUserData : u))
+        setFilteredUsers(prev => prev.map(u => u.id === updatedUserData.id ? updatedUserData : u))
+        setIsEditModalOpen(false)
+        setSelectedUser(null)
+        alert('User updated successfully!')
+      } else {
+        console.error('Failed to update user:', response.error)
+        alert(`Failed to update user: ${response.error}`)
+      }
+    } catch (error) {
+      console.error('Error updating user:', error)
+      alert('An error occurred while updating the user. Please try again.')
+    }
   }
 
   const handleExportUsers = () => {
