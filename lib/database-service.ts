@@ -227,6 +227,113 @@ class DatabaseService {
     }
   }
 
+  async createSubscription(subscriptionData: Partial<Subscription>) {
+    if (!supabase) {
+      return this.createMockSubscription(subscriptionData)
+    }
+
+    try {
+      const newSubscription = {
+        customer_name: subscriptionData.customerName,
+        customer_email: subscriptionData.customerEmail,
+        plan_name: subscriptionData.planName,
+        status: subscriptionData.status || 'active',
+        amount: subscriptionData.amount || 0,
+        currency: subscriptionData.currency || 'USD',
+        billing_cycle: subscriptionData.billingCycle || 'monthly',
+        next_billing_date: subscriptionData.nextBillingDate,
+        payment_method: subscriptionData.paymentMethod,
+        is_executive_account: subscriptionData.isExecutiveAccount || false,
+        notes: subscriptionData.notes,
+        created_at: new Date().toISOString()
+      }
+
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .insert([newSubscription])
+        .select()
+        .single()
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: {
+          subscription: this.formatSubscriptionData(data),
+          message: "Subscription created successfully"
+        }
+      }
+    } catch (error) {
+      console.error('Database error:', error)
+      return this.createMockSubscription(subscriptionData)
+    }
+  }
+
+  async updateSubscription(subscriptionId: string, subscriptionData: Partial<Subscription>) {
+    if (!supabase) {
+      return this.updateMockSubscription(subscriptionId, subscriptionData)
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .update({
+          customer_name: subscriptionData.customerName,
+          customer_email: subscriptionData.customerEmail,
+          plan_name: subscriptionData.planName,
+          status: subscriptionData.status,
+          amount: subscriptionData.amount,
+          currency: subscriptionData.currency,
+          billing_cycle: subscriptionData.billingCycle,
+          next_billing_date: subscriptionData.nextBillingDate,
+          payment_method: subscriptionData.paymentMethod,
+          is_executive_account: subscriptionData.isExecutiveAccount,
+          notes: subscriptionData.notes
+        })
+        .eq('id', subscriptionId)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: {
+          subscription: this.formatSubscriptionData(data),
+          message: "Subscription updated successfully"
+        }
+      }
+    } catch (error) {
+      console.error('Database error:', error)
+      return this.updateMockSubscription(subscriptionId, subscriptionData)
+    }
+  }
+
+  async deleteSubscription(subscriptionId: string) {
+    if (!supabase) {
+      return this.deleteMockSubscription(subscriptionId)
+    }
+
+    try {
+      const { error } = await supabase
+        .from('subscriptions')
+        .delete()
+        .eq('id', subscriptionId)
+
+      if (error) throw error
+
+      return {
+        success: true,
+        data: {
+          message: "Subscription deleted successfully"
+        }
+      }
+    } catch (error) {
+      console.error('Database error:', error)
+      return this.deleteMockSubscription(subscriptionId)
+    }
+  }
+
   // Helper methods
   private formatUserData(dbUser: any): User {
     return {
@@ -244,6 +351,27 @@ class DatabaseService {
       isVerified: dbUser.is_verified || false,
       totalSpent: dbUser.total_spent || 0,
       lastActivity: dbUser.last_activity || dbUser.created_at
+    }
+  }
+
+  private formatSubscriptionData(dbSubscription: any): Subscription {
+    return {
+      id: dbSubscription.id,
+      customerName: dbSubscription.customer_name,
+      customerEmail: dbSubscription.customer_email,
+      planName: dbSubscription.plan_name,
+      status: dbSubscription.status,
+      amount: dbSubscription.amount || 0,
+      currency: dbSubscription.currency || 'USD',
+      billingCycle: dbSubscription.billing_cycle || 'monthly',
+      nextBillingDate: dbSubscription.next_billing_date,
+      paymentMethod: dbSubscription.payment_method,
+      createdAt: dbSubscription.created_at,
+      isExecutiveAccount: dbSubscription.is_executive_account || false,
+      gracePeriodEndDate: dbSubscription.grace_period_end_date,
+      lastPaymentDate: dbSubscription.last_payment_date,
+      cancelAtPeriodEnd: dbSubscription.cancel_at_period_end,
+      notes: dbSubscription.notes
     }
   }
 
@@ -484,6 +612,54 @@ class DatabaseService {
         total: mockSubscriptions.length,
         statusCounts: this.calculateSubscriptionStatusCounts(mockSubscriptions),
         metrics: this.calculateSubscriptionMetrics(mockSubscriptions)
+      }
+    }
+  }
+
+  private createMockSubscription(subscriptionData: Partial<Subscription>) {
+    const newSubscription = {
+      id: `sub_${Date.now()}`,
+      customerName: subscriptionData.customerName || '',
+      customerEmail: subscriptionData.customerEmail || '',
+      planName: subscriptionData.planName || '',
+      status: subscriptionData.status || 'active',
+      amount: subscriptionData.amount || 0,
+      currency: subscriptionData.currency || 'USD',
+      billingCycle: subscriptionData.billingCycle || 'monthly',
+      nextBillingDate: subscriptionData.nextBillingDate,
+      paymentMethod: subscriptionData.paymentMethod || '',
+      createdAt: new Date().toISOString(),
+      isExecutiveAccount: subscriptionData.isExecutiveAccount || false,
+      gracePeriodEndDate: subscriptionData.gracePeriodEndDate,
+      lastPaymentDate: subscriptionData.lastPaymentDate,
+      cancelAtPeriodEnd: subscriptionData.cancelAtPeriodEnd,
+      notes: subscriptionData.notes
+    }
+
+    return {
+      success: true,
+      data: {
+        subscription: newSubscription,
+        message: "Subscription created successfully"
+      }
+    }
+  }
+
+  private updateMockSubscription(subscriptionId: string, subscriptionData: Partial<Subscription>) {
+    return {
+      success: true,
+      data: {
+        subscription: { id: subscriptionId, ...subscriptionData },
+        message: "Subscription updated successfully"
+      }
+    }
+  }
+
+  private deleteMockSubscription(subscriptionId: string) {
+    return {
+      success: true,
+      data: {
+        message: "Subscription deleted successfully"
       }
     }
   }

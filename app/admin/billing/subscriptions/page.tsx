@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import CreateSubscriptionModal from '@/components/subscription-create-modal'
 import SubscriptionDetailsModal from '@/components/subscription-details-modal'
 import SubscriptionEditModal from '@/components/subscription-edit-modal'
-import { subscriptionService } from '@/lib/subscription-service'
+import { databaseService } from '@/lib/database-service'
 import { 
   CreditCard, 
   Search, 
@@ -223,34 +223,47 @@ export default function AdminSubscriptionManagement() {
     try {
       console.log('Loading subscriptions...')
       
-      // Use mock data for now to avoid SSR issues
-      const mockSubscriptions = getMockSubscriptions()
-      setSubscriptions(mockSubscriptions)
-      setFilteredSubscriptions(mockSubscriptions)
+      // Use unified database service
+      const response = await databaseService.getSubscriptions()
       
-      // Calculate status counts
-      const counts = {
-        all: mockSubscriptions.length,
-        active: mockSubscriptions.filter(s => s.status === "active").length,
-        trialing: mockSubscriptions.filter(s => s.status === "trialing").length,
-        past_due: mockSubscriptions.filter(s => s.status === "past_due").length,
-        cancelled: mockSubscriptions.filter(s => s.status === "cancelled").length,
-        paused: mockSubscriptions.filter(s => s.status === "paused").length,
-        grace_period: mockSubscriptions.filter(s => s.status === "grace_period").length
+      if (response.success && response.data) {
+        console.log('Database response:', response)
+        setSubscriptions(response.data.subscriptions)
+        setFilteredSubscriptions(response.data.subscriptions)
+        setStatusCounts(response.data.statusCounts)
+        setMetrics(response.data.metrics)
+        console.log('Subscriptions loaded from database:', response.data.subscriptions.length)
+      } else {
+        console.log('Database failed, using mock data:', response.error)
+        // Fallback to mock data
+        const mockSubscriptions = getMockSubscriptions()
+        setSubscriptions(mockSubscriptions)
+        setFilteredSubscriptions(mockSubscriptions)
+        
+        // Calculate status counts
+        const counts = {
+          all: mockSubscriptions.length,
+          active: mockSubscriptions.filter(s => s.status === "active").length,
+          trialing: mockSubscriptions.filter(s => s.status === "trialing").length,
+          past_due: mockSubscriptions.filter(s => s.status === "past_due").length,
+          cancelled: mockSubscriptions.filter(s => s.status === "cancelled").length,
+          paused: mockSubscriptions.filter(s => s.status === "paused").length,
+          grace_period: mockSubscriptions.filter(s => s.status === "grace_period").length
+        }
+        setStatusCounts(counts)
+        
+        // Calculate metrics
+        const activeSubs = mockSubscriptions.filter(s => s.status === "active")
+        const mrr = activeSubs.reduce((sum, sub) => sum + sub.amount, 0)
+        const arpu = activeSubs.length > 0 ? mrr / activeSubs.length : 0
+        
+        setMetrics({
+          monthlyRecurringRevenue: mrr,
+          activeSubscriptions: activeSubs.length,
+          averageRevenuePerUser: arpu
+        })
+        console.log('Subscriptions loaded from mock data:', mockSubscriptions.length)
       }
-      setStatusCounts(counts)
-      
-      // Calculate metrics
-      const activeSubs = mockSubscriptions.filter(s => s.status === "active")
-      const mrr = activeSubs.reduce((sum, sub) => sum + sub.amount, 0)
-      const arpu = activeSubs.length > 0 ? mrr / activeSubs.length : 0
-      
-      setMetrics({
-        monthlyRecurringRevenue: mrr,
-        activeSubscriptions: activeSubs.length,
-        averageRevenuePerUser: arpu
-      })
-      console.log('Subscriptions loaded successfully:', mockSubscriptions.length)
     } catch (error) {
       console.error('Error loading subscriptions:', error)
       setError(error instanceof Error ? error.message : 'Unknown error occurred')
@@ -313,29 +326,43 @@ export default function AdminSubscriptionManagement() {
     setIsCreateModalOpen(true)
   }
 
-  const handleSubscriptionCreated = (newSubscription: Subscription) => {
+  const handleSubscriptionCreated = async (newSubscription: Subscription) => {
     console.log('New subscription created:', newSubscription)
-    setSubscriptions(prev => [...prev, newSubscription])
-    setFilteredSubscriptions(prev => [...prev, newSubscription])
-    setStatusCounts(prev => ({
-      ...prev,
-      all: prev.all + 1,
-      [newSubscription.status]: prev[newSubscription.status as keyof typeof prev] + 1
-    }))
-    
-    // Update metrics
-    const activeSubs = [...subscriptions, newSubscription].filter(s => s.status === "active")
-    const mrr = activeSubs.reduce((sum, sub) => sum + sub.amount, 0)
-    const arpu = activeSubs.length > 0 ? mrr / activeSubs.length : 0
-    
-    setMetrics({
-      monthlyRecurringRevenue: mrr,
-      activeSubscriptions: activeSubs.length,
-      averageRevenuePerUser: arpu
-    })
-    
-    setIsCreateModalOpen(false)
-    alert('Subscription created successfully!')
+    try {
+      // Call unified database service
+      const response = await databaseService.createSubscription(newSubscription)
+      
+      if (response.success && response.data) {
+        const createdSubscription = response.data.subscription
+        setSubscriptions(prev => [...prev, createdSubscription])
+        setFilteredSubscriptions(prev => [...prev, createdSubscription])
+        setStatusCounts(prev => ({
+          ...prev,
+          all: prev.all + 1,
+          [createdSubscription.status]: prev[createdSubscription.status as keyof typeof prev] + 1
+        }))
+        
+        // Update metrics
+        const activeSubs = [...subscriptions, createdSubscription].filter(s => s.status === "active")
+        const mrr = activeSubs.reduce((sum, sub) => sum + sub.amount, 0)
+        const arpu = activeSubs.length > 0 ? mrr / activeSubs.length : 0
+        
+        setMetrics({
+          monthlyRecurringRevenue: mrr,
+          activeSubscriptions: activeSubs.length,
+          averageRevenuePerUser: arpu
+        })
+        
+        setIsCreateModalOpen(false)
+        alert('Subscription created successfully!')
+      } else {
+        console.error('Failed to create subscription:', response.error)
+        alert(`Failed to create subscription: ${response.error}`)
+      }
+    } catch (error) {
+      console.error('Error creating subscription:', error)
+      alert('An error occurred while creating the subscription. Please try again.')
+    }
   }
 
   const handleViewSubscription = (subscription: Subscription) => {
@@ -359,27 +386,54 @@ export default function AdminSubscriptionManagement() {
   const handleDeleteSubscriptionConfirm = async () => {
     if (selectedSubscription) {
       console.log('Confirming delete for subscription:', selectedSubscription.id)
-      // Remove from local state
-      setSubscriptions(prev => prev.filter(s => s.id !== selectedSubscription.id))
-      setFilteredSubscriptions(prev => prev.filter(s => s.id !== selectedSubscription.id))
-      setStatusCounts(prev => ({
-        ...prev,
-        all: prev.all - 1,
-        [selectedSubscription.status]: prev[selectedSubscription.status as keyof typeof prev] - 1
-      }))
-      setIsDeleteModalOpen(false)
-      setSelectedSubscription(null)
-      alert('Subscription deleted successfully!')
+      try {
+        // Call unified database service
+        const response = await databaseService.deleteSubscription(selectedSubscription.id)
+        
+        if (response.success) {
+          // Remove from local state
+          setSubscriptions(prev => prev.filter(s => s.id !== selectedSubscription.id))
+          setFilteredSubscriptions(prev => prev.filter(s => s.id !== selectedSubscription.id))
+          setStatusCounts(prev => ({
+            ...prev,
+            all: prev.all - 1,
+            [selectedSubscription.status]: prev[selectedSubscription.status as keyof typeof prev] - 1
+          }))
+          setIsDeleteModalOpen(false)
+          setSelectedSubscription(null)
+          alert('Subscription deleted successfully!')
+        } else {
+          console.error('Failed to delete subscription:', response.error)
+          alert(`Failed to delete subscription: ${response.error}`)
+        }
+      } catch (error) {
+        console.error('Error deleting subscription:', error)
+        alert('An error occurred while deleting the subscription. Please try again.')
+      }
     }
   }
 
   const handleSubscriptionUpdated = async (updatedSubscription: Subscription) => {
     console.log('Subscription updated:', updatedSubscription)
-    setSubscriptions(prev => prev.map(s => s.id === updatedSubscription.id ? updatedSubscription : s))
-    setFilteredSubscriptions(prev => prev.map(s => s.id === updatedSubscription.id ? updatedSubscription : s))
-    setIsEditModalOpen(false)
-    setSelectedSubscription(null)
-    alert('Subscription updated successfully!')
+    try {
+      // Call unified database service
+      const response = await databaseService.updateSubscription(updatedSubscription.id, updatedSubscription)
+      
+      if (response.success && response.data) {
+        const updatedSub = response.data.subscription
+        setSubscriptions(prev => prev.map(s => s.id === updatedSub.id ? updatedSub : s))
+        setFilteredSubscriptions(prev => prev.map(s => s.id === updatedSub.id ? updatedSub : s))
+        setIsEditModalOpen(false)
+        setSelectedSubscription(null)
+        alert('Subscription updated successfully!')
+      } else {
+        console.error('Failed to update subscription:', response.error)
+        alert(`Failed to update subscription: ${response.error}`)
+      }
+    } catch (error) {
+      console.error('Error updating subscription:', error)
+      alert('An error occurred while updating the subscription. Please try again.')
+    }
   }
 
   const handleExportSubscriptions = () => {
