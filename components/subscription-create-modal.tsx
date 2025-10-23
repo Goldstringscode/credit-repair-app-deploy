@@ -157,38 +157,27 @@ export default function CreateSubscriptionModal({ isOpen, onClose, onSuccess }: 
         isExecutiveAccount
       }
 
-      // Call the real API
-      console.log('Calling subscription service with data:', subscriptionData)
-      const response = await subscriptionService.createSubscription(subscriptionData)
-      console.log('Subscription service response:', response)
+      // For now, just create the subscription locally
+      console.log('Creating subscription with data:', subscriptionData)
       
-      if (response.success && response.data) {
-        console.log('Created subscription:', response.data.subscription)
-        
-        if (onSuccess) {
-          onSuccess(response.data.subscription)
-        }
-        
-        // Reset form and close modal
-        setFormData({
-          customerName: '',
-          customerEmail: '',
-          planId: '',
-          billingCycle: 'month',
-          amount: 0,
-          currency: 'usd',
-          trialDays: 0,
-          paymentMethod: '',
-          notes: ''
-        })
-        setStep(1)
-        onClose()
-        alert('Subscription created successfully!')
-      } else {
-        console.error('Failed to create subscription:', response.error)
-        console.error('Full response:', response)
-        alert(`Failed to create subscription: ${response.error || 'Unknown error'}`)
+      if (onSuccess) {
+        onSuccess(subscriptionData)
       }
+      
+      // Reset form and close modal
+      setFormData({
+        customerName: '',
+        customerEmail: '',
+        planId: '',
+        billingCycle: 'month',
+        amount: 0,
+        currency: 'usd',
+        trialDays: 0,
+        paymentMethod: '',
+        notes: ''
+      })
+      setStep(1)
+      onClose()
       
     } catch (error) {
       console.error('Error creating subscription:', error)
