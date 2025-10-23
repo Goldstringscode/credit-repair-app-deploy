@@ -1161,6 +1161,21 @@ export default function AdminPage() {
 
         <TabsContent value="billing" className="space-y-6">
           {/* Billing Management */}
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium text-blue-900">Full Subscription Management</h3>
+                <p className="text-sm text-blue-700">Access the complete subscription management system with advanced features</p>
+              </div>
+              <Link href="/admin/billing/subscriptions">
+                <Button className="bg-blue-600 hover:bg-blue-700">
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Go to Subscriptions Page
+                </Button>
+              </Link>
+            </div>
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -1336,8 +1351,14 @@ export default function AdminPage() {
                 </div>
               </div>
               <div className="mt-6 flex justify-center space-x-4">
-                <Link href="/admin/billing">
+                <Link href="/admin/billing/subscriptions">
                   <Button>
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Go to Subscriptions Page
+                  </Button>
+                </Link>
+                <Link href="/admin/billing">
+                  <Button variant="outline">
                     <DollarSign className="h-4 w-4 mr-2" />
                     Full Billing Dashboard
                   </Button>
