@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import CreateSubscriptionModal from '@/components/subscription-create-modal'
 import SubscriptionDetailsModal from '@/components/subscription-details-modal'
 import SubscriptionEditModal from '@/components/subscription-edit-modal'
+import { subscriptionService } from '@/lib/subscription-service'
 import { 
   CreditCard, 
   Search, 
@@ -222,35 +223,47 @@ export default function AdminSubscriptionManagement() {
     try {
       console.log('Loading subscriptions...')
       
-      // Use mock data for now
-      const mockSubscriptions = getMockSubscriptions()
-      setSubscriptions(mockSubscriptions)
-      setFilteredSubscriptions(mockSubscriptions)
+      // Try to load from API first
+      const response = await subscriptionService.getSubscriptions()
       
-      // Calculate status counts
-      const counts = {
-        all: mockSubscriptions.length,
-        active: mockSubscriptions.filter(s => s.status === "active").length,
-        trialing: mockSubscriptions.filter(s => s.status === "trialing").length,
-        past_due: mockSubscriptions.filter(s => s.status === "past_due").length,
-        cancelled: mockSubscriptions.filter(s => s.status === "cancelled").length,
-        paused: mockSubscriptions.filter(s => s.status === "paused").length,
-        grace_period: mockSubscriptions.filter(s => s.status === "grace_period").length
+      if (response.success && response.data) {
+        console.log('API response:', response)
+        setSubscriptions(response.data.subscriptions)
+        setFilteredSubscriptions(response.data.subscriptions)
+        setStatusCounts(response.data.statusCounts)
+        setMetrics(response.data.metrics)
+        console.log('Subscriptions loaded from API:', response.data.subscriptions.length)
+      } else {
+        console.log('API failed, using mock data:', response.error)
+        // Fallback to mock data
+        const mockSubscriptions = getMockSubscriptions()
+        setSubscriptions(mockSubscriptions)
+        setFilteredSubscriptions(mockSubscriptions)
+        
+        // Calculate status counts
+        const counts = {
+          all: mockSubscriptions.length,
+          active: mockSubscriptions.filter(s => s.status === "active").length,
+          trialing: mockSubscriptions.filter(s => s.status === "trialing").length,
+          past_due: mockSubscriptions.filter(s => s.status === "past_due").length,
+          cancelled: mockSubscriptions.filter(s => s.status === "cancelled").length,
+          paused: mockSubscriptions.filter(s => s.status === "paused").length,
+          grace_period: mockSubscriptions.filter(s => s.status === "grace_period").length
+        }
+        setStatusCounts(counts)
+        
+        // Calculate metrics
+        const activeSubs = mockSubscriptions.filter(s => s.status === "active")
+        const mrr = activeSubs.reduce((sum, sub) => sum + sub.amount, 0)
+        const arpu = activeSubs.length > 0 ? mrr / activeSubs.length : 0
+        
+        setMetrics({
+          monthlyRecurringRevenue: mrr,
+          activeSubscriptions: activeSubs.length,
+          averageRevenuePerUser: arpu
+        })
+        console.log('Subscriptions loaded from mock data:', mockSubscriptions.length)
       }
-      setStatusCounts(counts)
-      
-      // Calculate metrics
-      const activeSubs = mockSubscriptions.filter(s => s.status === "active")
-      const mrr = activeSubs.reduce((sum, sub) => sum + sub.amount, 0)
-      const arpu = activeSubs.length > 0 ? mrr / activeSubs.length : 0
-      
-      setMetrics({
-        monthlyRecurringRevenue: mrr,
-        activeSubscriptions: activeSubs.length,
-        averageRevenuePerUser: arpu
-      })
-
-      console.log('Subscriptions loaded successfully:', mockSubscriptions.length)
     } catch (error) {
       console.error('Error loading subscriptions:', error)
       setError(error instanceof Error ? error.message : 'Unknown error occurred')
@@ -322,6 +335,18 @@ export default function AdminSubscriptionManagement() {
       all: prev.all + 1,
       [newSubscription.status]: prev[newSubscription.status as keyof typeof prev] + 1
     }))
+    
+    // Update metrics
+    const activeSubs = [...subscriptions, newSubscription].filter(s => s.status === "active")
+    const mrr = activeSubs.reduce((sum, sub) => sum + sub.amount, 0)
+    const arpu = activeSubs.length > 0 ? mrr / activeSubs.length : 0
+    
+    setMetrics({
+      monthlyRecurringRevenue: mrr,
+      activeSubscriptions: activeSubs.length,
+      averageRevenuePerUser: arpu
+    })
+    
     setIsCreateModalOpen(false)
   }
 
@@ -346,25 +371,55 @@ export default function AdminSubscriptionManagement() {
   const handleDeleteSubscriptionConfirm = async () => {
     if (selectedSubscription) {
       console.log('Confirming delete for subscription:', selectedSubscription.id)
-      // Remove from local state
-      setSubscriptions(prev => prev.filter(s => s.id !== selectedSubscription.id))
-      setFilteredSubscriptions(prev => prev.filter(s => s.id !== selectedSubscription.id))
-      setStatusCounts(prev => ({
-        ...prev,
-        all: prev.all - 1,
-        [selectedSubscription.status]: prev[selectedSubscription.status as keyof typeof prev] - 1
-      }))
-      setIsDeleteModalOpen(false)
-      setSelectedSubscription(null)
+      try {
+        // Call API to delete subscription
+        const response = await subscriptionService.cancelSubscription(selectedSubscription.id, 'Deleted by admin')
+        
+        if (response.success) {
+          // Remove from local state
+          setSubscriptions(prev => prev.filter(s => s.id !== selectedSubscription.id))
+          setFilteredSubscriptions(prev => prev.filter(s => s.id !== selectedSubscription.id))
+          setStatusCounts(prev => ({
+            ...prev,
+            all: prev.all - 1,
+            [selectedSubscription.status]: prev[selectedSubscription.status as keyof typeof prev] - 1
+          }))
+          console.log('Subscription deleted successfully')
+        } else {
+          console.error('Failed to delete subscription:', response.error)
+          alert(`Failed to delete subscription: ${response.error}`)
+        }
+      } catch (error) {
+        console.error('Error deleting subscription:', error)
+        alert('An error occurred while deleting the subscription. Please try again.')
+      } finally {
+        setIsDeleteModalOpen(false)
+        setSelectedSubscription(null)
+      }
     }
   }
 
-  const handleSubscriptionUpdated = (updatedSubscription: Subscription) => {
+  const handleSubscriptionUpdated = async (updatedSubscription: Subscription) => {
     console.log('Subscription updated:', updatedSubscription)
-    setSubscriptions(prev => prev.map(s => s.id === updatedSubscription.id ? updatedSubscription : s))
-    setFilteredSubscriptions(prev => prev.map(s => s.id === updatedSubscription.id ? updatedSubscription : s))
-    setIsEditModalOpen(false)
-    setSelectedSubscription(null)
+    try {
+      // Call API to update subscription
+      const response = await subscriptionService.updateSubscriptionData(updatedSubscription.id, updatedSubscription)
+      
+      if (response.success) {
+        setSubscriptions(prev => prev.map(s => s.id === updatedSubscription.id ? updatedSubscription : s))
+        setFilteredSubscriptions(prev => prev.map(s => s.id === updatedSubscription.id ? updatedSubscription : s))
+        console.log('Subscription updated successfully')
+      } else {
+        console.error('Failed to update subscription:', response.error)
+        alert(`Failed to update subscription: ${response.error}`)
+      }
+    } catch (error) {
+      console.error('Error updating subscription:', error)
+      alert('An error occurred while updating the subscription. Please try again.')
+    } finally {
+      setIsEditModalOpen(false)
+      setSelectedSubscription(null)
+    }
   }
 
   const handleExportSubscriptions = () => {
