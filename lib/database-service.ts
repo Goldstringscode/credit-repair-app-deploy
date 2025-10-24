@@ -42,14 +42,123 @@ export interface Subscription {
 }
 
 class DatabaseService {
+  // In-memory storage for mock data persistence
+  private mockUsers: any[] = []
+  private mockSubscriptions: any[] = []
+  private initialized = false
+
+  // Initialize mock data once
+  private initializeMockData() {
+    if (this.initialized) return
+
+    this.mockUsers = [
+      {
+        id: "1",
+        name: "John Doe",
+        email: "john@example.com",
+        role: "premium",
+        status: "active",
+        joinDate: "2024-01-15",
+        lastLogin: "2024-10-15",
+        subscription: "Premium Plan",
+        creditScore: 720,
+        phone: "+1234567890",
+        createdAt: "2024-01-15T10:30:00Z",
+        isVerified: true,
+        totalSpent: 299.99,
+        lastActivity: "2024-10-15T14:30:00Z"
+      },
+      {
+        id: "2",
+        name: "Jane Smith",
+        email: "jane@example.com",
+        role: "user",
+        status: "active",
+        joinDate: "2024-02-20",
+        lastLogin: "2024-10-14",
+        subscription: "Basic Plan",
+        creditScore: 680,
+        phone: "+1234567891",
+        createdAt: "2024-02-20T10:30:00Z",
+        isVerified: true,
+        totalSpent: 99.99,
+        lastActivity: "2024-10-14T16:20:00Z"
+      },
+      {
+        id: "3",
+        name: "Bob Johnson",
+        email: "bob@example.com",
+        role: "trial",
+        status: "pending",
+        joinDate: "2024-10-10",
+        lastLogin: "2024-10-15",
+        subscription: "Trial",
+        creditScore: 650,
+        phone: "+1234567892",
+        createdAt: "2024-10-10T10:30:00Z",
+        isVerified: false,
+        totalSpent: 0,
+        lastActivity: "2024-10-15T09:15:00Z"
+      }
+    ]
+
+    this.mockSubscriptions = [
+      {
+        id: "sub_1",
+        customerName: "John Doe",
+        customerEmail: "john@example.com",
+        planName: "Premium Plan",
+        status: "active",
+        amount: 59.99,
+        currency: "USD",
+        billingCycle: "monthly",
+        nextBillingDate: "2024-11-15",
+        paymentMethod: "Visa ****4242",
+        createdAt: "2024-01-15T10:30:00Z",
+        isExecutiveAccount: false
+      },
+      {
+        id: "sub_2",
+        customerName: "Jane Smith",
+        customerEmail: "jane@example.com",
+        planName: "Basic Plan",
+        status: "active",
+        amount: 29.99,
+        currency: "USD",
+        billingCycle: "monthly",
+        nextBillingDate: "2024-11-20",
+        paymentMethod: "Mastercard ****5555",
+        createdAt: "2024-02-20T10:30:00Z",
+        isExecutiveAccount: false
+      },
+      {
+        id: "sub_3",
+        customerName: "Bob Johnson",
+        customerEmail: "bob@example.com",
+        planName: "Trial",
+        status: "trialing",
+        amount: 0,
+        currency: "USD",
+        billingCycle: "monthly",
+        nextBillingDate: "2024-10-17",
+        paymentMethod: "Trial Account",
+        createdAt: "2024-10-10T10:30:00Z",
+        isExecutiveAccount: false
+      }
+    ]
+
+    this.initialized = true
+  }
+
   // User Management
   async getUsers(filters: any = {}) {
     console.log('Database service getUsers called with filters:', filters)
     console.log('Supabase client available:', !!supabase)
     
     if (!supabase) {
-      console.log('No Supabase client, using mock data')
-      return this.getMockUsers(filters)
+      console.log('No Supabase client, using persistent mock data')
+      this.initializeMockData()
+      return this.getMockUsersFromStorage(filters)
     }
 
     try {
@@ -89,7 +198,8 @@ class DatabaseService {
 
   async createUser(userData: Partial<User>) {
     if (!supabase) {
-      return this.createMockUser(userData)
+      this.initializeMockData()
+      return this.createMockUserInStorage(userData)
     }
 
     try {
@@ -219,7 +329,9 @@ class DatabaseService {
   // Subscription Management
   async getSubscriptions(filters: any = {}) {
     if (!supabase) {
-      return this.getMockSubscriptions(filters)
+      console.log('No Supabase client, using persistent mock data')
+      this.initializeMockData()
+      return this.getMockSubscriptionsFromStorage(filters)
     }
 
     try {
@@ -734,6 +846,115 @@ class DatabaseService {
       success: true,
       data: {
         message: "Subscription deleted successfully"
+      }
+    }
+  }
+
+  // New persistent storage methods
+  private getMockUsersFromStorage(filters: any) {
+    let filteredUsers = [...this.mockUsers]
+
+    if (filters.search) {
+      filteredUsers = filteredUsers.filter(user =>
+        user.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+        user.email.toLowerCase().includes(filters.search.toLowerCase())
+      )
+    }
+
+    if (filters.status && filters.status !== 'all') {
+      filteredUsers = filteredUsers.filter(user => user.status === filters.status)
+    }
+
+    if (filters.role && filters.role !== 'all') {
+      filteredUsers = filteredUsers.filter(user => user.role === filters.role)
+    }
+
+    return {
+      success: true,
+      data: {
+        users: filteredUsers,
+        total: filteredUsers.length,
+        statusCounts: this.calculateStatusCounts(filteredUsers),
+        roleCounts: this.calculateRoleCounts(filteredUsers),
+        metrics: this.calculateUserMetrics(filteredUsers)
+      }
+    }
+  }
+
+  private getMockSubscriptionsFromStorage(filters: any) {
+    let filteredSubscriptions = [...this.mockSubscriptions]
+
+    if (filters.search) {
+      filteredSubscriptions = filteredSubscriptions.filter(subscription =>
+        subscription.customerName.toLowerCase().includes(filters.search.toLowerCase()) ||
+        subscription.customerEmail.toLowerCase().includes(filters.search.toLowerCase())
+      )
+    }
+
+    if (filters.status && filters.status !== 'all') {
+      filteredSubscriptions = filteredSubscriptions.filter(subscription => subscription.status === filters.status)
+    }
+
+    return {
+      success: true,
+      data: {
+        subscriptions: filteredSubscriptions,
+        total: filteredSubscriptions.length,
+        statusCounts: this.calculateSubscriptionStatusCounts(filteredSubscriptions),
+        metrics: this.calculateSubscriptionMetrics(filteredSubscriptions)
+      }
+    }
+  }
+
+  private createMockUserInStorage(userData: Partial<User>) {
+    const newUser = {
+      id: `user_${Date.now()}`,
+      name: userData.name || '',
+      email: userData.email || '',
+      role: userData.role || 'user',
+      status: 'active',
+      joinDate: new Date().toISOString().split('T')[0],
+      lastLogin: new Date().toISOString().split('T')[0],
+      subscription: userData.subscription || 'Basic Plan',
+      creditScore: 650,
+      phone: userData.phone || '',
+      createdAt: new Date().toISOString(),
+      isVerified: false,
+      totalSpent: 0,
+      lastActivity: new Date().toISOString()
+    }
+
+    // Add to persistent storage
+    this.mockUsers.push(newUser)
+
+    // Create corresponding subscription
+    const subscriptionPlan = userData.subscription || 'Basic Plan'
+    const subscriptionAmount = this.getPlanAmount(subscriptionPlan)
+    
+    const newSubscription = {
+      id: `sub_${Date.now()}`,
+      customerName: newUser.name,
+      customerEmail: newUser.email,
+      planName: subscriptionPlan,
+      status: 'active',
+      amount: subscriptionAmount,
+      currency: 'USD',
+      billingCycle: 'monthly',
+      nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      paymentMethod: 'Credit Card',
+      createdAt: new Date().toISOString(),
+      isExecutiveAccount: false
+    }
+
+    // Add subscription to persistent storage
+    this.mockSubscriptions.push(newSubscription)
+
+    return {
+      success: true,
+      data: {
+        user: newUser,
+        subscription: newSubscription,
+        message: "User and subscription created successfully"
       }
     }
   }
