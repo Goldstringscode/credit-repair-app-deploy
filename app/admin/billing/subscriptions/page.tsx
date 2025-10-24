@@ -103,119 +103,6 @@ export default function AdminSubscriptionManagement() {
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Mock data for development
-  const getMockSubscriptions = (): Subscription[] => [
-    {
-      id: "sub_1",
-      customerId: "cus_1",
-      customerName: "John Doe",
-      customerEmail: "john@example.com",
-      planId: "premium",
-      planName: "Premium Plan",
-      status: "active",
-      currentPeriodStart: "2024-10-01",
-      currentPeriodEnd: "2024-11-01",
-      cancelAtPeriodEnd: false,
-      amount: 59.99,
-      currency: "usd",
-      nextBillingDate: "2024-11-01",
-      createdAt: "2024-01-15T10:30:00Z",
-      lastPaymentDate: "2024-10-01",
-      lastPaymentAmount: 59.99,
-      paymentMethod: "Visa ****4242",
-      billingCycle: "month",
-      prorationEnabled: true,
-      dunningEnabled: true,
-      notes: "Regular customer"
-    },
-    {
-      id: "sub_2",
-      customerId: "cus_2",
-      customerName: "Jane Smith",
-      customerEmail: "jane@example.com",
-      planId: "basic",
-      planName: "Basic Plan",
-      status: "active",
-      currentPeriodStart: "2024-09-15",
-      currentPeriodEnd: "2024-10-15",
-      cancelAtPeriodEnd: false,
-      amount: 29.99,
-      currency: "usd",
-      nextBillingDate: "2024-10-15",
-      createdAt: "2024-02-20T10:30:00Z",
-      lastPaymentDate: "2024-09-15",
-      lastPaymentAmount: 29.99,
-      paymentMethod: "Mastercard ****5555",
-      billingCycle: "month",
-      prorationEnabled: true,
-      dunningEnabled: true
-    },
-    {
-      id: "sub_3",
-      customerId: "cus_3",
-      customerName: "Bob Johnson",
-      customerEmail: "bob@example.com",
-      planId: "enterprise",
-      planName: "Enterprise Plan",
-      status: "trialing",
-      currentPeriodStart: "2024-10-10",
-      currentPeriodEnd: "2024-11-10",
-      trialEnd: "2024-10-17",
-      cancelAtPeriodEnd: false,
-      amount: 99.99,
-      currency: "usd",
-      nextBillingDate: "2024-10-17",
-      createdAt: "2024-10-10T10:30:00Z",
-      paymentMethod: "American Express ****1234",
-      billingCycle: "month",
-      prorationEnabled: true,
-      dunningEnabled: true
-    },
-    {
-      id: "sub_4",
-      customerId: "cus_4",
-      customerName: "Alice Brown",
-      customerEmail: "alice@example.com",
-      planId: "premium",
-      planName: "Premium Plan",
-      status: "past_due",
-      currentPeriodStart: "2024-09-01",
-      currentPeriodEnd: "2024-10-01",
-      cancelAtPeriodEnd: false,
-      amount: 59.99,
-      currency: "usd",
-      nextBillingDate: "2024-10-01",
-      createdAt: "2024-03-15T10:30:00Z",
-      lastPaymentDate: "2024-09-01",
-      lastPaymentAmount: 59.99,
-      paymentMethod: "Visa ****4242",
-      billingCycle: "month",
-      prorationEnabled: true,
-      dunningEnabled: true
-    },
-    {
-      id: "sub_5",
-      customerId: "cus_5",
-      customerName: "Charlie Wilson",
-      customerEmail: "charlie@example.com",
-      planId: "basic",
-      planName: "Basic Plan",
-      status: "cancelled",
-      currentPeriodStart: "2024-08-01",
-      currentPeriodEnd: "2024-09-01",
-      cancelAtPeriodEnd: true,
-      amount: 29.99,
-      currency: "usd",
-      nextBillingDate: "2024-09-01",
-      createdAt: "2024-04-10T10:30:00Z",
-      lastPaymentDate: "2024-08-01",
-      lastPaymentAmount: 29.99,
-      paymentMethod: "Mastercard ****5555",
-      billingCycle: "month",
-      prorationEnabled: true,
-      dunningEnabled: true
-    }
-  ]
 
   const loadSubscriptions = async () => {
     setLoading(true)
@@ -234,35 +121,8 @@ export default function AdminSubscriptionManagement() {
         setMetrics(response.data.metrics)
         console.log('Subscriptions loaded from database:', response.data.subscriptions.length)
       } else {
-        console.log('Database failed, using mock data:', response.error)
-        // Fallback to mock data
-        const mockSubscriptions = getMockSubscriptions()
-        setSubscriptions(mockSubscriptions)
-        setFilteredSubscriptions(mockSubscriptions)
-        
-        // Calculate status counts
-        const counts = {
-          all: mockSubscriptions.length,
-          active: mockSubscriptions.filter(s => s.status === "active").length,
-          trialing: mockSubscriptions.filter(s => s.status === "trialing").length,
-          past_due: mockSubscriptions.filter(s => s.status === "past_due").length,
-          cancelled: mockSubscriptions.filter(s => s.status === "cancelled").length,
-          paused: mockSubscriptions.filter(s => s.status === "paused").length,
-          grace_period: mockSubscriptions.filter(s => s.status === "grace_period").length
-        }
-        setStatusCounts(counts)
-        
-        // Calculate metrics
-        const activeSubs = mockSubscriptions.filter(s => s.status === "active")
-        const mrr = activeSubs.reduce((sum, sub) => sum + sub.amount, 0)
-        const arpu = activeSubs.length > 0 ? mrr / activeSubs.length : 0
-        
-        setMetrics({
-          monthlyRecurringRevenue: mrr,
-          activeSubscriptions: activeSubs.length,
-          averageRevenuePerUser: arpu
-        })
-        console.log('Subscriptions loaded from mock data:', mockSubscriptions.length)
+        console.log('Database failed:', response.error)
+        setError(response.error || 'Failed to load subscriptions')
       }
     } catch (error) {
       console.error('Error loading subscriptions:', error)

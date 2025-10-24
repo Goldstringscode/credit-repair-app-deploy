@@ -72,56 +72,6 @@ export default function AdminUsersPage() {
   const [error, setError] = useState<string | null>(null)
 
   // Mock data for development
-  const getMockUsers = (): User[] => [
-    {
-      id: "1",
-      name: "John Doe",
-      email: "john@example.com",
-      role: "premium",
-      status: "active",
-      joinDate: "2024-01-15",
-      lastLogin: "2024-10-15",
-      subscription: "Premium Plan",
-      creditScore: 720,
-      phone: "+1234567890",
-      createdAt: "2024-01-15T10:30:00Z",
-      isVerified: true,
-      totalSpent: 299.99,
-      lastActivity: "2024-10-15T14:30:00Z"
-    },
-    {
-      id: "2",
-      name: "Jane Smith",
-      email: "jane@example.com",
-      role: "user",
-      status: "active",
-      joinDate: "2024-02-20",
-      lastLogin: "2024-10-14",
-      subscription: "Basic Plan",
-      creditScore: 680,
-      phone: "+1234567891",
-      createdAt: "2024-02-20T10:30:00Z",
-      isVerified: true,
-      totalSpent: 99.99,
-      lastActivity: "2024-10-14T16:20:00Z"
-    },
-    {
-      id: "3",
-      name: "Bob Johnson",
-      email: "bob@example.com",
-      role: "trial",
-      status: "pending",
-      joinDate: "2024-10-10",
-      lastLogin: "2024-10-15",
-      subscription: "Trial",
-      creditScore: 650,
-      phone: "+1234567892",
-      createdAt: "2024-10-10T10:30:00Z",
-      isVerified: false,
-      totalSpent: 0,
-      lastActivity: "2024-10-15T09:15:00Z"
-    }
-  ]
 
   const loadUsers = async () => {
     setLoading(true)
@@ -139,20 +89,8 @@ export default function AdminUsersPage() {
         setStatusCounts(response.data.statusCounts)
         console.log('Users loaded from database:', response.data.users.length)
       } else {
-        console.log('Database failed, using mock data:', response.error)
-        // Fallback to mock data
-        const mockUsers = getMockUsers()
-        setUsers(mockUsers)
-        setFilteredUsers(mockUsers)
-        setStatusCounts({
-          all: mockUsers.length,
-          active: mockUsers.filter(u => u.status === "active").length,
-          inactive: mockUsers.filter(u => u.status === "inactive").length,
-          suspended: mockUsers.filter(u => u.status === "suspended").length,
-          pending: mockUsers.filter(u => u.status === "pending").length
-        })
-
-        console.log('Users loaded from mock data:', mockUsers.length)
+        console.log('Database failed:', response.error)
+        setError(response.error || 'Failed to load users')
       }
     } catch (error) {
       console.error('Error loading users:', error)
