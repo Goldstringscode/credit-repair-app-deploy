@@ -209,7 +209,11 @@ export default function AdminUsersPage() {
           [createdUser.status]: prev[createdUser.status as keyof typeof prev] + 1
         }))
         setIsCreateModalOpen(false)
-        alert('User created successfully!')
+        if (response.data.subscription) {
+          alert('User and subscription created successfully!')
+        } else {
+          alert('User created successfully!')
+        }
       } else {
         console.error('Failed to create user:', response.error)
         alert(`Failed to create user: ${response.error}`)

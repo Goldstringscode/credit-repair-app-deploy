@@ -107,19 +107,48 @@ class DatabaseService {
         last_activity: new Date().toISOString()
       }
 
-      const { data, error } = await supabase
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .insert([newUser])
         .select()
         .single()
 
-      if (error) throw error
+      if (userError) throw userError
+
+      // Create corresponding subscription
+      const subscriptionPlan = userData.subscription || 'Basic Plan'
+      const subscriptionAmount = this.getPlanAmount(subscriptionPlan)
+      
+      const newSubscription = {
+        customer_name: userData.name,
+        customer_email: userData.email,
+        plan_name: subscriptionPlan,
+        status: 'active',
+        amount: subscriptionAmount,
+        currency: 'USD',
+        billing_cycle: 'monthly',
+        next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        payment_method: 'Credit Card',
+        is_executive_account: false,
+        created_at: new Date().toISOString()
+      }
+
+      const { data: subscriptionData, error: subscriptionError } = await supabase
+        .from('subscriptions')
+        .insert([newSubscription])
+        .select()
+        .single()
+
+      if (subscriptionError) {
+        console.warn('User created but subscription creation failed:', subscriptionError)
+      }
 
       return {
         success: true,
         data: {
-          user: this.formatUserData(data),
-          message: "User created successfully"
+          user: this.formatUserData(userData),
+          subscription: subscriptionData ? this.formatSubscriptionData(subscriptionData) : null,
+          message: "User and subscription created successfully"
         }
       }
     } catch (error) {
@@ -335,6 +364,17 @@ class DatabaseService {
   }
 
   // Helper methods
+  private getPlanAmount(planName: string): number {
+    const planAmounts: { [key: string]: number } = {
+      'Basic Plan': 29.99,
+      'Premium Plan': 59.99,
+      'Enterprise Plan': 99.99,
+      'Trial': 0,
+      'Free': 0
+    }
+    return planAmounts[planName] || 29.99
+  }
+
   private formatUserData(dbUser: any): User {
     return {
       id: dbUser.id,
@@ -545,11 +585,31 @@ class DatabaseService {
       lastActivity: new Date().toISOString()
     }
 
+    // Create corresponding mock subscription
+    const subscriptionPlan = userData.subscription || 'Basic Plan'
+    const subscriptionAmount = this.getPlanAmount(subscriptionPlan)
+    
+    const newSubscription = {
+      id: `sub_${Date.now()}`,
+      customerName: newUser.name,
+      customerEmail: newUser.email,
+      planName: subscriptionPlan,
+      status: 'active',
+      amount: subscriptionAmount,
+      currency: 'USD',
+      billingCycle: 'monthly',
+      nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      paymentMethod: 'Credit Card',
+      createdAt: new Date().toISOString(),
+      isExecutiveAccount: false
+    }
+
     return {
       success: true,
       data: {
         user: newUser,
-        message: "User created successfully"
+        subscription: newSubscription,
+        message: "User and subscription created successfully"
       }
     }
   }
