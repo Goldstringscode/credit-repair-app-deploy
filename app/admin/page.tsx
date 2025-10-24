@@ -43,23 +43,31 @@ export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedTab, setSelectedTab] = useState("overview")
   const [users, setUsers] = useState<any[]>([])
+  const [subscriptions, setSubscriptions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Load users from unified database service
+  // Load users and subscriptions from unified database service
   useEffect(() => {
-    const loadUsers = async () => {
+    const loadData = async () => {
       try {
-        const response = await databaseService.getUsers()
-        if (response.success && response.data) {
-          setUsers(response.data.users)
+        // Load users
+        const usersResponse = await databaseService.getUsers()
+        if (usersResponse.success && usersResponse.data) {
+          setUsers(usersResponse.data.users)
+        }
+
+        // Load subscriptions
+        const subscriptionsResponse = await databaseService.getSubscriptions()
+        if (subscriptionsResponse.success && subscriptionsResponse.data) {
+          setSubscriptions(subscriptionsResponse.data.subscriptions)
         }
       } catch (error) {
-        console.error('Error loading users:', error)
+        console.error('Error loading data:', error)
       } finally {
         setLoading(false)
       }
     }
-    loadUsers()
+    loadData()
   }, [])
 
   // Dynamic system stats based on actual data
@@ -1268,27 +1276,18 @@ export default function AdminPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <div>
-                      <p className="font-medium">New subscription created</p>
-                      <p className="text-gray-600">Premium Plan - John Doe</p>
+                  {subscriptions.slice(0, 3).map((subscription, index) => (
+                    <div key={subscription.id} className="flex items-center justify-between text-sm">
+                      <div>
+                        <p className="font-medium">Subscription {subscription.status}</p>
+                        <p className="text-gray-600">{subscription.planName} - {subscription.customerName}</p>
+                      </div>
+                      <span className="text-xs text-gray-500">{index === 0 ? '2 min ago' : index === 1 ? '5 min ago' : '1 hour ago'}</span>
                     </div>
-                    <span className="text-xs text-gray-500">2 min ago</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <div>
-                      <p className="font-medium">Payment processed</p>
-                      <p className="text-gray-600">$59.99 - Jane Smith</p>
-                    </div>
-                    <span className="text-xs text-gray-500">5 min ago</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <div>
-                      <p className="font-medium">Subscription cancelled</p>
-                      <p className="text-gray-600">Basic Plan - Bob Johnson</p>
-                    </div>
-                    <span className="text-xs text-gray-500">1 hour ago</span>
-                  </div>
+                  ))}
+                  {subscriptions.length === 0 && (
+                    <div className="text-sm text-gray-500">No recent activity</div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1338,15 +1337,15 @@ export default function AdminPage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">$125,000</div>
+                  <div className="text-2xl font-bold text-green-600">${subscriptions.filter(sub => sub.status === 'active').reduce((sum, sub) => sum + (sub.amount || 0), 0).toLocaleString()}</div>
                   <p className="text-sm text-gray-600">Monthly Recurring Revenue</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">1,250</div>
+                  <div className="text-2xl font-bold text-blue-600">{subscriptions.filter(sub => sub.status === 'active').length}</div>
                   <p className="text-sm text-gray-600">Active Subscriptions</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">$89.99</div>
+                  <div className="text-2xl font-bold text-purple-600">${subscriptions.length > 0 ? (subscriptions.reduce((sum, sub) => sum + (sub.amount || 0), 0) / subscriptions.length).toFixed(2) : '0.00'}</div>
                   <p className="text-sm text-gray-600">Average Revenue Per User</p>
                 </div>
                 <div className="text-center">
