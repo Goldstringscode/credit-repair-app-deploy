@@ -602,6 +602,20 @@ class DatabaseService {
         paymentMethod: "Mastercard ****5555",
         createdAt: "2024-02-20T10:30:00Z",
         isExecutiveAccount: false
+      },
+      {
+        id: "sub_3",
+        customerName: "Bob Johnson",
+        customerEmail: "bob@example.com",
+        planName: "Trial",
+        status: "trialing",
+        amount: 0,
+        currency: "USD",
+        billingCycle: "monthly",
+        nextBillingDate: "2024-10-17",
+        paymentMethod: "Trial Account",
+        createdAt: "2024-10-10T10:30:00Z",
+        isExecutiveAccount: false
       }
     ]
 
