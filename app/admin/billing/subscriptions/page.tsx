@@ -329,35 +329,54 @@ export default function AdminSubscriptionManagement() {
   const handleSubscriptionCreated = async (newSubscription: Subscription) => {
     console.log('New subscription created:', newSubscription)
     try {
-      // Call unified database service
-      const response = await databaseService.createSubscription(newSubscription)
+      // First create the user
+      const userData = {
+        name: newSubscription.customerName,
+        email: newSubscription.customerEmail,
+        role: 'user',
+        subscription: newSubscription.planName,
+        phone: '',
+        status: 'active'
+      }
       
-      if (response.success && response.data) {
-        const createdSubscription = response.data.subscription
-        setSubscriptions(prev => [...prev, createdSubscription])
-        setFilteredSubscriptions(prev => [...prev, createdSubscription])
-        setStatusCounts(prev => ({
-          ...prev,
-          all: prev.all + 1,
-          [createdSubscription.status]: prev[createdSubscription.status as keyof typeof prev] + 1
-        }))
+      const userResponse = await databaseService.createUser(userData)
+      
+      if (userResponse.success) {
+        console.log('User created successfully:', userResponse.data.user)
         
-        // Update metrics
-        const activeSubs = [...subscriptions, createdSubscription].filter(s => s.status === "active")
-        const mrr = activeSubs.reduce((sum, sub) => sum + sub.amount, 0)
-        const arpu = activeSubs.length > 0 ? mrr / activeSubs.length : 0
+        // Then create the subscription
+        const subscriptionResponse = await databaseService.createSubscription(newSubscription)
         
-        setMetrics({
-          monthlyRecurringRevenue: mrr,
-          activeSubscriptions: activeSubs.length,
-          averageRevenuePerUser: arpu
-        })
-        
-        setIsCreateModalOpen(false)
-        alert('Subscription created successfully!')
+        if (subscriptionResponse.success && subscriptionResponse.data) {
+          const createdSubscription = subscriptionResponse.data.subscription
+          setSubscriptions(prev => [...prev, createdSubscription])
+          setFilteredSubscriptions(prev => [...prev, createdSubscription])
+          setStatusCounts(prev => ({
+            ...prev,
+            all: prev.all + 1,
+            [createdSubscription.status]: prev[createdSubscription.status as keyof typeof prev] + 1
+          }))
+          
+          // Update metrics
+          const activeSubs = [...subscriptions, createdSubscription].filter(s => s.status === "active")
+          const mrr = activeSubs.reduce((sum, sub) => sum + sub.amount, 0)
+          const arpu = activeSubs.length > 0 ? mrr / activeSubs.length : 0
+          
+          setMetrics({
+            monthlyRecurringRevenue: mrr,
+            activeSubscriptions: activeSubs.length,
+            averageRevenuePerUser: arpu
+          })
+          
+          setIsCreateModalOpen(false)
+          alert('User and subscription created successfully!')
+        } else {
+          console.error('Failed to create subscription:', subscriptionResponse.error)
+          alert(`Failed to create subscription: ${subscriptionResponse.error}`)
+        }
       } else {
-        console.error('Failed to create subscription:', response.error)
-        alert(`Failed to create subscription: ${response.error}`)
+        console.error('Failed to create user:', userResponse.error)
+        alert(`Failed to create user: ${userResponse.error}`)
       }
     } catch (error) {
       console.error('Error creating subscription:', error)
