@@ -77,13 +77,15 @@ export default function AdminUsersPage() {
     setLoading(true)
     setError(null)
     try {
-      console.log('Loading users...')
+      console.log('Loading users...', new Date().toISOString())
       
       // Use unified database service
       const response = await databaseService.getUsers()
       
       if (response.success && response.data) {
         console.log('Database response:', response)
+        console.log('Users data:', response.data.users)
+        console.log('Users count:', response.data.users.length)
         setUsers(response.data.users)
         setFilteredUsers(response.data.users)
         setStatusCounts(response.data.statusCounts)

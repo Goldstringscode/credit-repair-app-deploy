@@ -108,13 +108,15 @@ export default function AdminSubscriptionManagement() {
     setLoading(true)
     setError(null)
     try {
-      console.log('Loading subscriptions...')
+      console.log('Loading subscriptions...', new Date().toISOString())
       
       // Use unified database service
       const response = await databaseService.getSubscriptions()
       
       if (response.success && response.data) {
         console.log('Database response:', response)
+        console.log('Subscriptions data:', response.data.subscriptions)
+        console.log('Subscriptions count:', response.data.subscriptions.length)
         setSubscriptions(response.data.subscriptions)
         setFilteredSubscriptions(response.data.subscriptions)
         setStatusCounts(response.data.statusCounts)
