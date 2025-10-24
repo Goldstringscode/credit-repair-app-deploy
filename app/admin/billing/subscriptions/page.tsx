@@ -136,6 +136,27 @@ export default function AdminSubscriptionManagement() {
     loadSubscriptions()
   }, [])
 
+  // Refresh data when page becomes visible (user navigates back to this page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadSubscriptions()
+      }
+    }
+
+    const handleFocus = () => {
+      loadSubscriptions()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [])
+
   // Apply filters
   useEffect(() => {
     let filtered = [...subscriptions]

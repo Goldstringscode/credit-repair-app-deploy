@@ -104,6 +104,27 @@ export default function AdminUsersPage() {
     loadUsers()
   }, [])
 
+  // Refresh data when page becomes visible (user navigates back to this page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadUsers()
+      }
+    }
+
+    const handleFocus = () => {
+      loadUsers()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [])
+
   // Apply filters
   useEffect(() => {
     let filtered = [...users]
