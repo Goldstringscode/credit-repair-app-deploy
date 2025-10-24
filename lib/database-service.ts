@@ -51,6 +51,18 @@ class DatabaseService {
   private initializeMockData() {
     if (this.initialized) return
 
+    // Try to load from localStorage first
+    const savedUsers = localStorage.getItem('mockUsers')
+    const savedSubscriptions = localStorage.getItem('mockSubscriptions')
+
+    if (savedUsers && savedSubscriptions) {
+      this.mockUsers = JSON.parse(savedUsers)
+      this.mockSubscriptions = JSON.parse(savedSubscriptions)
+      this.initialized = true
+      return
+    }
+
+    // Default mock data if no saved data
     this.mockUsers = [
       {
         id: "1",
@@ -148,6 +160,17 @@ class DatabaseService {
     ]
 
     this.initialized = true
+    this.saveToLocalStorage()
+  }
+
+  // Save data to localStorage
+  private saveToLocalStorage() {
+    try {
+      localStorage.setItem('mockUsers', JSON.stringify(this.mockUsers))
+      localStorage.setItem('mockSubscriptions', JSON.stringify(this.mockSubscriptions))
+    } catch (error) {
+      console.error('Failed to save to localStorage:', error)
+    }
   }
 
   // User Management
@@ -948,6 +971,9 @@ class DatabaseService {
 
     // Add subscription to persistent storage
     this.mockSubscriptions.push(newSubscription)
+
+    // Save to localStorage
+    this.saveToLocalStorage()
 
     return {
       success: true,

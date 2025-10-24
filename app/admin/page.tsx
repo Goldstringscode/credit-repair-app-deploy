@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { databaseService } from "@/lib/database-service"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -41,47 +42,50 @@ import Link from "next/link"
 export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedTab, setSelectedTab] = useState("overview")
+  const [users, setUsers] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Mock data
+  // Load users from unified database service
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const response = await databaseService.getUsers()
+        if (response.success && response.data) {
+          setUsers(response.data.users)
+        }
+      } catch (error) {
+        console.error('Error loading users:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadUsers()
+  }, [])
+
+  // Dynamic system stats based on actual data
   const systemStats = {
-    totalUsers: 12847,
-    activeUsers: 8932,
-    totalRevenue: 2847392,
-    monthlyGrowth: 12.5,
-    systemHealth: 98.7,
-    activeDisputes: 1247,
-    completedDisputes: 8934,
-    pendingPayments: 23,
+    totalUsers: users.length,
+    activeUsers: users.filter(user => user.status === 'active').length,
+    totalRevenue: 2847392, // Keep static for now
+    monthlyGrowth: 12.5, // Keep static for now
+    systemHealth: 98.7, // Keep static for now
+    activeDisputes: 1247, // Keep static for now
+    completedDisputes: 8934, // Keep static for now
+    pendingPayments: 23, // Keep static for now
   }
 
-  const recentUsers = [
-    {
-      id: 1,
-      name: "John Smith",
-      email: "john@example.com",
-      plan: "Professional",
-      status: "Active",
-      joined: "2024-01-15",
-    },
-    {
-      id: 2,
-      name: "Sarah Johnson",
-      email: "sarah@example.com",
-      plan: "Premium",
-      status: "Active",
-      joined: "2024-01-14",
-    },
-    { id: 3, name: "Mike Davis", email: "mike@example.com", plan: "Basic", status: "Suspended", joined: "2024-01-13" },
-    {
-      id: 4,
-      name: "Lisa Wilson",
-      email: "lisa@example.com",
-      plan: "Professional",
-      status: "Active",
-      joined: "2024-01-12",
-    },
-    { id: 5, name: "Tom Brown", email: "tom@example.com", plan: "Premium", status: "Pending", joined: "2024-01-11" },
-  ]
+  // Recent users from actual data (last 5)
+  const recentUsers = users
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5)
+    .map(user => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      plan: user.subscription,
+      status: user.status,
+      joined: user.joinDate,
+    }))
 
   const systemAlerts = [
     { id: 1, type: "warning", message: "High API usage detected", time: "2 minutes ago" },
