@@ -136,26 +136,48 @@ export default function AdminSubscriptionManagement() {
 
   useEffect(() => {
     loadSubscriptions()
+    
+    // Set up periodic refresh every 30 seconds when page is active
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        console.log('Periodic refresh of subscriptions...')
+        loadSubscriptions()
+      }
+    }, 30000) // 30 seconds
+
+    return () => {
+      clearInterval(interval)
+    }
   }, [])
 
   // Refresh data when page becomes visible (user navigates back to this page)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
+        console.log('Page became visible, refreshing subscriptions...')
         loadSubscriptions()
       }
     }
 
     const handleFocus = () => {
+      console.log('Window gained focus, refreshing subscriptions...')
+      loadSubscriptions()
+    }
+
+    // Also refresh when the page is loaded (in case user navigated from users page)
+    const handlePageShow = () => {
+      console.log('Page shown, refreshing subscriptions...')
       loadSubscriptions()
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('focus', handleFocus)
+    window.addEventListener('pageshow', handlePageShow)
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('pageshow', handlePageShow)
     }
   }, [])
 
@@ -402,9 +424,9 @@ export default function AdminSubscriptionManagement() {
             <p className="text-gray-600">Manage customer subscriptions, billing cycles, and payment issues</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={loadSubscriptions}>
+            <Button variant="outline" onClick={loadSubscriptions} className="bg-blue-50 hover:bg-blue-100">
               <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
+              Refresh Data
             </Button>
             <Button variant="outline" onClick={handleExportSubscriptions}>
               <Download className="h-4 w-4 mr-2" />
