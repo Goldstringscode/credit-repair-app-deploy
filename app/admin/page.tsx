@@ -36,6 +36,7 @@ import {
   CreditCard,
   TrendingDown,
   Upload,
+  RefreshCw,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -47,27 +48,49 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
 
   // Load users and subscriptions from unified database service
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        // Load users
-        const usersResponse = await databaseService.getUsers()
-        if (usersResponse.success && usersResponse.data) {
-          setUsers(usersResponse.data.users)
-        }
+  const loadData = async () => {
+    try {
+      // Load users
+      const usersResponse = await databaseService.getUsers()
+      if (usersResponse.success && usersResponse.data) {
+        setUsers(usersResponse.data.users)
+      }
 
-        // Load subscriptions
-        const subscriptionsResponse = await databaseService.getSubscriptions()
-        if (subscriptionsResponse.success && subscriptionsResponse.data) {
-          setSubscriptions(subscriptionsResponse.data.subscriptions)
-        }
-      } catch (error) {
-        console.error('Error loading data:', error)
-      } finally {
-        setLoading(false)
+      // Load subscriptions
+      const subscriptionsResponse = await databaseService.getSubscriptions()
+      if (subscriptionsResponse.success && subscriptionsResponse.data) {
+        setSubscriptions(subscriptionsResponse.data.subscriptions)
+      }
+    } catch (error) {
+      console.error('Error loading data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  // Refresh data when page becomes visible (user navigates back to this page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadData()
       }
     }
-    loadData()
+
+    const handleFocus = () => {
+      loadData()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [])
 
   // Dynamic system stats based on actual data
@@ -109,15 +132,21 @@ export default function AdminPage() {
       </div>
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="billing">Billing</TabsTrigger>
-          <TabsTrigger value="email">Email</TabsTrigger>
-          <TabsTrigger value="compliance">Compliance</TabsTrigger>
-          <TabsTrigger value="system">System</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between">
+          <TabsList className="grid w-full grid-cols-7">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="billing">Billing</TabsTrigger>
+            <TabsTrigger value="email">Email</TabsTrigger>
+            <TabsTrigger value="compliance">Compliance</TabsTrigger>
+            <TabsTrigger value="system">System</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
+          <Button variant="outline" onClick={loadData} className="ml-4">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh Data
+          </Button>
+        </div>
 
         <TabsContent value="overview" className="space-y-6">
           {/* Key Metrics */}
