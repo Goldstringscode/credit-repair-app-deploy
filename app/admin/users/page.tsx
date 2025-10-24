@@ -137,7 +137,6 @@ export default function AdminUsersPage() {
         setUsers(response.data.users)
         setFilteredUsers(response.data.users)
         setStatusCounts(response.data.statusCounts)
-        setMetrics(response.data.metrics)
         console.log('Users loaded from database:', response.data.users.length)
       } else {
         console.log('Database failed, using mock data:', response.error)
@@ -153,16 +152,6 @@ export default function AdminUsersPage() {
           pending: mockUsers.filter(u => u.status === "pending").length
         })
 
-        setMetrics({
-          totalUsers: mockUsers.length,
-          activeUsers: mockUsers.filter(u => u.status === "active").length,
-          verifiedUsers: mockUsers.filter(u => u.isVerified).length,
-          newThisMonth: mockUsers.filter(u => {
-            const userDate = new Date(u.createdAt)
-            const now = new Date()
-            return userDate.getMonth() === now.getMonth() && userDate.getFullYear() === now.getFullYear()
-          }).length
-        })
         console.log('Users loaded from mock data:', mockUsers.length)
       }
     } catch (error) {
