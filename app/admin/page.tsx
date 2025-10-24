@@ -1224,7 +1224,7 @@ export default function AdminPage() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">$125,000</div>
+                <div className="text-2xl font-bold">${subscriptions.filter(sub => sub.status === 'active').reduce((sum, sub) => sum + (sub.amount || 0), 0).toLocaleString()}</div>
                 <p className="text-xs text-muted-foreground">+3.2% from last month</p>
               </CardContent>
             </Card>
@@ -1235,7 +1235,7 @@ export default function AdminPage() {
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">1,250</div>
+                <div className="text-2xl font-bold">{subscriptions.filter(sub => sub.status === 'active').length}</div>
                 <p className="text-xs text-muted-foreground">+12.5% from last month</p>
               </CardContent>
             </Card>
@@ -1356,6 +1356,45 @@ export default function AdminPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Billing Users List */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Billing Users</CardTitle>
+              <CardDescription>Users with active subscriptions and billing information</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {users.length > 0 ? (
+                  users.map((user) => (
+                    <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <span className="text-blue-600 font-medium text-sm">
+                            {user.name.split(' ').map(n => n[0]).join('')}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-medium">{user.name}</p>
+                          <p className="text-sm text-gray-600">{user.email}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">{user.subscription}</p>
+                        <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
+                          {user.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    No users found. Create a user to see them here.
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Billing Overview */}
           <Card>

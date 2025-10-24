@@ -117,10 +117,10 @@ export default function AdminSubscriptionManagement() {
         console.log('Database response:', response)
         console.log('Subscriptions data:', response.data.subscriptions)
         console.log('Subscriptions count:', response.data.subscriptions.length)
-        setSubscriptions(response.data.subscriptions)
-        setFilteredSubscriptions(response.data.subscriptions)
-        setStatusCounts(response.data.statusCounts)
-        setMetrics(response.data.metrics)
+          setSubscriptions(response.data.subscriptions)
+          setFilteredSubscriptions(response.data.subscriptions)
+          setStatusCounts(response.data.statusCounts)
+          setMetrics(response.data.metrics)
         console.log('Subscriptions loaded from database:', response.data.subscriptions.length)
       } else {
         console.log('Database failed:', response.error)
@@ -136,48 +136,26 @@ export default function AdminSubscriptionManagement() {
 
   useEffect(() => {
     loadSubscriptions()
-    
-    // Set up periodic refresh every 30 seconds when page is active
-    const interval = setInterval(() => {
-      if (!document.hidden) {
-        console.log('Periodic refresh of subscriptions...')
-        loadSubscriptions()
-      }
-    }, 30000) // 30 seconds
-
-    return () => {
-      clearInterval(interval)
-    }
   }, [])
 
   // Refresh data when page becomes visible (user navigates back to this page)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        console.log('Page became visible, refreshing subscriptions...')
-        loadSubscriptions()
+      loadSubscriptions()
       }
     }
 
     const handleFocus = () => {
-      console.log('Window gained focus, refreshing subscriptions...')
-      loadSubscriptions()
-    }
-
-    // Also refresh when the page is loaded (in case user navigated from users page)
-    const handlePageShow = () => {
-      console.log('Page shown, refreshing subscriptions...')
       loadSubscriptions()
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('focus', handleFocus)
-    window.addEventListener('pageshow', handlePageShow)
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocus)
-      window.removeEventListener('pageshow', handlePageShow)
     }
   }, [])
 
@@ -211,8 +189,8 @@ export default function AdminSubscriptionManagement() {
       past_due: { color: 'bg-yellow-100 text-yellow-800', icon: AlertCircle },
       trialing: { color: 'bg-blue-100 text-blue-800', icon: Clock },
       paused: { color: 'bg-gray-100 text-gray-800', icon: Pause },
-      incomplete: { color: 'bg-orange-100 text-orange-800', icon: AlertCircle },
-      grace_period: { color: 'bg-purple-100 text-purple-800', icon: Clock }
+        incomplete: { color: 'bg-orange-100 text-orange-800', icon: AlertCircle },
+        grace_period: { color: 'bg-purple-100 text-purple-800', icon: Clock }
     }
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.active
@@ -275,7 +253,7 @@ export default function AdminSubscriptionManagement() {
           
           setIsCreateModalOpen(false)
           alert('User and subscription created successfully!')
-        } else {
+      } else {
           console.error('Failed to create subscription:', subscriptionResponse.error)
           alert(`Failed to create subscription: ${subscriptionResponse.error}`)
         }
@@ -314,7 +292,7 @@ export default function AdminSubscriptionManagement() {
         // Call unified database service
         const response = await databaseService.deleteSubscription(selectedSubscription.id)
         
-        if (response.success) {
+      if (response.success) {
           // Remove from local state
           setSubscriptions(prev => prev.filter(s => s.id !== selectedSubscription.id))
           setFilteredSubscriptions(prev => prev.filter(s => s.id !== selectedSubscription.id))
@@ -326,11 +304,11 @@ export default function AdminSubscriptionManagement() {
           setIsDeleteModalOpen(false)
           setSelectedSubscription(null)
           alert('Subscription deleted successfully!')
-        } else {
+      } else {
           console.error('Failed to delete subscription:', response.error)
           alert(`Failed to delete subscription: ${response.error}`)
-        }
-      } catch (error) {
+      }
+    } catch (error) {
         console.error('Error deleting subscription:', error)
         alert('An error occurred while deleting the subscription. Please try again.')
       }
@@ -424,9 +402,9 @@ export default function AdminSubscriptionManagement() {
             <p className="text-gray-600">Manage customer subscriptions, billing cycles, and payment issues</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={loadSubscriptions} className="bg-blue-50 hover:bg-blue-100">
+            <Button variant="outline" onClick={loadSubscriptions}>
               <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh Data
+              Refresh
             </Button>
             <Button variant="outline" onClick={handleExportSubscriptions}>
               <Download className="h-4 w-4 mr-2" />
@@ -441,14 +419,14 @@ export default function AdminSubscriptionManagement() {
       </div>
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="all">All ({statusCounts.all})</TabsTrigger>
           <TabsTrigger value="active">Active ({statusCounts.active})</TabsTrigger>
           <TabsTrigger value="trialing">Trialing ({statusCounts.trialing})</TabsTrigger>
           <TabsTrigger value="past_due">Past Due ({statusCounts.past_due})</TabsTrigger>
           <TabsTrigger value="cancelled">Cancelled ({statusCounts.cancelled})</TabsTrigger>
           <TabsTrigger value="paused">Paused ({statusCounts.paused})</TabsTrigger>
-          <TabsTrigger value="grace_period">Grace Period ({statusCounts.grace_period})</TabsTrigger>
+              <TabsTrigger value="grace_period">Grace Period ({statusCounts.grace_period})</TabsTrigger>
         </TabsList>
 
         <TabsContent value={selectedTab} className="space-y-6">
@@ -550,7 +528,7 @@ export default function AdminSubscriptionManagement() {
                       <p className="text-xs text-gray-500 mt-1">{subscription.billingCycle}</p>
                     </div>
                     <div className="col-span-1">
-                      {getStatusBadge(subscription.status, subscription)}
+                          {getStatusBadge(subscription.status, subscription)}
                     </div>
                     <div className="col-span-1">
                       <p className="font-medium">${subscription.amount}</p>
@@ -593,14 +571,14 @@ export default function AdminSubscriptionManagement() {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
                           onClick={() => handleDeleteSubscription(subscription)}
                           title="Delete subscription"
-                        >
+                          >
                           <Trash2 className="h-4 w-4" />
-                        </Button>
+                          </Button>
                       </div>
                     </div>
                   </div>
