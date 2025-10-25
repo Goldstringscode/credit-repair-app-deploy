@@ -18,6 +18,7 @@ import {
   PieChart,
   Activity,
   Download,
+  RefreshCw,
 } from "lucide-react"
 
 interface AnalyticsData {
@@ -50,6 +51,7 @@ export default function AnalyticsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [timeRange, setTimeRange] = useState("7d")
   const [selectedMetric, setSelectedMetric] = useState("all")
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
     loadAnalyticsData()
@@ -57,6 +59,7 @@ export default function AnalyticsPage() {
 
   const loadAnalyticsData = async () => {
     setIsLoading(true)
+    setRefreshing(true)
     try {
       const endDate = new Date()
       const startDate = new Date()
@@ -77,14 +80,19 @@ export default function AnalyticsPage() {
       }
 
       const response = await fetch(
-        `/api/analytics/track?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
+        `/api/analytics/track?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}&timeRange=${timeRange}`,
       )
 
       if (!response.ok) throw new Error("Failed to load analytics")
 
-      const data = await response.json()
+      const result = await response.json()
 
-      // Mock enhanced data for demonstration
+      if (result.success && result.data) {
+        setAnalyticsData(result.data)
+        return
+      }
+
+      // Fallback to mock data if API fails
       const mockData: AnalyticsData = {
         overview: {
           totalUsers: 1247,
@@ -143,8 +151,30 @@ export default function AnalyticsPage() {
       console.error("Failed to load analytics:", error)
     } finally {
       setIsLoading(false)
+      setRefreshing(false)
     }
   }
+
+  // Auto-refresh when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadAnalyticsData()
+      }
+    }
+
+    const handleFocus = () => {
+      loadAnalyticsData()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [timeRange, selectedMetric])
 
   const exportData = async () => {
     try {
@@ -188,6 +218,14 @@ export default function AnalyticsPage() {
             <p className="text-gray-600">Track conversion rates and optimize your onboarding funnel</p>
           </div>
           <div className="flex gap-3 mt-4 md:mt-0">
+            <Button 
+              onClick={loadAnalyticsData} 
+              variant="outline" 
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
             <Select value={timeRange} onValueChange={setTimeRange}>
               <SelectTrigger className="w-32">
                 <SelectValue />

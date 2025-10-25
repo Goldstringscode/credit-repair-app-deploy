@@ -102,7 +102,52 @@ export default function AdminInvoiceManagement() {
     amountRange: 'all'
   })
 
-  // Mock data
+  // Load invoices data
+  const loadInvoices = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/admin/invoices')
+      const result = await response.json()
+      
+      if (result.success && result.data) {
+        setInvoices(result.data.invoices)
+        setMetrics(result.data.metrics)
+      } else {
+        console.error('Failed to load invoices:', result.error)
+      }
+    } catch (error) {
+      console.error('Error loading invoices:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadInvoices()
+  }, [])
+
+  // Auto-refresh when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadInvoices()
+      }
+    }
+
+    const handleFocus = () => {
+      loadInvoices()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [])
+
+  // Mock data fallback
   const mockInvoices: Invoice[] = [
     {
       id: 'inv_001',
@@ -349,8 +394,8 @@ export default function AdminInvoiceManagement() {
             <p className="text-gray-600">Create, manage, and track all customer invoices</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setLoading(true)}>
-              <RefreshCw className="h-4 w-4 mr-2" />
+            <Button variant="outline" onClick={loadInvoices} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
             <Button variant="outline">

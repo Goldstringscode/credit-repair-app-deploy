@@ -44,6 +44,27 @@ export default function PricingPlansManagement() {
     loadPricingData()
   }, [])
 
+  // Auto-refresh when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadPricingData()
+      }
+    }
+
+    const handleFocus = () => {
+      loadPricingData()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [])
+
   const loadPricingData = async () => {
     try {
       setLoading(true)
@@ -52,10 +73,10 @@ export default function PricingPlansManagement() {
       const response = await fetch('/api/billing/plans')
       const data = await response.json()
       
-      if (data.success) {
-        setPlans(data.plans || [])
-        setPromotions(data.promotions || [])
-        setABTests(data.abTests || [])
+      if (data.success && data.data) {
+        setPlans(data.data.plans || [])
+        setPromotions(data.data.promotions || [])
+        setABTests(data.data.abTests || [])
       } else {
         setError(data.error || 'Failed to load pricing data')
       }

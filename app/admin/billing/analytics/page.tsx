@@ -22,7 +22,30 @@ import {
   CheckCircle,
   XCircle
 } from 'lucide-react'
-import { BillingMetrics, PlanMetrics } from '@/lib/billing-analytics'
+import { databaseService } from '@/lib/database-service'
+
+interface BillingMetrics {
+  totalRevenue: number
+  monthlyRecurringRevenue: number
+  activeSubscriptions: number
+  totalSubscriptions: number
+  churnRate: number
+  averageRevenuePerUser: number
+  paymentSuccessRate: number
+  newSubscriptions: number
+  canceledSubscriptions: number
+  growthRate: number
+}
+
+interface PlanMetrics {
+  planId: string
+  planName: string
+  subscriptions: number
+  revenue: number
+  revenuePercentage: number
+  averageRevenuePerUser: number
+  churnRate: number
+}
 
 interface AnalyticsDashboardProps {}
 
@@ -37,20 +60,70 @@ export default function AnalyticsDashboard() {
     loadMetrics()
   }, [timeRange])
 
+  // Auto-refresh when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadMetrics()
+      }
+    }
+
+    const handleFocus = () => {
+      loadMetrics()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [timeRange])
+
   const loadMetrics = async () => {
     try {
       setLoading(true)
       setError(null)
       
-      const response = await fetch(`/api/billing/analytics?timeRange=${timeRange}`)
-      const data = await response.json()
+      // Load data from unified database service
+      const subscriptionsResponse = await databaseService.getSubscriptions()
       
-      if (data.success) {
-        setMetrics(data.metrics)
+      if (subscriptionsResponse.success && subscriptionsResponse.data) {
+        const subscriptions = subscriptionsResponse.data.subscriptions
+        const activeSubscriptions = subscriptions.filter(sub => sub.status === 'active')
+        const newSubscriptions = subscriptions.filter(sub => {
+          const createdDate = new Date(sub.createdAt)
+          const daysDiff = (Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)
+          return daysDiff <= 30
+        })
+        const canceledSubscriptions = subscriptions.filter(sub => sub.status === 'cancelled')
+        
+        const mrr = activeSubscriptions.reduce((sum, sub) => sum + (sub.amount || 0), 0)
+        const arr = mrr * 12
+        const arpu = activeSubscriptions.length > 0 ? mrr / activeSubscriptions.length : 0
+        const churnRate = subscriptions.length > 0 ? (canceledSubscriptions.length / subscriptions.length) * 100 : 0
+        const growthRate = subscriptions.length > 0 ? (newSubscriptions.length / subscriptions.length) * 100 : 0
+        
+        const billingMetrics: BillingMetrics = {
+          totalRevenue: arr,
+          monthlyRecurringRevenue: mrr,
+          activeSubscriptions: activeSubscriptions.length,
+          totalSubscriptions: subscriptions.length,
+          churnRate: Math.round(churnRate * 10) / 10,
+          averageRevenuePerUser: Math.round(arpu * 100) / 100,
+          paymentSuccessRate: 99.0, // Static for now
+          newSubscriptions: newSubscriptions.length,
+          canceledSubscriptions: canceledSubscriptions.length,
+          growthRate: Math.round(growthRate * 10) / 10
+        }
+        
+        setMetrics(billingMetrics)
       } else {
-        setError(data.error || 'Failed to load analytics')
+        setError('Failed to load subscription data')
       }
     } catch (err: any) {
+      console.error('Error loading metrics:', err)
       setError(err.message)
     } finally {
       setLoading(false)

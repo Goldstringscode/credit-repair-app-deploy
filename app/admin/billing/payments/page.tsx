@@ -96,7 +96,52 @@ export default function AdminPaymentManagement() {
     amountRange: 'all'
   })
 
-  // Mock data
+  // Load payments data
+  const loadPayments = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/admin/payments')
+      const result = await response.json()
+      
+      if (result.success && result.data) {
+        setPayments(result.data.payments)
+        setMetrics(result.data.metrics)
+      } else {
+        console.error('Failed to load payments:', result.error)
+      }
+    } catch (error) {
+      console.error('Error loading payments:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadPayments()
+  }, [])
+
+  // Auto-refresh when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadPayments()
+      }
+    }
+
+    const handleFocus = () => {
+      loadPayments()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [])
+
+  // Mock data fallback
   const mockPayments: Payment[] = [
     {
       id: 'pay_001',
@@ -307,8 +352,8 @@ export default function AdminPaymentManagement() {
             <p className="text-gray-600">Monitor, manage, and process all payment transactions</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setLoading(true)}>
-              <RefreshCw className="h-4 w-4 mr-2" />
+            <Button variant="outline" onClick={loadPayments} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
             <Button variant="outline">

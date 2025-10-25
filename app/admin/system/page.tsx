@@ -44,21 +44,61 @@ export default function SystemPage() {
     status: "healthy"
   })
 
-  const [services, setServices] = useState<ServiceStatus[]>([
-    { name: "Database", status: "running", lastCheck: "2 minutes ago" },
-    { name: "API Server", status: "running", lastCheck: "1 minute ago" },
-    { name: "Email Service", status: "running", lastCheck: "3 minutes ago" },
-    { name: "File Storage", status: "running", lastCheck: "1 minute ago" },
-    { name: "Background Jobs", status: "running", lastCheck: "30 seconds ago" },
-    { name: "Monitoring", status: "running", lastCheck: "1 minute ago" }
-  ])
-
+  const [services, setServices] = useState<ServiceStatus[]>([])
+  const [recentEvents, setRecentEvents] = useState<any[]>([])
+  const [summary, setSummary] = useState<any>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  const loadSystemData = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/admin/system')
+      const result = await response.json()
+      
+      if (result.success && result.data) {
+        setMetrics(result.data.metrics)
+        setServices(result.data.services)
+        setRecentEvents(result.data.recentEvents)
+        setSummary(result.data.summary)
+      } else {
+        console.error('Failed to load system data:', result.error)
+      }
+    } catch (error) {
+      console.error('Error loading system data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadSystemData()
+  }, [])
+
+  // Auto-refresh when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadSystemData()
+      }
+    }
+
+    const handleFocus = () => {
+      loadSystemData()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [])
 
   const refreshMetrics = async () => {
     setIsRefreshing(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    await loadSystemData()
     setIsRefreshing(false)
   }
 
@@ -90,6 +130,19 @@ export default function SystemPage() {
     }
   }
 
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p className="text-gray-600">Loading system data...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -100,11 +153,11 @@ export default function SystemPage() {
         </div>
         <Button
           onClick={refreshMetrics}
-          disabled={isRefreshing}
+          disabled={isRefreshing || loading}
           className="flex items-center space-x-2"
         >
           <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-          <span>Refresh</span>
+          <span>{isRefreshing ? "Refreshing..." : "Refresh"}</span>
         </Button>
       </div>
 
