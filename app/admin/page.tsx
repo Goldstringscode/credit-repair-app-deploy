@@ -50,15 +50,21 @@ export default function AdminPage() {
   // Load users and subscriptions from unified database service
   const loadData = async () => {
     try {
+      console.log('Admin dashboard loading data...', new Date().toISOString())
+      
       // Load users
       const usersResponse = await databaseService.getUsers()
+      console.log('Users response:', usersResponse)
       if (usersResponse.success && usersResponse.data) {
+        console.log('Setting users:', usersResponse.data.users.length, 'users')
         setUsers(usersResponse.data.users)
       }
 
       // Load subscriptions
       const subscriptionsResponse = await databaseService.getSubscriptions()
+      console.log('Subscriptions response:', subscriptionsResponse)
       if (subscriptionsResponse.success && subscriptionsResponse.data) {
+        console.log('Setting subscriptions:', subscriptionsResponse.data.subscriptions.length, 'subscriptions')
         setSubscriptions(subscriptionsResponse.data.subscriptions)
       }
     } catch (error) {
@@ -1365,7 +1371,13 @@ export default function AdminPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {users.length > 0 ? (
+                {console.log('Rendering billing users:', users.length, 'users')}
+                {loading ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                    Loading users...
+                  </div>
+                ) : users.length > 0 ? (
                   users.map((user) => (
                     <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center space-x-4">
