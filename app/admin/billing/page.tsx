@@ -109,50 +109,71 @@ export default function AdminBillingDashboard() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
 
   // Load data from unified database service
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        console.log('Loading billing data from unified database service...')
+  const loadData = async () => {
+    try {
+      console.log('Loading billing data from unified database service...')
+      
+      // Load subscriptions
+      const subscriptionsResponse = await databaseService.getSubscriptions()
+      if (subscriptionsResponse.success && subscriptionsResponse.data) {
+        console.log('Loaded subscriptions:', subscriptionsResponse.data.subscriptions.length)
+        setSubscriptions(subscriptionsResponse.data.subscriptions)
         
-        // Load subscriptions
-        const subscriptionsResponse = await databaseService.getSubscriptions()
-        if (subscriptionsResponse.success && subscriptionsResponse.data) {
-          console.log('Loaded subscriptions:', subscriptionsResponse.data.subscriptions.length)
-          setSubscriptions(subscriptionsResponse.data.subscriptions)
-          
-          // Calculate metrics from real data
-          const subs = subscriptionsResponse.data.subscriptions
-          const activeSubs = subs.filter(sub => sub.status === 'active')
-          const trialingSubs = subs.filter(sub => sub.status === 'trialing')
-          const pastDueSubs = subs.filter(sub => sub.status === 'past_due')
-          
-          const mrr = activeSubs.reduce((sum, sub) => sum + (sub.amount || 0), 0)
-          const arpu = activeSubs.length > 0 ? mrr / activeSubs.length : 0
-          
-          setMetrics({
-            totalRevenue: mrr * 12, // Annual estimate
-            monthlyRecurringRevenue: mrr,
-            totalSubscriptions: subs.length,
-            activeSubscriptions: activeSubs.length,
-            trialingSubscriptions: trialingSubs.length,
-            pastDueSubscriptions: pastDueSubs.length,
-            churnRate: 0.86, // Keep static for now
-            averageRevenuePerUser: arpu,
-            paymentSuccessRate: 99.0, // Keep static for now
-            totalInvoices: subs.length,
-            paidInvoices: activeSubs.length,
-            pendingInvoices: trialingSubs.length,
-            overdueInvoices: pastDueSubs.length
-          })
-        }
-      } catch (error) {
-        console.error('Error loading billing data:', error)
-      } finally {
-        setLoading(false)
+        // Calculate metrics from real data
+        const subs = subscriptionsResponse.data.subscriptions
+        const activeSubs = subs.filter(sub => sub.status === 'active')
+        const trialingSubs = subs.filter(sub => sub.status === 'trialing')
+        const pastDueSubs = subs.filter(sub => sub.status === 'past_due')
+        
+        const mrr = activeSubs.reduce((sum, sub) => sum + (sub.amount || 0), 0)
+        const arpu = activeSubs.length > 0 ? mrr / activeSubs.length : 0
+        
+        setMetrics({
+          totalRevenue: mrr * 12, // Annual estimate
+          monthlyRecurringRevenue: mrr,
+          totalSubscriptions: subs.length,
+          activeSubscriptions: activeSubs.length,
+          trialingSubscriptions: trialingSubs.length,
+          pastDueSubscriptions: pastDueSubs.length,
+          churnRate: 0.86, // Keep static for now
+          averageRevenuePerUser: arpu,
+          paymentSuccessRate: 99.0, // Keep static for now
+          totalInvoices: subs.length,
+          paidInvoices: activeSubs.length,
+          pendingInvoices: trialingSubs.length,
+          overdueInvoices: pastDueSubs.length
+        })
+      }
+    } catch (error) {
+      console.error('Error loading billing data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  // Refresh data when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadData()
       }
     }
-    
-    loadData()
+
+    const handleFocus = () => {
+      loadData()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [])
 
   // Mock data - fallback if database fails
@@ -366,10 +387,7 @@ export default function AdminBillingDashboard() {
   }
 
   const handleRefreshData = () => {
-    setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
-    }, 1000)
+    loadData()
   }
 
   if (loading) {
@@ -682,7 +700,7 @@ export default function AdminBillingDashboard() {
                   <div>Revenue</div>
                   <div>Actions</div>
                 </div>
-                {subscriptions.map((subscription) => (
+                {subscriptions.length > 0 ? subscriptions.map((subscription) => (
                   <div key={subscription.id} className="grid grid-cols-8 gap-4 p-4 border-t">
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
@@ -720,7 +738,13 @@ export default function AdminBillingDashboard() {
                       </Button>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="col-span-8 p-8 text-center text-gray-500">
+                    <CreditCard className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                    <p className="text-lg font-medium">No subscriptions found</p>
+                    <p className="text-sm">Create a user to see their subscription here</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
