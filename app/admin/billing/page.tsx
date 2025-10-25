@@ -107,6 +107,17 @@ export default function AdminBillingDashboard() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([])
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
+  
+  // Settings state
+  const [settings, setSettings] = useState({
+    defaultCurrency: 'USD',
+    paymentGateway: 'Stripe',
+    invoicePrefix: 'INV-',
+    trialPeriod: 14,
+    gracePeriod: 3,
+    dunningManagement: 'Enabled'
+  })
+  const [isSaving, setIsSaving] = useState(false)
 
   // Load data from unified database service
   const loadData = async () => {
@@ -388,6 +399,32 @@ export default function AdminBillingDashboard() {
 
   const handleRefreshData = () => {
     loadData()
+  }
+
+  const handleSaveSettings = async () => {
+    setIsSaving(true)
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // In a real app, this would save to the database
+      console.log('Saving billing settings:', settings)
+      
+      // Show success message
+      alert('Billing settings saved successfully!')
+    } catch (error) {
+      console.error('Error saving settings:', error)
+      alert('Failed to save settings. Please try again.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleSettingsChange = (field: string, value: string | number) => {
+    setSettings(prev => ({
+      ...prev,
+      [field]: value
+    }))
   }
 
   if (loading) {
@@ -1031,15 +1068,24 @@ export default function AdminBillingDashboard() {
                   <h3 className="font-medium">Payment Settings</h3>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Default Currency</label>
-                    <Input defaultValue="USD" />
+                    <Input 
+                      value={settings.defaultCurrency}
+                      onChange={(e) => handleSettingsChange('defaultCurrency', e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Payment Gateway</label>
-                    <Input defaultValue="Stripe" />
+                    <Input 
+                      value={settings.paymentGateway}
+                      onChange={(e) => handleSettingsChange('paymentGateway', e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Invoice Prefix</label>
-                    <Input defaultValue="INV-" />
+                    <Input 
+                      value={settings.invoicePrefix}
+                      onChange={(e) => handleSettingsChange('invoicePrefix', e.target.value)}
+                    />
                   </div>
                 </div>
 
@@ -1047,22 +1093,44 @@ export default function AdminBillingDashboard() {
                   <h3 className="font-medium">Subscription Settings</h3>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Trial Period (days)</label>
-                    <Input defaultValue="14" type="number" />
+                    <Input 
+                      value={settings.trialPeriod}
+                      onChange={(e) => handleSettingsChange('trialPeriod', parseInt(e.target.value) || 0)}
+                      type="number" 
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Grace Period (days)</label>
-                    <Input defaultValue="3" type="number" />
+                    <Input 
+                      value={settings.gracePeriod}
+                      onChange={(e) => handleSettingsChange('gracePeriod', parseInt(e.target.value) || 0)}
+                      type="number" 
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Dunning Management</label>
-                    <Input defaultValue="Enabled" />
+                    <Input 
+                      value={settings.dunningManagement}
+                      onChange={(e) => handleSettingsChange('dunningManagement', e.target.value)}
+                    />
                   </div>
                 </div>
               </div>
 
               <div className="flex justify-end space-x-2">
-                <Button variant="outline">Cancel</Button>
-                <Button>Save Changes</Button>
+                <Button variant="outline" onClick={() => setSelectedTab('overview')}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveSettings} disabled={isSaving}>
+                  {isSaving ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>

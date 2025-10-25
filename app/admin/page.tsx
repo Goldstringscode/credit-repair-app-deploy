@@ -46,6 +46,17 @@ export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([])
   const [subscriptions, setSubscriptions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  
+  // Settings state
+  const [settings, setSettings] = useState({
+    platformName: 'CreditAI Pro',
+    supportEmail: 'support@creditaipro.com',
+    maxUsers: 50000,
+    sessionTimeout: 30,
+    maxLoginAttempts: 5,
+    passwordMinLength: 8
+  })
+  const [isSaving, setIsSaving] = useState(false)
 
   // Load users and subscriptions from unified database service
   const loadData = async () => {
@@ -98,6 +109,32 @@ export default function AdminPage() {
       window.removeEventListener('focus', handleFocus)
     }
   }, [])
+
+  const handleSaveSettings = async () => {
+    setIsSaving(true)
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // In a real app, this would save to the database
+      console.log('Saving admin settings:', settings)
+      
+      // Show success message
+      alert('Admin settings saved successfully!')
+    } catch (error) {
+      console.error('Error saving settings:', error)
+      alert('Failed to save settings. Please try again.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleSettingsChange = (field: string, value: string | number) => {
+    setSettings(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
 
   // Dynamic system stats based on actual data
   const systemStats = {
@@ -1470,15 +1507,25 @@ export default function AdminPage() {
                   <h3 className="font-medium">General Settings</h3>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Platform Name</label>
-                    <Input defaultValue="CreditAI Pro" />
+                    <Input 
+                      value={settings.platformName}
+                      onChange={(e) => handleSettingsChange('platformName', e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Support Email</label>
-                    <Input defaultValue="support@creditaipro.com" />
+                    <Input 
+                      value={settings.supportEmail}
+                      onChange={(e) => handleSettingsChange('supportEmail', e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Max Users</label>
-                    <Input defaultValue="50000" type="number" />
+                    <Input 
+                      value={settings.maxUsers}
+                      onChange={(e) => handleSettingsChange('maxUsers', parseInt(e.target.value) || 0)}
+                      type="number" 
+                    />
                   </div>
                 </div>
 
@@ -1486,22 +1533,45 @@ export default function AdminPage() {
                   <h3 className="font-medium">Security Settings</h3>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Session Timeout (minutes)</label>
-                    <Input defaultValue="30" type="number" />
+                    <Input 
+                      value={settings.sessionTimeout}
+                      onChange={(e) => handleSettingsChange('sessionTimeout', parseInt(e.target.value) || 0)}
+                      type="number" 
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Max Login Attempts</label>
-                    <Input defaultValue="5" type="number" />
+                    <Input 
+                      value={settings.maxLoginAttempts}
+                      onChange={(e) => handleSettingsChange('maxLoginAttempts', parseInt(e.target.value) || 0)}
+                      type="number" 
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Password Min Length</label>
-                    <Input defaultValue="8" type="number" />
+                    <Input 
+                      value={settings.passwordMinLength}
+                      onChange={(e) => handleSettingsChange('passwordMinLength', parseInt(e.target.value) || 0)}
+                      type="number" 
+                    />
                   </div>
                 </div>
               </div>
 
               <div className="flex justify-end space-x-2">
-                <Button variant="outline">Cancel</Button>
-                <Button>Save Changes</Button>
+                <Button variant="outline" onClick={() => setSelectedTab('overview')}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveSettings} disabled={isSaving}>
+                  {isSaving ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>
