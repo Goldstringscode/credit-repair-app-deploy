@@ -297,6 +297,65 @@ export default function EmailMarketingPage() {
     }
   }
 
+  const handleResendCampaign = async (campaignId: string) => {
+    const campaign = campaigns.find(c => c.id === campaignId)
+    if (!campaign) return
+
+    // Ask for confirmation and new recipient count
+    const newRecipients = prompt(
+      `Resend campaign "${campaign.name}"\n\nEnter number of recipients for this resend:`,
+      campaign.recipients.toString()
+    )
+
+    if (newRecipients === null) return // User cancelled
+
+    const recipientCount = parseInt(newRecipients)
+    if (isNaN(recipientCount) || recipientCount <= 0) {
+      alert('Please enter a valid number of recipients')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/admin/email/campaigns', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: campaignId,
+          status: 'sending',
+          recipients: recipientCount,
+          sent: 0, // Reset sent count for resend
+          opened: 0, // Reset opened count for resend
+          clicked: 0 // Reset clicked count for resend
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Update local state
+        setCampaigns(prev => prev.map(c => 
+          c.id === campaignId ? { 
+            ...c, 
+            status: 'sending',
+            recipients: recipientCount,
+            sent: 0,
+            opened: 0,
+            clicked: 0
+          } : c
+        ))
+        alert(`Campaign is being resent to ${recipientCount} recipients!`)
+        loadData() // Refresh data
+      } else {
+        alert(`Failed to resend campaign: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error resending campaign:', error)
+      alert('An error occurred while resending the campaign')
+    }
+  }
+
   const handleEditCampaign = (campaignId: string) => {
     const campaign = campaigns.find(c => c.id === campaignId)
     if (campaign) {
@@ -516,6 +575,12 @@ export default function EmailMarketingPage() {
                         <Button size="sm" onClick={() => handleSendCampaign(campaign.id)}>
                           <Send className="h-4 w-4 mr-1" />
                           Send
+                        </Button>
+                      )}
+                      {(campaign.status === 'sent' || campaign.status === 'sending') && (
+                        <Button size="sm" variant="outline" onClick={() => handleResendCampaign(campaign.id)}>
+                          <Send className="h-4 w-4 mr-1" />
+                          {campaign.status === 'sent' ? 'Resend' : 'Retry'}
                         </Button>
                       )}
                       <Button size="sm" variant="outline" onClick={() => handleEditCampaign(campaign.id)}>

@@ -157,6 +157,8 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     const { id, ...updateData } = body
 
+    console.log('PUT campaign - ID:', id, 'Update data:', updateData)
+
     if (!id) {
       return NextResponse.json(
         { success: false, error: 'Campaign ID is required' },
@@ -165,6 +167,8 @@ export async function PUT(request: NextRequest) {
     }
 
     const campaignIndex = campaigns.findIndex(c => c.id === id)
+    console.log('Campaign index found:', campaignIndex)
+    
     if (campaignIndex === -1) {
       return NextResponse.json(
         { success: false, error: 'Campaign not found' },
@@ -172,7 +176,16 @@ export async function PUT(request: NextRequest) {
       )
     }
 
+    // Handle resend - reset metrics if status is changing to sending
+    if (updateData.status === 'sending' && campaigns[campaignIndex].status === 'sent') {
+      updateData.sent = 0
+      updateData.opened = 0
+      updateData.clicked = 0
+      console.log('Resending campaign - resetting metrics')
+    }
+
     campaigns[campaignIndex] = { ...campaigns[campaignIndex], ...updateData }
+    console.log('Updated campaign:', campaigns[campaignIndex])
 
     return NextResponse.json({
       success: true,
