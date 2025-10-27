@@ -206,7 +206,9 @@ export default function AdminSubscriptionManagement() {
 
   const handleCreateSubscription = () => {
     console.log('Opening create subscription modal...')
+    console.log('Current modal state:', isCreateModalOpen)
     setIsCreateModalOpen(true)
+    console.log('Modal state set to true')
   }
 
   const handleSubscriptionCreated = async (newSubscription: Subscription) => {
