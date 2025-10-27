@@ -34,6 +34,8 @@ import {
 } from 'lucide-react'
 import CreateCampaignModal from '@/components/email-create-campaign-modal'
 import CreateTemplateModal from '@/components/email-create-template-modal'
+import EditCampaignModal from '@/components/email-edit-campaign-modal'
+import EditTemplateModal from '@/components/email-edit-template-modal'
 
 interface EmailCampaign {
   id: string
@@ -137,6 +139,10 @@ export default function EmailMarketingPage() {
   const [error, setError] = useState<string | null>(null)
   const [isCreateCampaignModalOpen, setIsCreateCampaignModalOpen] = useState(false)
   const [isCreateTemplateModalOpen, setIsCreateTemplateModalOpen] = useState(false)
+  const [isEditCampaignModalOpen, setIsEditCampaignModalOpen] = useState(false)
+  const [isEditTemplateModalOpen, setIsEditTemplateModalOpen] = useState(false)
+  const [selectedCampaign, setSelectedCampaign] = useState<EmailCampaign | null>(null)
+  const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null)
   const [metrics, setMetrics] = useState({
     totalCampaigns: 0,
     activeCampaigns: 0,
@@ -257,35 +263,112 @@ export default function EmailMarketingPage() {
     setTemplates(prev => [...prev, newTemplate])
   }
 
-  const handleSendCampaign = (campaignId: string) => {
-    console.log('Sending campaign:', campaignId)
-    alert('Send campaign functionality will be implemented')
+  const handleSendCampaign = async (campaignId: string) => {
+    const campaign = campaigns.find(c => c.id === campaignId)
+    if (!campaign) return
+
+    try {
+      const response = await fetch('/api/admin/email/campaigns', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: campaignId,
+          status: 'sending'
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Update local state
+        setCampaigns(prev => prev.map(c => 
+          c.id === campaignId ? { ...c, status: 'sending' } : c
+        ))
+        alert('Campaign is now sending!')
+        loadData() // Refresh data
+      } else {
+        alert(`Failed to send campaign: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error sending campaign:', error)
+      alert('An error occurred while sending the campaign')
+    }
   }
 
   const handleEditCampaign = (campaignId: string) => {
-    console.log('Editing campaign:', campaignId)
-    alert('Edit campaign functionality will be implemented')
+    const campaign = campaigns.find(c => c.id === campaignId)
+    if (campaign) {
+      setSelectedCampaign(campaign)
+      setIsEditCampaignModalOpen(true)
+    }
   }
 
-  const handleDeleteCampaign = (campaignId: string) => {
-    console.log('Deleting campaign:', campaignId)
+  const handleDeleteCampaign = async (campaignId: string) => {
     if (confirm('Are you sure you want to delete this campaign?')) {
-      setCampaigns(prev => prev.filter(c => c.id !== campaignId))
-      alert('Campaign deleted successfully!')
+      try {
+        const response = await fetch(`/api/admin/email/campaigns?id=${campaignId}`, {
+          method: 'DELETE'
+        })
+
+        const data = await response.json()
+
+        if (data.success) {
+          setCampaigns(prev => prev.filter(c => c.id !== campaignId))
+          alert('Campaign deleted successfully!')
+          loadData() // Refresh data
+        } else {
+          alert(`Failed to delete campaign: ${data.error}`)
+        }
+      } catch (error) {
+        console.error('Error deleting campaign:', error)
+        alert('An error occurred while deleting the campaign')
+      }
     }
   }
 
   const handleEditTemplate = (templateId: string) => {
-    console.log('Editing template:', templateId)
-    alert('Edit template functionality will be implemented')
+    const template = templates.find(t => t.id === templateId)
+    if (template) {
+      setSelectedTemplate(template)
+      setIsEditTemplateModalOpen(true)
+    }
   }
 
-  const handleDeleteTemplate = (templateId: string) => {
-    console.log('Deleting template:', templateId)
+  const handleDeleteTemplate = async (templateId: string) => {
     if (confirm('Are you sure you want to delete this template?')) {
-      setTemplates(prev => prev.filter(t => t.id !== templateId))
-      alert('Template deleted successfully!')
+      try {
+        const response = await fetch(`/api/admin/email/templates?id=${templateId}`, {
+          method: 'DELETE'
+        })
+
+        const data = await response.json()
+
+        if (data.success) {
+          setTemplates(prev => prev.filter(t => t.id !== templateId))
+          alert('Template deleted successfully!')
+        } else {
+          alert(`Failed to delete template: ${data.error}`)
+        }
+      } catch (error) {
+        console.error('Error deleting template:', error)
+        alert('An error occurred while deleting the template')
+      }
     }
+  }
+
+  const handleCampaignUpdated = (updatedCampaign: EmailCampaign) => {
+    setCampaigns(prev => prev.map(c => 
+      c.id === updatedCampaign.id ? updatedCampaign : c
+    ))
+    loadData() // Refresh data to get updated metrics
+  }
+
+  const handleTemplateUpdated = (updatedTemplate: EmailTemplate) => {
+    setTemplates(prev => prev.map(t => 
+      t.id === updatedTemplate.id ? updatedTemplate : t
+    ))
   }
 
   const handleRefreshData = () => {
@@ -574,6 +657,26 @@ export default function EmailMarketingPage() {
         isOpen={isCreateTemplateModalOpen}
         onClose={() => setIsCreateTemplateModalOpen(false)}
         onSuccess={handleTemplateCreated}
+      />
+
+      <EditCampaignModal
+        isOpen={isEditCampaignModalOpen}
+        onClose={() => {
+          setIsEditCampaignModalOpen(false)
+          setSelectedCampaign(null)
+        }}
+        onSuccess={handleCampaignUpdated}
+        campaign={selectedCampaign}
+      />
+
+      <EditTemplateModal
+        isOpen={isEditTemplateModalOpen}
+        onClose={() => {
+          setIsEditTemplateModalOpen(false)
+          setSelectedTemplate(null)
+        }}
+        onSuccess={handleTemplateUpdated}
+        template={selectedTemplate}
       />
     </div>
   )

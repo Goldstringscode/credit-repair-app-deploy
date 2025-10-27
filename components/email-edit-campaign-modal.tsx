@@ -7,9 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { 
   Mail, 
   Send, 
@@ -20,10 +18,11 @@ import {
   CheckCircle
 } from 'lucide-react'
 
-interface CreateCampaignModalProps {
+interface EditCampaignModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess?: (campaign: any) => void
+  campaign: any | null
 }
 
 interface CampaignFormData {
@@ -33,7 +32,7 @@ interface CampaignFormData {
   template: string
   recipients: number
   scheduledFor: string
-  status: 'draft' | 'scheduled'
+  status: 'draft' | 'scheduled' | 'sending' | 'sent' | 'paused'
 }
 
 const TEMPLATE_TYPES = [
@@ -44,7 +43,7 @@ const TEMPLATE_TYPES = [
   { id: 'custom', name: 'Custom' }
 ]
 
-export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: CreateCampaignModalProps) {
+export default function EditCampaignModal({ isOpen, onClose, onSuccess, campaign }: EditCampaignModalProps) {
   const [formData, setFormData] = useState<CampaignFormData>({
     name: '',
     subject: '',
@@ -59,6 +58,21 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [step, setStep] = useState(1)
   const [templates, setTemplates] = useState<any[]>([])
+
+  // Load campaign data when modal opens
+  useEffect(() => {
+    if (isOpen && campaign) {
+      setFormData({
+        name: campaign.name || '',
+        subject: campaign.subject || '',
+        content: campaign.content || '',
+        template: campaign.template || '',
+        recipients: campaign.recipients || 0,
+        scheduledFor: campaign.scheduledFor ? new Date(campaign.scheduledFor).toISOString().slice(0, 16) : '',
+        status: campaign.status || 'draft'
+      })
+    }
+  }, [isOpen, campaign])
 
   // Load templates when modal opens
   useEffect(() => {
@@ -116,6 +130,8 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
   }
 
   const handleSubmit = async () => {
+    if (!campaign?.id) return
+
     if (!validateForm()) {
       return
     }
@@ -124,11 +140,14 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
     
     try {
       const response = await fetch('/api/admin/email/campaigns', {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          id: campaign.id,
+          ...formData
+        })
       })
 
       const data = await response.json()
@@ -138,25 +157,13 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
           onSuccess(data.data.campaign)
         }
         
-        // Reset form and close modal
-        setFormData({
-          name: '',
-          subject: '',
-          content: '',
-          template: '',
-          recipients: 0,
-          scheduledFor: '',
-          status: 'draft'
-        })
-        setStep(1)
-        setErrors({})
         onClose()
       } else {
-        setErrors({ submit: data.error || 'Failed to create campaign' })
+        setErrors({ submit: data.error || 'Failed to update campaign' })
       }
     } catch (error) {
-      console.error('Error creating campaign:', error)
-      setErrors({ submit: 'An error occurred while creating the campaign' })
+      console.error('Error updating campaign:', error)
+      setErrors({ submit: 'An error occurred while updating the campaign' })
     } finally {
       setLoading(false)
     }
@@ -174,16 +181,18 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
     }
   }
 
+  if (!campaign) return null
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5" />
-            Create Email Campaign
+            Edit Email Campaign
           </DialogTitle>
           <DialogDescription>
-            Create a new email campaign to engage with your audience
+            Update your email campaign settings and content
           </DialogDescription>
         </DialogHeader>
 
@@ -208,7 +217,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
 
                 <div className="space-y-2">
                   <Label htmlFor="template">Template</Label>
-                  <Select onValueChange={handleTemplateSelect}>
+                  <Select value={formData.template} onValueChange={handleTemplateSelect}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a template (optional)" />
                     </SelectTrigger>
@@ -287,7 +296,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
                   <Label htmlFor="status">Campaign Status</Label>
                   <Select 
                     value={formData.status} 
-                    onValueChange={(value: 'draft' | 'scheduled') => handleInputChange('status', value)}
+                    onValueChange={(value: any) => handleInputChange('status', value)}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -295,6 +304,9 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
                     <SelectContent>
                       <SelectItem value="draft">Draft</SelectItem>
                       <SelectItem value="scheduled">Scheduled</SelectItem>
+                      <SelectItem value="sending">Sending</SelectItem>
+                      <SelectItem value="sent">Sent</SelectItem>
+                      <SelectItem value="paused">Paused</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -362,10 +374,10 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
                   {loading ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Creating...
+                      Updating...
                     </>
                   ) : (
-                    'Create Campaign'
+                    'Update Campaign'
                   )}
                 </Button>
               )}
