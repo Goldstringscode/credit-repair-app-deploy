@@ -676,8 +676,28 @@ export default function AdminSubscriptionManagement() {
       </Tabs>
 
       {/* Modals */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold mb-4">Create Subscription</h2>
+            <p className="mb-4">Test modal is working!</p>
+            <div className="flex gap-2">
+              <Button onClick={() => setIsCreateModalOpen(false)}>
+                Close
+              </Button>
+              <Button onClick={() => {
+                console.log('Test subscription created')
+                setIsCreateModalOpen(false)
+              }}>
+                Create Test Subscription
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <CreateSubscriptionModal
-        isOpen={isCreateModalOpen}
+        isOpen={false}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleSubscriptionCreated}
       />
