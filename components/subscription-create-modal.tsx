@@ -53,8 +53,6 @@ const PAYMENT_METHODS = [
 ]
 
 export default function CreateSubscriptionModal({ isOpen, onClose, onSuccess }: CreateSubscriptionModalProps) {
-  console.log('CreateSubscriptionModal rendered with isOpen:', isOpen)
-  
   const [formData, setFormData] = useState<SubscriptionFormData>({
     customerName: '',
     customerEmail: '',
@@ -192,12 +190,6 @@ export default function CreateSubscriptionModal({ isOpen, onClose, onSuccess }: 
 
   const selectedPlan = PLANS.find(p => p.id === formData.planId)
 
-  console.log('Rendering modal with isOpen:', isOpen)
-  
-  if (!isOpen) {
-    return null
-  }
-  
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">

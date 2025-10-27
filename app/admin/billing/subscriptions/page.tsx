@@ -206,9 +206,7 @@ export default function AdminSubscriptionManagement() {
 
   const handleCreateSubscription = () => {
     console.log('Opening create subscription modal...')
-    console.log('Current modal state:', isCreateModalOpen)
     setIsCreateModalOpen(true)
-    console.log('Modal state set to true')
   }
 
   const handleSubscriptionCreated = async (newSubscription: Subscription) => {
@@ -253,9 +251,8 @@ export default function AdminSubscriptionManagement() {
             averageRevenuePerUser: arpu
           })
           
-          setIsCreateModalOpen(false)
           alert('User and subscription created successfully!')
-      } else {
+        } else {
           console.error('Failed to create subscription:', subscriptionResponse.error)
           alert(`Failed to create subscription: ${subscriptionResponse.error}`)
         }
@@ -263,9 +260,14 @@ export default function AdminSubscriptionManagement() {
         console.error('Failed to create user:', userResponse.error)
         alert(`Failed to create user: ${userResponse.error}`)
       }
+      
+      // Always close the modal
+      setIsCreateModalOpen(false)
     } catch (error) {
       console.error('Error creating subscription:', error)
       alert('An error occurred while creating the subscription. Please try again.')
+      // Close modal even on error
+      setIsCreateModalOpen(false)
     }
   }
 
@@ -676,28 +678,8 @@ export default function AdminSubscriptionManagement() {
       </Tabs>
 
       {/* Modals */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-            <h2 className="text-xl font-bold mb-4">Create Subscription</h2>
-            <p className="mb-4">Test modal is working!</p>
-            <div className="flex gap-2">
-              <Button onClick={() => setIsCreateModalOpen(false)}>
-                Close
-              </Button>
-              <Button onClick={() => {
-                console.log('Test subscription created')
-                setIsCreateModalOpen(false)
-              }}>
-                Create Test Subscription
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-      
       <CreateSubscriptionModal
-        isOpen={false}
+        isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleSubscriptionCreated}
       />
