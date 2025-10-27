@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 // Mock data storage (in production, this would be a database)
+// This needs to be outside the function to persist across requests
 let campaigns = [
   {
     id: '1',
@@ -51,6 +52,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const search = searchParams.get('search')
+
+    console.log('GET campaigns - current campaigns:', campaigns.length)
+    console.log('Campaign IDs:', campaigns.map(c => c.id))
 
     let filteredCampaigns = campaigns
 
@@ -119,7 +123,7 @@ export async function POST(request: NextRequest) {
     }
 
     const newCampaign = {
-      id: (campaigns.length + 1).toString(),
+      id: `campaign_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       name,
       subject,
       content,
@@ -188,6 +192,10 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
+    console.log('DELETE campaign - ID:', id)
+    console.log('Current campaigns:', campaigns.length)
+    console.log('Campaign IDs:', campaigns.map(c => c.id))
+
     if (!id) {
       return NextResponse.json(
         { success: false, error: 'Campaign ID is required' },
@@ -196,6 +204,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     const campaignIndex = campaigns.findIndex(c => c.id === id)
+    console.log('Campaign index found:', campaignIndex)
+    
     if (campaignIndex === -1) {
       return NextResponse.json(
         { success: false, error: 'Campaign not found' },
@@ -203,7 +213,8 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    campaigns.splice(campaignIndex, 1)
+    const deletedCampaign = campaigns.splice(campaignIndex, 1)[0]
+    console.log('Deleted campaign:', deletedCampaign)
 
     return NextResponse.json({
       success: true,

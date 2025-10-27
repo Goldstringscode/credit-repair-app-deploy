@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
     }
 
     const newTemplate = {
-      id: (templates.length + 1).toString(),
+      id: `template_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       name,
       subject,
       content,
@@ -209,6 +209,10 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
+    console.log('DELETE template - ID:', id)
+    console.log('Current templates:', templates.length)
+    console.log('Template IDs:', templates.map(t => t.id))
+
     if (!id) {
       return NextResponse.json(
         { success: false, error: 'Template ID is required' },
@@ -217,6 +221,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     const templateIndex = templates.findIndex(t => t.id === id)
+    console.log('Template index found:', templateIndex)
+    
     if (templateIndex === -1) {
       return NextResponse.json(
         { success: false, error: 'Template not found' },
@@ -224,7 +230,8 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    templates.splice(templateIndex, 1)
+    const deletedTemplate = templates.splice(templateIndex, 1)[0]
+    console.log('Deleted template:', deletedTemplate)
 
     return NextResponse.json({
       success: true,
