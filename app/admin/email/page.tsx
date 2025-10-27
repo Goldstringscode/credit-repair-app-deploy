@@ -32,6 +32,8 @@ import {
   RefreshCw,
   FileText
 } from 'lucide-react'
+import CreateCampaignModal from '@/components/email-create-campaign-modal'
+import CreateTemplateModal from '@/components/email-create-template-modal'
 
 interface EmailCampaign {
   id: string
@@ -128,18 +130,47 @@ const mockTemplates: EmailTemplate[] = [
 ]
 
 export default function EmailMarketingPage() {
-  const [campaigns, setCampaigns] = useState<EmailCampaign[]>(mockCampaigns)
-  const [templates, setTemplates] = useState<EmailTemplate[]>(mockTemplates)
+  const [campaigns, setCampaigns] = useState<EmailCampaign[]>([])
+  const [templates, setTemplates] = useState<EmailTemplate[]>([])
   const [selectedTab, setSelectedTab] = useState('campaigns')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isCreateCampaignModalOpen, setIsCreateCampaignModalOpen] = useState(false)
+  const [isCreateTemplateModalOpen, setIsCreateTemplateModalOpen] = useState(false)
+  const [metrics, setMetrics] = useState({
+    totalCampaigns: 0,
+    activeCampaigns: 0,
+    draftCampaigns: 0,
+    scheduledCampaigns: 0,
+    totalRecipients: 0,
+    totalSent: 0,
+    totalOpened: 0,
+    totalClicked: 0,
+    openRate: 0,
+    clickRate: 0
+  })
 
   const loadData = async () => {
     setLoading(true)
     setError(null)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Load campaigns
+      const campaignsResponse = await fetch('/api/admin/email/campaigns')
+      const campaignsData = await campaignsResponse.json()
+      
+      if (campaignsData.success) {
+        setCampaigns(campaignsData.data.campaigns)
+        setMetrics(campaignsData.data.metrics)
+      }
+
+      // Load templates
+      const templatesResponse = await fetch('/api/admin/email/templates')
+      const templatesData = await templatesResponse.json()
+      
+      if (templatesData.success) {
+        setTemplates(templatesData.data.templates)
+      }
+
       console.log('Email marketing data loaded')
     } catch (error) {
       console.error('Error loading email marketing data:', error)
@@ -210,13 +241,20 @@ export default function EmailMarketingPage() {
   }
 
   const handleCreateCampaign = () => {
-    console.log('Creating new campaign...')
-    alert('Create campaign functionality will be implemented')
+    setIsCreateCampaignModalOpen(true)
   }
 
   const handleCreateTemplate = () => {
-    console.log('Creating new template...')
-    alert('Create template functionality will be implemented')
+    setIsCreateTemplateModalOpen(true)
+  }
+
+  const handleCampaignCreated = (newCampaign: EmailCampaign) => {
+    setCampaigns(prev => [...prev, newCampaign])
+    loadData() // Refresh data to get updated metrics
+  }
+
+  const handleTemplateCreated = (newTemplate: EmailTemplate) => {
+    setTemplates(prev => [...prev, newTemplate])
   }
 
   const handleSendCampaign = (campaignId: string) => {
@@ -309,9 +347,9 @@ export default function EmailMarketingPage() {
             <Mail className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{campaigns.length}</div>
+            <div className="text-2xl font-bold">{metrics.totalCampaigns}</div>
             <p className="text-xs text-muted-foreground">
-              +2 from last month
+              {metrics.activeCampaigns} active
             </p>
           </CardContent>
         </Card>
@@ -324,7 +362,7 @@ export default function EmailMarketingPage() {
           <CardContent>
             <div className="text-2xl font-bold">{templates.length}</div>
             <p className="text-xs text-muted-foreground">
-              +1 from last month
+              {templates.filter(t => t.type === 'welcome').length} welcome
             </p>
           </CardContent>
         </Card>
@@ -335,9 +373,9 @@ export default function EmailMarketingPage() {
             <Eye className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">24.5%</div>
+            <div className="text-2xl font-bold">{metrics.openRate.toFixed(1)}%</div>
             <p className="text-xs text-muted-foreground">
-              +2.1% from last month
+              {metrics.totalOpened} opens
             </p>
           </CardContent>
         </Card>
@@ -348,9 +386,9 @@ export default function EmailMarketingPage() {
             <MousePointer className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3.2%</div>
+            <div className="text-2xl font-bold">{metrics.clickRate.toFixed(1)}%</div>
             <p className="text-xs text-muted-foreground">
-              +0.5% from last month
+              {metrics.totalClicked} clicks
             </p>
           </CardContent>
         </Card>
@@ -473,48 +511,49 @@ export default function EmailMarketingPage() {
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
                         <span className="text-sm">Open Rate</span>
-                        <span className="font-semibold">24.5%</span>
+                        <span className="font-semibold">{metrics.openRate.toFixed(1)}%</span>
                       </div>
-                      <Progress value={24.5} className="h-2" />
+                      <Progress value={metrics.openRate} className="h-2" />
                       
                       <div className="flex justify-between items-center">
                         <span className="text-sm">Click Rate</span>
-                        <span className="font-semibold">3.2%</span>
+                        <span className="font-semibold">{metrics.clickRate.toFixed(1)}%</span>
                       </div>
-                      <Progress value={3.2} className="h-2" />
+                      <Progress value={metrics.clickRate} className="h-2" />
                       
                       <div className="flex justify-between items-center">
-                        <span className="text-sm">Unsubscribe Rate</span>
-                        <span className="font-semibold">0.8%</span>
+                        <span className="text-sm">Total Sent</span>
+                        <span className="font-semibold">{metrics.totalSent}</span>
                       </div>
-                      <Progress value={0.8} className="h-2" />
+                      <Progress value={Math.min((metrics.totalSent / Math.max(metrics.totalRecipients, 1)) * 100, 100)} className="h-2" />
                     </div>
                   </div>
                   
                   <div>
                     <h3 className="font-semibold mb-4">Recent Activity</h3>
                     <div className="space-y-3">
-                      <div className="flex items-center space-x-3">
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                        <div>
-                          <p className="text-sm font-medium">Welcome Series - Day 1</p>
-                          <p className="text-xs text-gray-500">Sent to 150 recipients</p>
+                      {campaigns.slice(0, 3).map((campaign) => (
+                        <div key={campaign.id} className="flex items-center space-x-3">
+                          {campaign.status === 'sent' && <CheckCircle className="h-4 w-4 text-green-500" />}
+                          {campaign.status === 'scheduled' && <Clock className="h-4 w-4 text-blue-500" />}
+                          {campaign.status === 'draft' && <AlertCircle className="h-4 w-4 text-yellow-500" />}
+                          {campaign.status === 'sending' && <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />}
+                          {campaign.status === 'paused' && <AlertCircle className="h-4 w-4 text-red-500" />}
+                          <div>
+                            <p className="text-sm font-medium">{campaign.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {campaign.status === 'sent' && `Sent to ${campaign.recipients} recipients`}
+                              {campaign.status === 'scheduled' && `Scheduled for ${new Date(campaign.scheduledFor || '').toLocaleDateString()}`}
+                              {campaign.status === 'draft' && 'Draft - needs review'}
+                              {campaign.status === 'sending' && 'Currently sending...'}
+                              {campaign.status === 'paused' && 'Paused'}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <Clock className="h-4 w-4 text-blue-500" />
-                        <div>
-                          <p className="text-sm font-medium">Monthly Newsletter</p>
-                          <p className="text-xs text-gray-500">Scheduled for Feb 1, 2024</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <AlertCircle className="h-4 w-4 text-yellow-500" />
-                        <div>
-                          <p className="text-sm font-medium">Premium Upgrade</p>
-                          <p className="text-xs text-gray-500">Draft - needs review</p>
-                        </div>
-                      </div>
+                      ))}
+                      {campaigns.length === 0 && (
+                        <p className="text-sm text-gray-500">No campaigns yet</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -523,6 +562,19 @@ export default function EmailMarketingPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Modals */}
+      <CreateCampaignModal
+        isOpen={isCreateCampaignModalOpen}
+        onClose={() => setIsCreateCampaignModalOpen(false)}
+        onSuccess={handleCampaignCreated}
+      />
+
+      <CreateTemplateModal
+        isOpen={isCreateTemplateModalOpen}
+        onClose={() => setIsCreateTemplateModalOpen(false)}
+        onSuccess={handleTemplateCreated}
+      />
     </div>
   )
 }
