@@ -252,7 +252,7 @@ export default function AdminSubscriptionManagement() {
           })
           
           alert('User and subscription created successfully!')
-        } else {
+      } else {
           console.error('Failed to create subscription:', subscriptionResponse.error)
           alert(`Failed to create subscription: ${subscriptionResponse.error}`)
         }
