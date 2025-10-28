@@ -24,7 +24,12 @@ import {
   Building,
   User,
   BookOpen,
-  ArrowRight
+  ArrowRight,
+  Wand2,
+  Download,
+  Send,
+  Eye,
+  Loader2
 } from 'lucide-react'
 
 interface CreditScore {
@@ -57,6 +62,23 @@ export default function CreditReportUpload() {
   const [editingItem, setEditingItem] = useState<NegativeItem | null>(null)
   const [isAddingScore, setIsAddingScore] = useState(false)
   const [isAddingItem, setIsAddingItem] = useState(false)
+  const [isGeneratingLetters, setIsGeneratingLetters] = useState(false)
+  const [generatedLetters, setGeneratedLetters] = useState<{ [bureau: string]: any }>({})
+  const [showLetterModal, setShowLetterModal] = useState(false)
+  const [selectedBureau, setSelectedBureau] = useState<string>('')
+  const [letterTier, setLetterTier] = useState<string>('standard')
+  const [personalInfo, setPersonalInfo] = useState({
+    firstName: '',
+    lastName: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    phone: '',
+    email: '',
+    ssnLast4: '',
+    dateOfBirth: ''
+  })
 
   // Load saved data from localStorage
   useEffect(() => {
@@ -118,6 +140,66 @@ export default function CreditReportUpload() {
 
   const handleDeleteItem = (id: string) => {
     setNegativeItems(prev => prev.filter(item => item.id !== id))
+  }
+
+  const handleGenerateLetters = async () => {
+    if (negativeItems.length === 0) {
+      alert('Please add at least one negative item before generating letters.')
+      return
+    }
+
+    if (!personalInfo.firstName || !personalInfo.lastName || !personalInfo.address) {
+      alert('Please fill in your personal information before generating letters.')
+      return
+    }
+
+    setIsGeneratingLetters(true)
+    try {
+      const response = await fetch('/api/credit-reports/generate-letters', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          personalInfo,
+          negativeItems,
+          letterTier,
+          creditBureaus: ['experian', 'equifax', 'transunion']
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setGeneratedLetters(data.data.letters)
+        alert(`Successfully generated ${Object.keys(data.data.letters).length} dispute letters!`)
+      } else {
+        alert(`Error generating letters: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error generating letters:', error)
+      alert('Failed to generate letters. Please try again.')
+    } finally {
+      setIsGeneratingLetters(false)
+    }
+  }
+
+  const handleViewLetter = (bureau: string) => {
+    setSelectedBureau(bureau)
+    setShowLetterModal(true)
+  }
+
+  const handleDownloadLetter = (bureau: string) => {
+    const letter = generatedLetters[bureau]
+    if (letter) {
+      const element = document.createElement('a')
+      const file = new Blob([letter.content], { type: 'text/plain' })
+      element.href = URL.createObjectURL(file)
+      element.download = `dispute-letter-${bureau}-${new Date().toISOString().split('T')[0]}.txt`
+      document.body.appendChild(element)
+      element.click()
+      document.body.removeChild(element)
+    }
   }
 
   const getScoreColor = (score: number) => {
@@ -184,10 +266,11 @@ export default function CreditReportUpload() {
                 View Guide
               </Button>
               <Button 
-                onClick={() => window.location.href = '/dashboard/letters'}
+                onClick={() => setActiveTab('letters')}
                 disabled={negativeItems.length === 0}
+                className="bg-purple-600 hover:bg-purple-700"
               >
-                <FileText className="h-4 w-4 mr-2" />
+                <Wand2 className="h-4 w-4 mr-2" />
                 Generate Letters
               </Button>
             </div>
@@ -250,9 +333,10 @@ export default function CreditReportUpload() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="scores">Credit Scores</TabsTrigger>
             <TabsTrigger value="items">Negative Items</TabsTrigger>
+            <TabsTrigger value="letters">Generate Letters</TabsTrigger>
           </TabsList>
 
           {/* Credit Scores Tab */}
@@ -420,6 +504,177 @@ export default function CreditReportUpload() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Generate Letters Tab */}
+          <TabsContent value="letters" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Wand2 className="h-6 w-6 text-purple-500" />
+                  <span>Generate Dispute Letters</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Personal Information Section */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Personal Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input
+                        id="firstName"
+                        value={personalInfo.firstName}
+                        onChange={(e) => setPersonalInfo(prev => ({ ...prev, firstName: e.target.value }))}
+                        placeholder="Enter your first name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input
+                        id="lastName"
+                        value={personalInfo.lastName}
+                        onChange={(e) => setPersonalInfo(prev => ({ ...prev, lastName: e.target.value }))}
+                        placeholder="Enter your last name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="address">Address</Label>
+                      <Input
+                        id="address"
+                        value={personalInfo.address}
+                        onChange={(e) => setPersonalInfo(prev => ({ ...prev, address: e.target.value }))}
+                        placeholder="Enter your address"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="city">City</Label>
+                      <Input
+                        id="city"
+                        value={personalInfo.city}
+                        onChange={(e) => setPersonalInfo(prev => ({ ...prev, city: e.target.value }))}
+                        placeholder="Enter your city"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="state">State</Label>
+                      <Input
+                        id="state"
+                        value={personalInfo.state}
+                        onChange={(e) => setPersonalInfo(prev => ({ ...prev, state: e.target.value }))}
+                        placeholder="Enter your state"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="zipCode">ZIP Code</Label>
+                      <Input
+                        id="zipCode"
+                        value={personalInfo.zipCode}
+                        onChange={(e) => setPersonalInfo(prev => ({ ...prev, zipCode: e.target.value }))}
+                        placeholder="Enter your ZIP code"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="phone">Phone</Label>
+                      <Input
+                        id="phone"
+                        value={personalInfo.phone}
+                        onChange={(e) => setPersonalInfo(prev => ({ ...prev, phone: e.target.value }))}
+                        placeholder="Enter your phone number"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={personalInfo.email}
+                        onChange={(e) => setPersonalInfo(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="Enter your email"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Letter Options */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Letter Options</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="letterTier">Letter Tier</Label>
+                      <Select value={letterTier} onValueChange={setLetterTier}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="standard">Standard - $9.99 (Basic FCRA-compliant)</SelectItem>
+                          <SelectItem value="enhanced">Enhanced - $22.99 (With CFPB complaint threat)</SelectItem>
+                          <SelectItem value="premium">Premium - $49.99 (Attorney-supervised)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Generate Button */}
+                <div className="flex justify-center">
+                  <Button
+                    onClick={handleGenerateLetters}
+                    disabled={isGeneratingLetters || negativeItems.length === 0}
+                    className="bg-purple-600 hover:bg-purple-700"
+                    size="lg"
+                  >
+                    {isGeneratingLetters ? (
+                      <>
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                        Generating Letters...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="h-5 w-5 mr-2" />
+                        Generate Dispute Letters
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Generated Letters Display */}
+                {Object.keys(generatedLetters).length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Generated Letters</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {Object.entries(generatedLetters).map(([bureau, letter]) => (
+                        <Card key={bureau}>
+                          <CardHeader>
+                            <CardTitle className="text-lg capitalize">{bureau}</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-2">
+                              <Button
+                                onClick={() => handleViewLetter(bureau)}
+                                className="w-full"
+                                variant="outline"
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                View Letter
+                              </Button>
+                              <Button
+                                onClick={() => handleDownloadLetter(bureau)}
+                                className="w-full"
+                                variant="outline"
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                Download
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
 
         {/* Add/Edit Score Modal */}
@@ -452,6 +707,39 @@ export default function CreditReportUpload() {
             onSave={(updates) => handleEditItem(editingItem.id, updates)}
             onCancel={() => setEditingItem(null)}
           />
+        )}
+
+        {/* Letter Viewing Modal */}
+        {showLetterModal && selectedBureau && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">
+                  Dispute Letter - {selectedBureau.charAt(0).toUpperCase() + selectedBureau.slice(1)}
+                </h3>
+                <Button variant="outline" onClick={() => setShowLetterModal(false)}>
+                  Close
+                </Button>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <pre className="whitespace-pre-wrap text-sm font-mono">
+                  {generatedLetters[selectedBureau]?.content || 'Letter not found'}
+                </pre>
+              </div>
+              <div className="flex justify-end space-x-2 mt-4">
+                <Button
+                  onClick={() => handleDownloadLetter(selectedBureau)}
+                  variant="outline"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+                <Button onClick={() => setShowLetterModal(false)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
