@@ -30,6 +30,7 @@ import {
   Upload,
   EyeOff,
   Paperclip,
+  ArrowRight,
 } from "lucide-react"
 import { toast } from "sonner"
 import SendViaCertifiedMail from "@/components/letters/SendViaCertifiedMail"
@@ -69,6 +70,9 @@ export default function GenerateLetterPage() {
   const [letterMetadata, setLetterMetadata] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [negativeItems, setNegativeItems] = useState<any[]>([])
+  const [showNegativeItemsModal, setShowNegativeItemsModal] = useState(false)
+  const [isLoadingNegativeItems, setIsLoadingNegativeItems] = useState(false)
 
   const searchParams = useSearchParams()
 
@@ -117,6 +121,79 @@ export default function GenerateLetterPage() {
       setDisputeInfo((prev) => ({ ...prev, disputeReason: reasonMapping[urlDisputeType] || "Incorrect information" }))
     }
   }, [urlDisputeType, urlBureau, urlCreditor, urlAccount, urlDate])
+
+  // Load negative items and user data when component mounts
+  useEffect(() => {
+    loadNegativeItems()
+    loadUserData()
+  }, [])
+
+  const loadUserData = () => {
+    // In a real app, this would fetch from user profile/database
+    // For now, we'll use mock data or localStorage
+    const mockUserData = {
+      firstName: 'John',
+      lastName: 'Doe',
+      address: '123 Main Street',
+      city: 'Anytown',
+      state: 'CA',
+      zipCode: '12345',
+      phone: '(555) 123-4567',
+      email: 'john.doe@example.com',
+      ssnLast4: '1234',
+      dateOfBirth: '1990-01-01'
+    }
+
+    // Check if we have user data in localStorage (from credit reports)
+    const savedPersonalInfo = localStorage.getItem('personalInfo')
+    if (savedPersonalInfo) {
+      try {
+        const parsed = JSON.parse(savedPersonalInfo)
+        setPersonalInfo(parsed)
+      } catch (error) {
+        console.error('Error parsing saved personal info:', error)
+        setPersonalInfo(mockUserData)
+      }
+    } else {
+      setPersonalInfo(mockUserData)
+    }
+  }
+
+  const loadNegativeItems = async () => {
+    setIsLoadingNegativeItems(true)
+    try {
+      const response = await fetch('/api/credit-reports/negative-items')
+      const data = await response.json()
+      
+      if (data.success) {
+        setNegativeItems(data.data.negativeItems)
+      } else {
+        console.error('Failed to load negative items:', data.error)
+      }
+    } catch (error) {
+      console.error('Error loading negative items:', error)
+    } finally {
+      setIsLoadingNegativeItems(false)
+    }
+  }
+
+  const handleSelectNegativeItem = (item: any) => {
+    // Auto-fill the dispute form with the selected negative item
+    setDisputeInfo(prev => ({
+      ...prev,
+      creditorName: item.creditor,
+      accountNumber: item.accountNumber,
+      disputeReason: item.disputeReason,
+      disputeDetails: item.notes || '',
+      desiredOutcome: 'Remove this item from my credit report'
+    }))
+    
+    // Close the modal
+    setShowNegativeItemsModal(false)
+    
+    // Move to the next step
+    setCurrentStep(3)
+  }
 
   const letterTiers = [
     {
@@ -859,12 +936,36 @@ Enclosures: Credit Report Copy`
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label htmlFor="creditorName">Creditor/Company Name *</Label>
-                    <Input
-                      id="creditorName"
-                      value={disputeInfo.creditorName}
-                      onChange={(e) => setDisputeInfo({ ...disputeInfo, creditorName: e.target.value })}
-                      placeholder="Enter creditor name"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="creditorName"
+                        value={disputeInfo.creditorName}
+                        onChange={(e) => setDisputeInfo({ ...disputeInfo, creditorName: e.target.value })}
+                        placeholder="Enter creditor name"
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowNegativeItemsModal(true)}
+                        disabled={isLoadingNegativeItems || negativeItems.length === 0}
+                        className="whitespace-nowrap"
+                      >
+                        {isLoadingNegativeItems ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                        ) : (
+                          <>
+                            <FileText className="h-4 w-4 mr-1" />
+                            Select from Credit Reports
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    {negativeItems.length > 0 && (
+                      <p className="text-xs text-gray-500">
+                        {negativeItems.length} negative items available from your credit reports
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="accountNumber">Account Number</Label>
@@ -1577,7 +1678,128 @@ Enclosures: Credit Report Copy`
             </div>
           </div>
         )}
+
+        {/* Negative Items Selection Modal */}
+        {showNegativeItemsModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Select Negative Item from Credit Reports</h3>
+                <Button variant="outline" onClick={() => setShowNegativeItemsModal(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {isLoadingNegativeItems ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <span className="ml-2">Loading negative items...</span>
+                </div>
+              ) : negativeItems.length === 0 ? (
+                <div className="text-center py-8">
+                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h4 className="text-lg font-medium text-gray-900 mb-2">No Negative Items Found</h4>
+                  <p className="text-gray-600 mb-4">
+                    You haven't added any negative items to your credit reports yet.
+                  </p>
+                  <Button 
+                    onClick={() => {
+                      setShowNegativeItemsModal(false)
+                      window.location.href = '/dashboard/credit-reports/upload'
+                    }}
+                  >
+                    Add Negative Items
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600">
+                    Click on any item below to auto-fill the dispute form with that information.
+                  </p>
+                  <div className="grid gap-4">
+                    {negativeItems.map((item) => (
+                      <Card 
+                        key={item.id} 
+                        className="cursor-pointer hover:bg-blue-50 transition-colors"
+                        onClick={() => handleSelectNegativeItem(item)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <h4 className="font-semibold text-lg">{item.creditor}</h4>
+                                <Badge variant="outline" className={getItemTypeColor(item.itemType)}>
+                                  {item.itemType}
+                                </Badge>
+                                <Badge variant="outline" className={getStatusColor(item.status)}>
+                                  {item.status}
+                                </Badge>
+                              </div>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mb-2">
+                                <div>
+                                  <span className="font-medium">Account:</span> {item.accountNumber}
+                                </div>
+                                <div>
+                                  <span className="font-medium">Amount:</span> ${item.originalAmount.toLocaleString()}
+                                </div>
+                                <div>
+                                  <span className="font-medium">Opened:</span> {item.dateOpened}
+                                </div>
+                                <div>
+                                  <span className="font-medium">Reported:</span> {item.dateReported}
+                                </div>
+                              </div>
+                              <div className="mb-2">
+                                <span className="font-medium text-sm">Dispute Reason:</span>
+                                <p className="text-sm text-gray-600">{item.disputeReason}</p>
+                              </div>
+                              {item.notes && (
+                                <div>
+                                  <span className="font-medium text-sm">Notes:</span>
+                                  <p className="text-sm text-gray-600">{item.notes}</p>
+                                </div>
+                              )}
+                            </div>
+                            <div className="ml-4">
+                              <Button variant="outline" size="sm">
+                                <ArrowRight className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
+}
+
+// Helper functions for styling
+function getItemTypeColor(type: string) {
+  const colors: Record<string, string> = {
+    'Late Payment': 'bg-yellow-100 text-yellow-800',
+    'Collection': 'bg-red-100 text-red-800',
+    'Charge Off': 'bg-red-100 text-red-800',
+    'Bankruptcy': 'bg-red-100 text-red-800',
+    'Lien': 'bg-orange-100 text-orange-800',
+    'Judgment': 'bg-red-100 text-red-800',
+    'Other': 'bg-gray-100 text-gray-800'
+  }
+  return colors[type] || 'bg-gray-100 text-gray-800'
+}
+
+function getStatusColor(status: string) {
+  const colors: Record<string, string> = {
+    'Open': 'bg-green-100 text-green-800',
+    'Closed': 'bg-gray-100 text-gray-800',
+    'Charged Off': 'bg-red-100 text-red-800',
+    'In Collections': 'bg-red-100 text-red-800'
+  }
+  return colors[status] || 'bg-gray-100 text-gray-800'
 }
