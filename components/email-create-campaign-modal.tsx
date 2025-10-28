@@ -17,8 +17,10 @@ import {
   Users,
   Loader2,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Filter
 } from 'lucide-react'
+import RecipientFilterModal from './email-recipient-filter-modal'
 
 interface CreateCampaignModalProps {
   isOpen: boolean
@@ -34,6 +36,28 @@ interface CampaignFormData {
   recipients: number
   scheduledFor: string
   status: 'draft' | 'scheduled'
+}
+
+interface RecipientFilters {
+  userTypes: string[]
+  subscriptionStatus: string[]
+  joinDateRange: {
+    start: string
+    end: string
+  }
+  lastLoginRange: {
+    start: string
+    end: string
+  }
+  subscriptionPlans: string[]
+  accountStatus: string[]
+  customFilters: {
+    hasActiveSubscription: boolean
+    hasCompletedOnboarding: boolean
+    hasMadePayment: boolean
+    isEmailVerified: boolean
+  }
+  searchQuery: string
 }
 
 const TEMPLATE_TYPES = [
@@ -59,6 +83,8 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [step, setStep] = useState(1)
   const [templates, setTemplates] = useState<any[]>([])
+  const [isRecipientFilterModalOpen, setIsRecipientFilterModalOpen] = useState(false)
+  const [recipientFilters, setRecipientFilters] = useState<RecipientFilters | null>(null)
 
   // Load templates when modal opens
   useEffect(() => {
@@ -86,6 +112,32 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }))
     }
+  }
+
+  const handleRecipientFiltersApplied = (filters: RecipientFilters, recipientCount: number) => {
+    setRecipientFilters(filters)
+    setFormData(prev => ({ ...prev, recipients: recipientCount }))
+    setIsRecipientFilterModalOpen(false)
+  }
+
+  const getRecipientFilterSummary = () => {
+    if (!recipientFilters) return 'All Users'
+    
+    const activeFilters = []
+    if (recipientFilters.userTypes.length > 0) {
+      activeFilters.push(`${recipientFilters.userTypes.length} user type(s)`)
+    }
+    if (recipientFilters.subscriptionStatus.length > 0) {
+      activeFilters.push(`${recipientFilters.subscriptionStatus.length} status(es)`)
+    }
+    if (recipientFilters.subscriptionPlans.length > 0) {
+      activeFilters.push(`${recipientFilters.subscriptionPlans.length} plan(s)`)
+    }
+    if (recipientFilters.searchQuery) {
+      activeFilters.push('search filter')
+    }
+    
+    return activeFilters.length > 0 ? activeFilters.join(', ') : 'All Users'
   }
 
   const validateForm = () => {
@@ -257,29 +309,49 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="recipients">Number of Recipients *</Label>
-                  <div className="flex space-x-2">
-                    <Input
-                      id="recipients"
-                      type="number"
-                      value={formData.recipients}
-                      onChange={(e) => handleInputChange('recipients', parseInt(e.target.value) || 0)}
-                      placeholder="0"
-                      min="0"
-                      className={errors.recipients ? 'border-red-500' : ''}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => handleInputChange('recipients', 9999)}
-                      className="whitespace-nowrap"
-                    >
-                      All Users
-                    </Button>
+                  <Label>Recipients *</Label>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                      <div className="flex items-center space-x-2">
+                        <Users className="h-4 w-4" />
+                        <div>
+                          <p className="text-sm font-medium">{formData.recipients.toLocaleString()} recipients</p>
+                          <p className="text-xs text-gray-500">{getRecipientFilterSummary()}</p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsRecipientFilterModalOpen(true)}
+                      >
+                        <Filter className="h-4 w-4 mr-1" />
+                        Filter Recipients
+                      </Button>
+                    </div>
+                    
+                    <div className="flex space-x-2">
+                      <Input
+                        type="number"
+                        value={formData.recipients}
+                        onChange={(e) => handleInputChange('recipients', parseInt(e.target.value) || 0)}
+                        placeholder="0"
+                        min="0"
+                        className={errors.recipients ? 'border-red-500' : ''}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => handleInputChange('recipients', 9999)}
+                        className="whitespace-nowrap"
+                      >
+                        All Users
+                      </Button>
+                    </div>
                   </div>
                   {errors.recipients && <p className="text-sm text-red-500">{errors.recipients}</p>}
                   <p className="text-xs text-gray-500">
-                    Enter 0 for draft, or use "All Users" to send to everyone
+                    Use advanced filtering to target specific user groups, or enter a number manually
                   </p>
                 </div>
 
@@ -385,6 +457,14 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
           </div>
         </div>
       </DialogContent>
+
+      {/* Recipient Filter Modal */}
+      <RecipientFilterModal
+        isOpen={isRecipientFilterModalOpen}
+        onClose={() => setIsRecipientFilterModalOpen(false)}
+        onApply={handleRecipientFiltersApplied}
+        currentRecipients={formData.recipients}
+      />
     </Dialog>
   )
 }
