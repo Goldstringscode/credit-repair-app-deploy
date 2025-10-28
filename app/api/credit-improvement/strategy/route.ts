@@ -1,87 +1,97 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from "next/server"
+import { CreditImprovementStrategyGenerator } from "@/lib/credit-improvement-strategy"
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { creditData, strategyType } = body
+    const { creditData, strategyType } = await request.json()
 
-    // Mock strategy generation
-    const mockStrategy = {
-      strategy_id: `strategy_${Date.now()}`,
-      strategy_type: strategyType || "comprehensive",
-      generated_at: new Date().toISOString(),
-      recommendations: [
-        {
-          id: "rec_1",
-          category: "Payment History",
-          priority: "High",
-          action: "Continue making all payments on time",
-          expected_impact: "Maintain excellent payment history",
-          timeline: "Ongoing",
-          difficulty: "Easy"
-        },
-        {
-          id: "rec_2",
-          category: "Credit Utilization",
-          priority: "High",
-          action: "Keep credit card balances below 30% of limits",
-          expected_impact: "Improve credit utilization ratio",
-          timeline: "1-3 months",
-          difficulty: "Medium"
-        },
-        {
-          id: "rec_3",
-          category: "Credit Mix",
-          priority: "Medium",
-          action: "Consider adding a different type of credit account",
-          expected_impact: "Diversify credit portfolio",
-          timeline: "3-6 months",
-          difficulty: "Hard"
-        },
-        {
-          id: "rec_4",
-          category: "Credit Age",
-          priority: "Low",
-          action: "Avoid closing oldest credit accounts",
-          expected_impact: "Maintain average account age",
-          timeline: "Ongoing",
-          difficulty: "Easy"
+    if (!creditData) {
+      return NextResponse.json(
+        { error: "Credit data is required" },
+        { status: 400 }
+      )
+    }
+
+    console.log("🚀 Generating credit improvement strategy...")
+
+    const generator = new CreditImprovementStrategyGenerator()
+    let result: any
+
+    switch (strategyType) {
+      case "comprehensive":
+        result = await generator.generateStrategy(creditData)
+        break
+      case "dispute_letter":
+        if (!creditData.item) {
+          return NextResponse.json(
+            { error: "Item data is required for dispute letter generation" },
+            { status: 400 }
+          )
         }
-      ],
-      estimated_score_improvement: {
-        current_score: 720,
-        projected_score_3_months: 740,
-        projected_score_6_months: 760,
-        projected_score_12_months: 780
-      },
-      risk_assessment: {
-        overall_risk: "Low",
-        key_risks: [
-          "High credit utilization on one account",
-          "Recent credit inquiries"
-        ],
-        mitigation_strategies: [
-          "Pay down high-balance accounts first",
-          "Avoid new credit applications for 6 months"
-        ]
-      }
+        const letter = await generator.generateDisputeLetter(creditData.item)
+        result = { success: true, letter, generated_at: new Date().toISOString() }
+        break
+      case "payment_plan":
+        if (!creditData.accounts) {
+          return NextResponse.json(
+            { error: "Accounts data is required for payment plan generation" },
+            { status: 400 }
+          )
+        }
+        result = await generator.generatePaymentPlan(creditData.accounts)
+        break
+      default:
+        result = await generator.generateStrategy(creditData)
+    }
+
+    if (!result.success) {
+      return NextResponse.json(
+        { error: "Strategy generation failed", details: result.error },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({
       success: true,
-      data: mockStrategy
+      message: "Credit improvement strategy generated successfully",
+      strategy: result,
+      generated_at: new Date().toISOString(),
     })
 
   } catch (error) {
-    console.error('Error generating improvement strategy:', error)
+    console.error("❌ Strategy generation error:", error)
     
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to generate improvement strategy",
-        details: error instanceof Error ? error.message : "Unknown error occurred"
+        error: "Strategy generation failed",
+        details: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString(),
       },
       { status: 500 }
     )
   }
 }
+
+export async function GET() {
+  return NextResponse.json({
+    endpoint: "/api/credit-improvement/strategy",
+    description: "Generate personalized credit improvement strategies",
+    supported_strategies: [
+      "comprehensive - Full credit improvement plan",
+      "dispute_letter - Professional dispute letter",
+      "payment_plan - Strategic debt payment plan",
+    ],
+    features: [
+      "AI-powered strategy generation",
+      "Personalized recommendations",
+      "Actionable improvement steps",
+      "Timeline and milestone planning",
+      "Risk mitigation strategies",
+      "Dispute letter templates",
+      "Payment prioritization",
+    ],
+    status: "active",
+  })
+}
+

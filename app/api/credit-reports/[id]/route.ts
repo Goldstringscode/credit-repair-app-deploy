@@ -5,29 +5,19 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const reportId = params.id
-
-    // Mock report details data
-    const mockReportDetails = {
+    const { id } = params
+    
+    // For now, return mock data since we're focusing on the manual system
+    // In the future, this could fetch specific report details from database
+    const reportDetails = {
       personal_info: {
         name: "John Doe",
         address: "123 Main St, Anytown, ST 12345",
-        ssn_last_4: "1234",
-        date_of_birth: "1990-01-01"
+        ssn_last_4: "1234"
       },
       credit_scores: [
-        {
-          model: "FICO Score 8",
-          score: 720,
-          date: "2024-10-01",
-          version: "8.0"
-        },
-        {
-          model: "VantageScore 3.0",
-          score: 715,
-          date: "2024-10-01",
-          version: "3.0"
-        }
+        { model: "FICO 8", score: 720, version: "8.0", date: "2024-10-01" },
+        { model: "VantageScore 3.0", score: 715, version: "3.0", date: "2024-10-01" }
       ],
       accounts: [
         {
@@ -37,76 +27,60 @@ export async function GET(
           credit_limit: 10000,
           account_status: "Open",
           account_type: "Credit Card"
-        },
-        {
-          creditor_name: "Capital One",
-          account_number_last_4: "5678",
-          balance: 0,
-          credit_limit: 5000,
-          account_status: "Closed",
-          account_type: "Credit Card"
         }
       ],
       negative_items: [
         {
           item_type: "Late Payment",
-          status: "Resolved",
-          creditor_name: "Chase Bank",
-          amount: 2500,
+          status: "Closed",
+          creditor_name: "Capital One",
+          amount: 1500,
           date_reported: "2023-12-01",
           dispute_status: "Not Disputed",
-          description: "30-day late payment on credit card"
+          description: "30-day late payment"
         }
       ],
-      inquiries: [
-        {
-          creditor_name: "Chase Bank",
-          date: "2024-09-15",
-          type: "Hard Inquiry"
-        }
-      ],
+      inquiries: [],
       risk_analysis: {
-        risk_level: "Low",
-        risk_score: 25,
+        risk_level: "Medium",
+        risk_score: 65,
         risk_factors: [
-          "Low credit utilization",
-          "No recent late payments",
-          "Good payment history"
+          "Recent late payment",
+          "High credit utilization",
+          "Limited credit history"
         ]
       },
       recommendations: [
         {
-          action: "Keep credit utilization below 30%",
+          action: "Dispute late payment",
           priority: "High",
-          expected_impact: "Maintain or improve credit score",
-          timeline: "Ongoing"
+          expected_impact: "Potential 20-30 point increase",
+          timeline: "30-45 days"
         },
         {
-          action: "Continue making payments on time",
-          priority: "High",
-          expected_impact: "Maintain good payment history",
-          timeline: "Ongoing"
+          action: "Reduce credit utilization",
+          priority: "Medium",
+          expected_impact: "Potential 10-15 point increase",
+          timeline: "1-2 months"
         }
       ],
       validation_results: {
-        data_completeness: 0.95,
-        accuracy_score: 0.92,
-        validation_status: "Passed"
+        data_quality: 0.95,
+        confidence_score: 0.88
       }
     }
-
+    
     return NextResponse.json({
       success: true,
-      ...mockReportDetails
+      ...reportDetails
     })
-
   } catch (error) {
     console.error('Error fetching report details:', error)
     
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to fetch report details",
+        error: "Internal server error",
         details: error instanceof Error ? error.message : "Unknown error occurred"
       },
       { status: 500 }
