@@ -369,10 +369,10 @@ export default function DashboardPage() {
                   Security Tests
                 </Button>
               </Link>
-              <Link href="/dashboard/reports/upload">
+              <Link href="/dashboard/credit-reports/upload">
                 <Button className="bg-blue-600 hover:bg-blue-700">
                   <Upload className="h-4 w-4 mr-2" />
-                  Upload Reports
+                  Add Credit Data
                 </Button>
               </Link>
               <Button variant="outline">Settings</Button>
@@ -620,10 +620,10 @@ export default function DashboardPage() {
                       <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 mb-2">No Credit Reports Yet</h3>
                       <p className="text-gray-500 mb-4">Upload your first credit report to see your activity here</p>
-                      <Link href="/dashboard/reports/upload">
+                      <Link href="/dashboard/credit-reports/upload">
                         <Button>
                           <Upload className="h-4 w-4 mr-2" />
-                          Upload Credit Report
+                          Add Credit Data
                         </Button>
                       </Link>
                     </div>
@@ -641,16 +641,16 @@ export default function DashboardPage() {
                 <CardDescription>Common tasks and tools</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Link href="/dashboard/reports/upload">
+                <Link href="/dashboard/credit-reports/upload">
                   <Button className="w-full justify-start bg-transparent" variant="outline">
                     <Upload className="mr-2 h-4 w-4" />
-                    Upload Credit Report
+                    Add Credit Data
                   </Button>
                 </Link>
-                <Link href="/test-upload-system">
+                <Link href="/dashboard/credit-reports/upload">
                   <Button className="w-full justify-start bg-transparent" variant="outline">
                     <Zap className="mr-2 h-4 w-4" />
-                    Test Upload System
+                    Manual Credit Entry
                   </Button>
                 </Link>
                 <Link href="/dashboard/letters">
