@@ -8,6 +8,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { 
+  FileText, 
+  Upload, 
+  BookOpen, 
+  Target,
+  CreditCard,
+  AlertTriangle,
+  TrendingUp,
+  ArrowRight
+} from "lucide-react"
 
 interface CreditReport {
   id: string
@@ -161,6 +171,53 @@ export default function CreditReportsDashboard() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+
+      {/* Manual Upload System Introduction */}
+      <Card className="bg-gradient-to-r from-blue-50 to-green-50 border-blue-200">
+        <CardContent className="p-6">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">
+                🎯 New: Manual Credit Report System
+              </h2>
+              <p className="text-gray-700 mb-4">
+                Get started quickly with our manual credit report system. Learn how to get your free 
+                credit reports, enter your data, and generate professional dispute letters.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button 
+                  onClick={() => window.location.href = '/dashboard/credit-reports/guide'}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  View Complete Guide
+                </Button>
+                <Button 
+                  onClick={() => window.location.href = '/dashboard/credit-reports/upload'}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Target className="h-4 w-4 mr-2" />
+                  Start Data Entry
+                </Button>
+              </div>
+            </div>
+            <div className="ml-6">
+              <div className="grid grid-cols-2 gap-4 text-center">
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  <CreditCard className="h-8 w-8 text-blue-500 mx-auto mb-2" />
+                  <p className="text-sm font-medium text-gray-900">Free Reports</p>
+                  <p className="text-xs text-gray-600">AnnualCreditReport.com</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  <FileText className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                  <p className="text-sm font-medium text-gray-900">AI Letters</p>
+                  <p className="text-xs text-gray-600">Professional Disputes</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Summary Cards */}
