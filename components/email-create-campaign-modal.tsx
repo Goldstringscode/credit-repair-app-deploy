@@ -115,6 +115,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
   }
 
   const handleRecipientFiltersApplied = (filters: RecipientFilters, recipientCount: number) => {
+    console.log('Recipient filters applied:', filters, recipientCount)
     setRecipientFilters(filters)
     setFormData(prev => ({ ...prev, recipients: recipientCount }))
     setIsRecipientFilterModalOpen(false)
@@ -323,7 +324,11 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setIsRecipientFilterModalOpen(true)}
+                        onClick={() => {
+                          console.log('Filter Recipients button clicked!')
+                          setIsRecipientFilterModalOpen(true)
+                        }}
+                        className="bg-blue-500 text-white hover:bg-blue-600"
                       >
                         <Filter className="h-4 w-4 mr-1" />
                         Filter Recipients
@@ -459,9 +464,13 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
       </DialogContent>
 
       {/* Recipient Filter Modal */}
+      {console.log('RecipientFilterModal state:', isRecipientFilterModalOpen)}
       <RecipientFilterModal
         isOpen={isRecipientFilterModalOpen}
-        onClose={() => setIsRecipientFilterModalOpen(false)}
+        onClose={() => {
+          console.log('Closing RecipientFilterModal')
+          setIsRecipientFilterModalOpen(false)
+        }}
         onApply={handleRecipientFiltersApplied}
         currentRecipients={formData.recipients}
       />
