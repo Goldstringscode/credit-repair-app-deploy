@@ -573,6 +573,15 @@ function ItemFormModal({
     notes: item?.notes || ''
   })
 
+  const handleDisputeReasonChange = (value: string) => {
+    if (value === "Custom") {
+      setFormData(prev => ({ ...prev, disputeReason: "" }))
+    } else {
+      // Pre-populate with the selected reason, but allow user to edit
+      setFormData(prev => ({ ...prev, disputeReason: value }))
+    }
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSave(formData)
@@ -686,14 +695,54 @@ function ItemFormModal({
 
           <div>
             <Label htmlFor="disputeReason">Dispute Reason</Label>
-            <Textarea
-              id="disputeReason"
-              value={formData.disputeReason}
-              onChange={(e) => setFormData(prev => ({ ...prev, disputeReason: e.target.value }))}
-              rows={3}
-              placeholder="Explain why you're disputing this item..."
-              required
-            />
+            <div className="space-y-3">
+              <Select 
+                value={formData.disputeReason || ""} 
+                onValueChange={handleDisputeReasonChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a common dispute reason or write your own below" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Inaccurate Information">Inaccurate Information - Wrong amounts, dates, or account details</SelectItem>
+                  <SelectItem value="Identity Theft">Identity Theft - Account opened without authorization</SelectItem>
+                  <SelectItem value="Outdated Information">Outdated Information - Item older than 7 years (10 for bankruptcies)</SelectItem>
+                  <SelectItem value="Duplicate Entry">Duplicate Entry - Same debt listed multiple times</SelectItem>
+                  <SelectItem value="Paid in Full">Paid in Full - Account was paid but not updated</SelectItem>
+                  <SelectItem value="Never Late">Never Late - Payment history is incorrect</SelectItem>
+                  <SelectItem value="Account Not Mine">Account Not Mine - I never opened this account</SelectItem>
+                  <SelectItem value="Incorrect Balance">Incorrect Balance - Balance amount is wrong</SelectItem>
+                  <SelectItem value="Wrong Creditor">Wrong Creditor - Creditor name is incorrect</SelectItem>
+                  <SelectItem value="Settled Account">Settled Account - Account was settled but shows as charged off</SelectItem>
+                  <SelectItem value="Bankruptcy Discharge">Bankruptcy Discharge - Debt was discharged in bankruptcy</SelectItem>
+                  <SelectItem value="Fraudulent Account">Fraudulent Account - Account opened fraudulently</SelectItem>
+                  <SelectItem value="Incorrect Status">Incorrect Status - Account status is wrong</SelectItem>
+                  <SelectItem value="Missing Payment Credit">Missing Payment Credit - Payments not reflected</SelectItem>
+                  <SelectItem value="Wrong Account Type">Wrong Account Type - Account type is incorrect</SelectItem>
+                  <SelectItem value="Incorrect Date">Incorrect Date - Date opened or reported is wrong</SelectItem>
+                  <SelectItem value="Account Closed">Account Closed - Account was closed but shows as open</SelectItem>
+                  <SelectItem value="Incorrect Credit Limit">Incorrect Credit Limit - Credit limit amount is wrong</SelectItem>
+                  <SelectItem value="Wrong Payment Status">Wrong Payment Status - Payment status is incorrect</SelectItem>
+                  <SelectItem value="Custom">Custom - Write your own reason below</SelectItem>
+                </SelectContent>
+              </Select>
+              <Textarea
+                id="disputeReason"
+                value={formData.disputeReason}
+                onChange={(e) => setFormData(prev => ({ ...prev, disputeReason: e.target.value }))}
+                rows={3}
+                placeholder="Explain why you're disputing this item in detail..."
+                required
+              />
+              <div className="text-xs text-gray-500">
+                💡 <strong>Tip:</strong> Be specific about what's wrong and provide any supporting documentation you have.
+                {formData.disputeReason && !["Inaccurate Information", "Identity Theft", "Outdated Information", "Duplicate Entry", "Paid in Full", "Never Late", "Account Not Mine", "Incorrect Balance", "Wrong Creditor", "Settled Account", "Bankruptcy Discharge", "Fraudulent Account", "Incorrect Status", "Missing Payment Credit", "Wrong Account Type", "Incorrect Date", "Account Closed", "Incorrect Credit Limit", "Wrong Payment Status"].includes(formData.disputeReason) && (
+                  <span className="block mt-1 text-blue-600">
+                    ✏️ <strong>Custom reason:</strong> You can edit this text to add more details.
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
 
           <div>
