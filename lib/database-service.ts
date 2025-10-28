@@ -41,10 +41,43 @@ export interface Subscription {
   notes?: string
 }
 
+export interface NegativeItem {
+  id: string
+  userId: string
+  creditor: string
+  accountNumber: string
+  originalAmount: number
+  currentBalance: number
+  dateOpened: string
+  dateReported: string
+  status: 'Open' | 'Closed' | 'Charged Off' | 'In Collections'
+  itemType: 'Late Payment' | 'Collection' | 'Charge Off' | 'Bankruptcy' | 'Lien' | 'Judgment' | 'Other'
+  disputeReason: string
+  notes?: string
+  createdAt: string
+  updatedAt: string
+  isDisputed: boolean
+  disputeDate?: string
+  resolutionStatus?: 'Pending' | 'Resolved' | 'Rejected' | 'In Progress'
+}
+
+export interface CreditScore {
+  id: string
+  userId: string
+  bureau: 'Experian' | 'Equifax' | 'TransUnion'
+  score: number
+  date: string
+  notes?: string
+  createdAt: string
+  updatedAt: string
+}
+
 class DatabaseService {
   // In-memory storage for mock data persistence
   private mockUsers: any[] = []
   private mockSubscriptions: any[] = []
+  private mockNegativeItems: any[] = []
+  private mockCreditScores: any[] = []
   private initialized = false
 
   // Initialize mock data once
@@ -54,10 +87,14 @@ class DatabaseService {
     // Try to load from localStorage first
     const savedUsers = localStorage.getItem('mockUsers')
     const savedSubscriptions = localStorage.getItem('mockSubscriptions')
+    const savedNegativeItems = localStorage.getItem('mockNegativeItems')
+    const savedCreditScores = localStorage.getItem('mockCreditScores')
 
     if (savedUsers && savedSubscriptions) {
       this.mockUsers = JSON.parse(savedUsers)
       this.mockSubscriptions = JSON.parse(savedSubscriptions)
+      this.mockNegativeItems = savedNegativeItems ? JSON.parse(savedNegativeItems) : []
+      this.mockCreditScores = savedCreditScores ? JSON.parse(savedCreditScores) : []
       this.initialized = true
       return
     }
@@ -159,6 +196,128 @@ class DatabaseService {
       }
     ]
 
+    // Default mock negative items
+    this.mockNegativeItems = [
+      {
+        id: "item_1",
+        userId: "1",
+        creditor: "Capital One",
+        accountNumber: "****1234",
+        originalAmount: 2500,
+        currentBalance: 0,
+        dateOpened: "2020-03-15",
+        dateReported: "2023-12-01",
+        status: "Closed",
+        itemType: "Late Payment",
+        disputeReason: "Inaccurate Information - Wrong amounts, dates, or account details",
+        notes: "Account was never late, always paid on time",
+        createdAt: "2024-01-15T10:30:00Z",
+        updatedAt: "2024-01-15T10:30:00Z",
+        isDisputed: false,
+        resolutionStatus: "Pending"
+      },
+      {
+        id: "item_2",
+        userId: "1",
+        creditor: "Chase Bank",
+        accountNumber: "****5678",
+        originalAmount: 1500,
+        currentBalance: 1500,
+        dateOpened: "2021-06-20",
+        dateReported: "2024-01-15",
+        status: "In Collections",
+        itemType: "Collection",
+        disputeReason: "Identity Theft - Account opened without authorization",
+        notes: "This account was opened fraudulently",
+        createdAt: "2024-01-15T10:30:00Z",
+        updatedAt: "2024-01-15T10:30:00Z",
+        isDisputed: false,
+        resolutionStatus: "Pending"
+      },
+      {
+        id: "item_3",
+        userId: "2",
+        creditor: "Discover",
+        accountNumber: "****9012",
+        originalAmount: 800,
+        currentBalance: 0,
+        dateOpened: "2019-11-10",
+        dateReported: "2023-10-30",
+        status: "Charged Off",
+        itemType: "Charge Off",
+        disputeReason: "Paid in Full - Account was paid but not updated",
+        notes: "Account was settled and paid in full",
+        createdAt: "2024-02-20T10:30:00Z",
+        updatedAt: "2024-02-20T10:30:00Z",
+        isDisputed: false,
+        resolutionStatus: "Pending"
+      }
+    ]
+
+    // Default mock credit scores
+    this.mockCreditScores = [
+      {
+        id: "score_1",
+        userId: "1",
+        bureau: "Experian",
+        score: 720,
+        date: "2024-10-01",
+        notes: "Good credit standing",
+        createdAt: "2024-10-01T10:30:00Z",
+        updatedAt: "2024-10-01T10:30:00Z"
+      },
+      {
+        id: "score_2",
+        userId: "1",
+        bureau: "Equifax",
+        score: 715,
+        date: "2024-10-01",
+        notes: "Slight variation from Experian",
+        createdAt: "2024-10-01T10:30:00Z",
+        updatedAt: "2024-10-01T10:30:00Z"
+      },
+      {
+        id: "score_3",
+        userId: "1",
+        bureau: "TransUnion",
+        score: 725,
+        date: "2024-10-01",
+        notes: "Highest score among bureaus",
+        createdAt: "2024-10-01T10:30:00Z",
+        updatedAt: "2024-10-01T10:30:00Z"
+      },
+      {
+        id: "score_4",
+        userId: "2",
+        bureau: "Experian",
+        score: 680,
+        date: "2024-10-01",
+        notes: "Fair credit score",
+        createdAt: "2024-10-01T10:30:00Z",
+        updatedAt: "2024-10-01T10:30:00Z"
+      },
+      {
+        id: "score_5",
+        userId: "2",
+        bureau: "Equifax",
+        score: 675,
+        date: "2024-10-01",
+        notes: "Consistent with Experian",
+        createdAt: "2024-10-01T10:30:00Z",
+        updatedAt: "2024-10-01T10:30:00Z"
+      },
+      {
+        id: "score_6",
+        userId: "2",
+        bureau: "TransUnion",
+        score: 685,
+        date: "2024-10-01",
+        notes: "Slightly higher than other bureaus",
+        createdAt: "2024-10-01T10:30:00Z",
+        updatedAt: "2024-10-01T10:30:00Z"
+      }
+    ]
+
     this.initialized = true
     this.saveToLocalStorage()
   }
@@ -168,6 +327,8 @@ class DatabaseService {
     try {
       localStorage.setItem('mockUsers', JSON.stringify(this.mockUsers))
       localStorage.setItem('mockSubscriptions', JSON.stringify(this.mockSubscriptions))
+      localStorage.setItem('mockNegativeItems', JSON.stringify(this.mockNegativeItems))
+      localStorage.setItem('mockCreditScores', JSON.stringify(this.mockCreditScores))
     } catch (error) {
       console.error('Failed to save to localStorage:', error)
     }
@@ -981,6 +1142,180 @@ class DatabaseService {
         user: newUser,
         subscription: newSubscription,
         message: "User and subscription created successfully"
+      }
+    }
+  }
+
+  // Negative Items Management
+  async getNegativeItems(userId?: string) {
+    this.initializeMockData()
+    
+    let items = this.mockNegativeItems
+    if (userId) {
+      items = items.filter(item => item.userId === userId)
+    }
+    
+    return {
+      success: true,
+      data: {
+        negativeItems: items
+      }
+    }
+  }
+
+  async createNegativeItem(itemData: Omit<NegativeItem, 'id' | 'createdAt' | 'updatedAt'>) {
+    this.initializeMockData()
+    
+    const newItem: NegativeItem = {
+      ...itemData,
+      id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+    
+    this.mockNegativeItems.push(newItem)
+    this.saveToLocalStorage()
+    
+    return {
+      success: true,
+      data: {
+        negativeItem: newItem
+      }
+    }
+  }
+
+  async updateNegativeItem(id: string, updates: Partial<Omit<NegativeItem, 'id' | 'createdAt' | 'userId'>>) {
+    this.initializeMockData()
+    
+    const index = this.mockNegativeItems.findIndex(item => item.id === id)
+    if (index === -1) {
+      return {
+        success: false,
+        error: "Negative item not found"
+      }
+    }
+    
+    this.mockNegativeItems[index] = {
+      ...this.mockNegativeItems[index],
+      ...updates,
+      updatedAt: new Date().toISOString()
+    }
+    
+    this.saveToLocalStorage()
+    
+    return {
+      success: true,
+      data: {
+        negativeItem: this.mockNegativeItems[index]
+      }
+    }
+  }
+
+  async deleteNegativeItem(id: string) {
+    this.initializeMockData()
+    
+    const index = this.mockNegativeItems.findIndex(item => item.id === id)
+    if (index === -1) {
+      return {
+        success: false,
+        error: "Negative item not found"
+      }
+    }
+    
+    this.mockNegativeItems.splice(index, 1)
+    this.saveToLocalStorage()
+    
+    return {
+      success: true,
+      data: {
+        message: "Negative item deleted successfully"
+      }
+    }
+  }
+
+  // Credit Scores Management
+  async getCreditScores(userId?: string) {
+    this.initializeMockData()
+    
+    let scores = this.mockCreditScores
+    if (userId) {
+      scores = scores.filter(score => score.userId === userId)
+    }
+    
+    return {
+      success: true,
+      data: {
+        creditScores: scores
+      }
+    }
+  }
+
+  async createCreditScore(scoreData: Omit<CreditScore, 'id' | 'createdAt' | 'updatedAt'>) {
+    this.initializeMockData()
+    
+    const newScore: CreditScore = {
+      ...scoreData,
+      id: `score_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+    
+    this.mockCreditScores.push(newScore)
+    this.saveToLocalStorage()
+    
+    return {
+      success: true,
+      data: {
+        creditScore: newScore
+      }
+    }
+  }
+
+  async updateCreditScore(id: string, updates: Partial<Omit<CreditScore, 'id' | 'createdAt' | 'userId'>>) {
+    this.initializeMockData()
+    
+    const index = this.mockCreditScores.findIndex(score => score.id === id)
+    if (index === -1) {
+      return {
+        success: false,
+        error: "Credit score not found"
+      }
+    }
+    
+    this.mockCreditScores[index] = {
+      ...this.mockCreditScores[index],
+      ...updates,
+      updatedAt: new Date().toISOString()
+    }
+    
+    this.saveToLocalStorage()
+    
+    return {
+      success: true,
+      data: {
+        creditScore: this.mockCreditScores[index]
+      }
+    }
+  }
+
+  async deleteCreditScore(id: string) {
+    this.initializeMockData()
+    
+    const index = this.mockCreditScores.findIndex(score => score.id === id)
+    if (index === -1) {
+      return {
+        success: false,
+        error: "Credit score not found"
+      }
+    }
+    
+    this.mockCreditScores.splice(index, 1)
+    this.saveToLocalStorage()
+    
+    return {
+      success: true,
+      data: {
+        message: "Credit score deleted successfully"
       }
     }
   }

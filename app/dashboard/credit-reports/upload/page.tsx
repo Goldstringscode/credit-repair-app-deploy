@@ -59,35 +59,68 @@ export default function CreditReportUpload() {
   const [isAddingScore, setIsAddingScore] = useState(false)
   const [isAddingItem, setIsAddingItem] = useState(false)
 
-  // Load saved data from localStorage
+  // Load data from database
   useEffect(() => {
-    const savedScores = localStorage.getItem('creditScores')
-    const savedItems = localStorage.getItem('negativeItems')
-    
-    if (savedScores) {
-      setCreditScores(JSON.parse(savedScores))
-    }
-    if (savedItems) {
-      setNegativeItems(JSON.parse(savedItems))
-    }
+    loadCreditScores()
+    loadNegativeItems()
   }, [])
 
-  // Save data to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('creditScores', JSON.stringify(creditScores))
-  }, [creditScores])
-
-  useEffect(() => {
-    localStorage.setItem('negativeItems', JSON.stringify(negativeItems))
-  }, [negativeItems])
-
-  const handleAddScore = (score: Omit<CreditScore, 'id'>) => {
-    const newScore: CreditScore = {
-      ...score,
-      id: `score_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  const loadCreditScores = async () => {
+    try {
+      const response = await fetch('/api/credit-reports/credit-scores')
+      const data = await response.json()
+      
+      if (data.success) {
+        setCreditScores(data.data.creditScores)
+      } else {
+        console.error('Failed to load credit scores:', data.error)
+      }
+    } catch (error) {
+      console.error('Error loading credit scores:', error)
     }
-    setCreditScores(prev => [...prev, newScore])
-    setIsAddingScore(false)
+  }
+
+  const loadNegativeItems = async () => {
+    try {
+      const response = await fetch('/api/credit-reports/negative-items')
+      const data = await response.json()
+      
+      if (data.success) {
+        setNegativeItems(data.data.negativeItems)
+      } else {
+        console.error('Failed to load negative items:', data.error)
+      }
+    } catch (error) {
+      console.error('Error loading negative items:', error)
+    }
+  }
+
+
+  const handleAddScore = async (score: Omit<CreditScore, 'id'>) => {
+    try {
+      const response = await fetch('/api/credit-reports/credit-scores', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...score,
+          userId: '1' // For now, using a default user ID
+        }),
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        setCreditScores(prev => [...prev, data.data.creditScore])
+        setIsAddingScore(false)
+      } else {
+        alert(`Error adding credit score: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error adding credit score:', error)
+      alert('Failed to add credit score. Please try again.')
+    }
   }
 
   const handleEditScore = (id: string, updates: Partial<CreditScore>) => {
@@ -97,17 +130,50 @@ export default function CreditReportUpload() {
     setEditingScore(null)
   }
 
-  const handleDeleteScore = (id: string) => {
-    setCreditScores(prev => prev.filter(score => score.id !== id))
+  const handleDeleteScore = async (id: string) => {
+    try {
+      const response = await fetch(`/api/credit-reports/credit-scores?id=${id}`, {
+        method: 'DELETE',
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        setCreditScores(prev => prev.filter(score => score.id !== id))
+      } else {
+        alert(`Error deleting credit score: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error deleting credit score:', error)
+      alert('Failed to delete credit score. Please try again.')
+    }
   }
 
-  const handleAddItem = (item: Omit<NegativeItem, 'id'>) => {
-    const newItem: NegativeItem = {
-      ...item,
-      id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  const handleAddItem = async (item: Omit<NegativeItem, 'id'>) => {
+    try {
+      const response = await fetch('/api/credit-reports/negative-items', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...item,
+          userId: '1' // For now, using a default user ID
+        }),
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        setNegativeItems(prev => [...prev, data.data.negativeItem])
+        setIsAddingItem(false)
+      } else {
+        alert(`Error adding negative item: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error adding negative item:', error)
+      alert('Failed to add negative item. Please try again.')
     }
-    setNegativeItems(prev => [...prev, newItem])
-    setIsAddingItem(false)
   }
 
   const handleEditItem = (id: string, updates: Partial<NegativeItem>) => {
@@ -117,8 +183,23 @@ export default function CreditReportUpload() {
     setEditingItem(null)
   }
 
-  const handleDeleteItem = (id: string) => {
-    setNegativeItems(prev => prev.filter(item => item.id !== id))
+  const handleDeleteItem = async (id: string) => {
+    try {
+      const response = await fetch(`/api/credit-reports/negative-items?id=${id}`, {
+        method: 'DELETE',
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        setNegativeItems(prev => prev.filter(item => item.id !== id))
+      } else {
+        alert(`Error deleting negative item: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error deleting negative item:', error)
+      alert('Failed to delete negative item. Please try again.')
+    }
   }
 
 

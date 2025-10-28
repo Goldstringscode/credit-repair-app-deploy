@@ -162,7 +162,7 @@ export default function GenerateLetterPage() {
   const loadNegativeItems = async () => {
     setIsLoadingNegativeItems(true)
     try {
-      const response = await fetch('/api/credit-reports/negative-items')
+      const response = await fetch('/api/credit-reports/negative-items?userId=1')
       const data = await response.json()
       
       if (data.success) {

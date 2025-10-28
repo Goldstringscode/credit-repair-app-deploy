@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
 
-    const result = await databaseService.getNegativeItems(userId || undefined)
+    const result = await databaseService.getCreditScores(userId || undefined)
     
     if (result.success) {
       return NextResponse.json(result)
@@ -14,13 +14,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: result.error || "Failed to fetch negative items"
+          error: result.error || "Failed to fetch credit scores"
         },
         { status: 500 }
       )
     }
   } catch (error) {
-    console.error('Error fetching negative items:', error)
+    console.error('Error fetching credit scores:', error)
     
     return NextResponse.json(
       {
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     
     // Validate required fields
-    const requiredFields = ['userId', 'creditor', 'accountNumber', 'originalAmount', 'currentBalance', 'dateOpened', 'dateReported', 'status', 'itemType', 'disputeReason']
+    const requiredFields = ['userId', 'bureau', 'score', 'date']
     const missingFields = requiredFields.filter(field => !body[field])
     
     if (missingFields.length > 0) {
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = await databaseService.createNegativeItem(body)
+    const result = await databaseService.createCreditScore(body)
     
     if (result.success) {
       return NextResponse.json(result, { status: 201 })
@@ -59,13 +59,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: result.error || "Failed to create negative item"
+          error: result.error || "Failed to create credit score"
         },
         { status: 500 }
       )
     }
   } catch (error) {
-    console.error('Error creating negative item:', error)
+    console.error('Error creating credit score:', error)
     
     return NextResponse.json(
       {
@@ -87,13 +87,13 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Item ID is required"
+          error: "Score ID is required"
         },
         { status: 400 }
       )
     }
 
-    const result = await databaseService.updateNegativeItem(id, updates)
+    const result = await databaseService.updateCreditScore(id, updates)
     
     if (result.success) {
       return NextResponse.json(result)
@@ -101,13 +101,13 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: result.error || "Failed to update negative item"
+          error: result.error || "Failed to update credit score"
         },
         { status: 500 }
       )
     }
   } catch (error) {
-    console.error('Error updating negative item:', error)
+    console.error('Error updating credit score:', error)
     
     return NextResponse.json(
       {
@@ -129,13 +129,13 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Item ID is required"
+          error: "Score ID is required"
         },
         { status: 400 }
       )
     }
 
-    const result = await databaseService.deleteNegativeItem(id)
+    const result = await databaseService.deleteCreditScore(id)
     
     if (result.success) {
       return NextResponse.json(result)
@@ -143,13 +143,13 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: result.error || "Failed to delete negative item"
+          error: result.error || "Failed to delete credit score"
         },
         { status: 500 }
       )
     }
   } catch (error) {
-    console.error('Error deleting negative item:', error)
+    console.error('Error deleting credit score:', error)
     
     return NextResponse.json(
       {
