@@ -1148,8 +1148,57 @@ class DatabaseService {
 
   // Negative Items Management
   async getNegativeItems(userId?: string) {
-    this.initializeMockData()
+    if (supabase) {
+      try {
+        let query = supabase.from('negative_items').select('*')
+        
+        if (userId) {
+          query = query.eq('user_id', userId)
+        }
+        
+        const { data, error } = await query
+        
+        if (error) {
+          console.error('Supabase error:', error)
+          // Fallback to mock data
+          this.initializeMockData()
+          let items = this.mockNegativeItems
+          if (userId) {
+            items = items.filter(item => item.userId === userId)
+          }
+          return {
+            success: true,
+            data: {
+              negativeItems: items
+            }
+          }
+        }
+        
+        return {
+          success: true,
+          data: {
+            negativeItems: data || []
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching negative items from Supabase:', error)
+        // Fallback to mock data
+        this.initializeMockData()
+        let items = this.mockNegativeItems
+        if (userId) {
+          items = items.filter(item => item.userId === userId)
+        }
+        return {
+          success: true,
+          data: {
+            negativeItems: items
+          }
+        }
+      }
+    }
     
+    // Fallback to mock data
+    this.initializeMockData()
     let items = this.mockNegativeItems
     if (userId) {
       items = items.filter(item => item.userId === userId)
@@ -1164,6 +1213,89 @@ class DatabaseService {
   }
 
   async createNegativeItem(itemData: Omit<NegativeItem, 'id' | 'createdAt' | 'updatedAt'>) {
+    if (supabase) {
+      try {
+        // Convert camelCase to snake_case for Supabase
+        const supabaseData = {
+          user_id: itemData.userId,
+          creditor: itemData.creditor,
+          account_number: itemData.accountNumber,
+          original_amount: itemData.originalAmount,
+          current_balance: itemData.currentBalance,
+          date_opened: itemData.dateOpened,
+          date_reported: itemData.dateReported,
+          status: itemData.status,
+          item_type: itemData.itemType,
+          dispute_reason: itemData.disputeReason,
+          notes: itemData.notes,
+          is_disputed: itemData.isDisputed,
+          dispute_date: itemData.disputeDate,
+          resolution_status: itemData.resolutionStatus
+        }
+        
+        const { data, error } = await supabase
+          .from('negative_items')
+          .insert([supabaseData])
+          .select()
+          .single()
+        
+        if (error) {
+          console.error('Supabase error:', error)
+          throw new Error(error.message)
+        }
+        
+        // Convert back to camelCase
+        const newItem: NegativeItem = {
+          id: data.id,
+          userId: data.user_id,
+          creditor: data.creditor,
+          accountNumber: data.account_number,
+          originalAmount: data.original_amount,
+          currentBalance: data.current_balance,
+          dateOpened: data.date_opened,
+          dateReported: data.date_reported,
+          status: data.status,
+          itemType: data.item_type,
+          disputeReason: data.dispute_reason,
+          notes: data.notes,
+          createdAt: data.created_at,
+          updatedAt: data.updated_at,
+          isDisputed: data.is_disputed,
+          disputeDate: data.dispute_date,
+          resolutionStatus: data.resolution_status
+        }
+        
+        return {
+          success: true,
+          data: {
+            negativeItem: newItem
+          }
+        }
+      } catch (error) {
+        console.error('Error creating negative item in Supabase:', error)
+        // Fallback to mock data
+        this.initializeMockData()
+        
+        const newItem: NegativeItem = {
+          ...itemData,
+          id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+        
+        this.mockNegativeItems.push(newItem)
+        this.saveToLocalStorage()
+        
+        return {
+          success: true,
+          data: {
+            negativeItem: newItem
+          }
+        }
+      }
+    }
+    
+    // Fallback to mock data
     this.initializeMockData()
     
     const newItem: NegativeItem = {
@@ -1235,8 +1367,69 @@ class DatabaseService {
 
   // Credit Scores Management
   async getCreditScores(userId?: string) {
-    this.initializeMockData()
+    if (supabase) {
+      try {
+        let query = supabase.from('credit_scores').select('*')
+        
+        if (userId) {
+          query = query.eq('user_id', userId)
+        }
+        
+        const { data, error } = await query
+        
+        if (error) {
+          console.error('Supabase error:', error)
+          // Fallback to mock data
+          this.initializeMockData()
+          let scores = this.mockCreditScores
+          if (userId) {
+            scores = scores.filter(score => score.userId === userId)
+          }
+          return {
+            success: true,
+            data: {
+              creditScores: scores
+            }
+          }
+        }
+        
+        // Convert snake_case to camelCase
+        const creditScores = data?.map(score => ({
+          id: score.id,
+          userId: score.user_id,
+          bureau: score.bureau,
+          score: score.score,
+          date: score.date,
+          notes: score.notes,
+          createdAt: score.created_at,
+          updatedAt: score.updated_at
+        })) || []
+        
+        return {
+          success: true,
+          data: {
+            creditScores
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching credit scores from Supabase:', error)
+        // Fallback to mock data
+        this.initializeMockData()
+        let scores = this.mockCreditScores
+        if (userId) {
+          scores = scores.filter(score => score.userId === userId)
+        }
+        return {
+          success: true,
+          data: {
+            creditScores: scores
+          }
+        }
+      }
+    }
     
+    // Fallback to mock data
+    this.initializeMockData()
     let scores = this.mockCreditScores
     if (userId) {
       scores = scores.filter(score => score.userId === userId)
@@ -1251,6 +1444,71 @@ class DatabaseService {
   }
 
   async createCreditScore(scoreData: Omit<CreditScore, 'id' | 'createdAt' | 'updatedAt'>) {
+    if (supabase) {
+      try {
+        // Convert camelCase to snake_case for Supabase
+        const supabaseData = {
+          user_id: scoreData.userId,
+          bureau: scoreData.bureau,
+          score: scoreData.score,
+          date: scoreData.date,
+          notes: scoreData.notes
+        }
+        
+        const { data, error } = await supabase
+          .from('credit_scores')
+          .insert([supabaseData])
+          .select()
+          .single()
+        
+        if (error) {
+          console.error('Supabase error:', error)
+          throw new Error(error.message)
+        }
+        
+        // Convert back to camelCase
+        const newScore: CreditScore = {
+          id: data.id,
+          userId: data.user_id,
+          bureau: data.bureau,
+          score: data.score,
+          date: data.date,
+          notes: data.notes,
+          createdAt: data.created_at,
+          updatedAt: data.updated_at
+        }
+        
+        return {
+          success: true,
+          data: {
+            creditScore: newScore
+          }
+        }
+      } catch (error) {
+        console.error('Error creating credit score in Supabase:', error)
+        // Fallback to mock data
+        this.initializeMockData()
+        
+        const newScore: CreditScore = {
+          ...scoreData,
+          id: `score_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+        
+        this.mockCreditScores.push(newScore)
+        this.saveToLocalStorage()
+        
+        return {
+          success: true,
+          data: {
+            creditScore: newScore
+          }
+        }
+      }
+    }
+    
+    // Fallback to mock data
     this.initializeMockData()
     
     const newScore: CreditScore = {
