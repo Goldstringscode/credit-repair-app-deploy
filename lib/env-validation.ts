@@ -10,9 +10,11 @@ const envSchema = z.object({
   NEON_DATABASE_URL: z.string().url('NEON_DATABASE_URL must be a valid URL').optional(),
   
   // Supabase Configuration
+  SUPABASE_URL: z.string().url('SUPABASE_URL must be a valid URL').optional(),
+  SUPABASE_ANON_KEY: z.string().min(1, 'SUPABASE_ANON_KEY is required').optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required').optional(),
   NEXT_PUBLIC_SUPABASE_URL: z.string().url('NEXT_PUBLIC_SUPABASE_URL must be a valid URL').optional(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, 'NEXT_PUBLIC_SUPABASE_ANON_KEY is required').optional(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required').optional(),
   
   // OpenAI Configuration
   OPENAI_API_KEY: z.string().min(1, 'OPENAI_API_KEY is required'),
@@ -29,7 +31,11 @@ const envSchema = z.object({
   // Stripe Configuration
   STRIPE_SECRET_KEY: z.string().min(1, 'STRIPE_SECRET_KEY is required').optional(),
   STRIPE_PUBLISHABLE_KEY: z.string().min(1, 'STRIPE_PUBLISHABLE_KEY is required').optional(),
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1, 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is required').optional(),
   STRIPE_WEBHOOK_SECRET: z.string().min(1, 'STRIPE_WEBHOOK_SECRET is required').optional(),
+
+  // ShipEngine Configuration
+  SHIPENGINE_API_KEY: z.string().min(1, 'SHIPENGINE_API_KEY is required').optional(),
   
   // App Configuration
   NEXT_PUBLIC_APP_URL: z.string().url('NEXT_PUBLIC_APP_URL must be a valid URL'),
@@ -442,4 +448,36 @@ export const envValidator = {
 
 // Export the validator instance getter as default
 export default envValidator
+
+/**
+ * Validates the eight environment variables that are critical for production.
+ * Call this function during app startup (e.g. from instrumentation.ts) so that
+ * missing configuration fails loudly with a clear message rather than causing
+ * cryptic runtime errors later.
+ *
+ * @throws {Error} with a descriptive message listing every missing variable.
+ */
+export function validateRequiredEnvVars(): void {
+  const required: { key: string; description: string }[] = [
+    { key: 'JWT_SECRET', description: 'Secret used to sign and verify JWT tokens' },
+    { key: 'SUPABASE_URL', description: 'Supabase project URL (e.g. https://<project>.supabase.co)' },
+    { key: 'SUPABASE_ANON_KEY', description: 'Supabase anonymous/public API key' },
+    { key: 'SUPABASE_SERVICE_ROLE_KEY', description: 'Supabase service-role key (server-side only)' },
+    { key: 'STRIPE_SECRET_KEY', description: 'Stripe secret API key (sk_live_... or sk_test_...)' },
+    { key: 'STRIPE_WEBHOOK_SECRET', description: 'Stripe webhook signing secret (whsec_...)' },
+    { key: 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', description: 'Stripe publishable key exposed to the browser' },
+    { key: 'SHIPENGINE_API_KEY', description: 'ShipEngine API key for certified-mail shipments' },
+  ]
+
+  const missing = required.filter(({ key }) => !process.env[key])
+
+  if (missing.length > 0) {
+    const lines = missing
+      .map(({ key, description }) => `  • ${key} — ${description}`)
+      .join('\n')
+    throw new Error(
+      `Missing required environment variables. Set the following before starting the app:\n\n${lines}\n`
+    )
+  }
+}
 
