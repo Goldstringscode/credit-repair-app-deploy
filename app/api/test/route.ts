@@ -1,10 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
-
-export async function GET(request: NextRequest) {
-  return NextResponse.json({
-    success: true,
-    message: "Test API is working",
-    timestamp: new Date().toISOString()
-  })
-}
+import { NextResponse } from "next/server"
+export async function GET() { return NextResponse.json({ error: "Not Found" }, { status: 404 }) }
+export async function POST() { return NextResponse.json({ error: "Not Found" }, { status: 404 }) }
 

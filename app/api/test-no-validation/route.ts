@@ -1,24 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { withRateLimit } from '@/lib/rate-limiter'
+import { NextResponse } from "next/server"
+export async function GET() { return NextResponse.json({ error: "Not Found" }, { status: 404 }) }
+export async function POST() { return NextResponse.json({ error: "Not Found" }, { status: 404 }) }
 
-export const POST = withRateLimit(
-  async (request: NextRequest) => {
-    try {
-      const body = await request.json()
-      console.log('Test API received:', body)
-      
-      return NextResponse.json({
-        success: true,
-        message: 'No validation test working',
-        data: body
-      })
-    } catch (error: any) {
-      console.error('Test API error:', error)
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-        stack: error.stack
-      }, { status: 500 })
-    }
-  }
-)
