@@ -6,8 +6,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { certifiedMailService, type CertifiedMailRequest } from '@/lib/certified-mail-service-shipengine'
 import { stripeMailPayments, type MailPaymentRequest } from '@/lib/stripe-mail-payments'
+import { requirePlan } from '@/lib/plan-enforcement'
+import type { User } from '@/lib/auth'
 
-export async function POST(request: NextRequest) {
+export const POST = requirePlan('premium')(async (request: NextRequest, _user: User) => {
   try {
     const body = await request.json()
     
@@ -108,7 +110,7 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
 export async function GET() {
   return NextResponse.json({
