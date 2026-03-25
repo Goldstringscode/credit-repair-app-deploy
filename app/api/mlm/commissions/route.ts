@@ -1,22 +1,21 @@
 import { NextRequest, NextResponse } from "next/server"
 import { mlmDatabaseService } from "@/lib/mlm/database-service"
 import { withRateLimit } from "@/lib/rate-limiter"
+import { getAuthenticatedUser } from "@/lib/auth-helpers"
 
 export async function GET(request: NextRequest) {
   return withRateLimit(async (req) => {
     try {
-      const { searchParams } = new URL(req.url)
-      const userId = searchParams.get('userId')
-
-      if (!userId) {
+      const user = getAuthenticatedUser(req)
+      if (!user) {
         return NextResponse.json(
-          { success: false, error: "User ID is required" },
-          { status: 400 }
+          { success: false, error: "Unauthorized" },
+          { status: 401 }
         )
       }
 
-      // Get commissions from database service
-      const commissions = await mlmDatabaseService.getCommissions(userId)
+      // Get commissions from database service, scoped to the authenticated user
+      const commissions = await mlmDatabaseService.getCommissions(user.userId)
 
       // Transform commissions to match dashboard format
       const formattedCommissions = commissions.map(comm => ({

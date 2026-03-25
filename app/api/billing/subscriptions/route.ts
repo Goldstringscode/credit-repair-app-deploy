@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { subscriptionManager } from '@/lib/subscription-manager'
 import { withRateLimit } from '@/lib/rate-limiter'
 import { withValidation } from '@/lib/validation-middleware'
+import { getAuthenticatedUser } from '@/lib/auth-helpers'
+import { getSupabaseClient } from '@/lib/supabase-client'
 import { z } from 'zod'
 
 // Validation schemas
@@ -80,68 +82,68 @@ export const POST = withRateLimit(
 export const GET = withRateLimit(
   async (request: NextRequest) => {
     try {
+      const user = getAuthenticatedUser(request)
+      if (!user) {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized' },
+          { status: 401 }
+        )
+      }
+
       const { searchParams } = new URL(request.url)
-      const customerId = searchParams.get('customerId')
       const planId = searchParams.get('planId')
 
-      if (customerId) {
-        console.log('📝 Fetching subscriptions for customer:', customerId)
-        const subscriptions = await subscriptionManager.getCustomerSubscriptions(customerId)
-        
-        return NextResponse.json({
-          success: true,
-          subscriptions: subscriptions.map(sub => ({
-            id: sub.id,
-            customerId: sub.customerId,
-            planId: sub.planId,
-            status: sub.status,
-            currentPeriodStart: sub.currentPeriodStart,
-            currentPeriodEnd: sub.currentPeriodEnd,
-            cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
-            trialStart: sub.trialStart,
-            trialEnd: sub.trialEnd,
-            quantity: sub.quantity,
-            metadata: sub.metadata,
-            createdAt: sub.createdAt
-          }))
-        })
-      }
+      // When fetching customer subscriptions, always scope to the authenticated user
+      if (!planId) {
+        // Look up the authenticated user's stripe customer ID
+        const supabase = getSupabaseClient()
+        const { data: userData } = await supabase
+          .from('users')
+          .select('stripe_customer_id')
+          .eq('id', user.userId)
+          .single()
 
-      if (planId) {
-        console.log('📝 Fetching plan details:', planId)
-        const plan = await subscriptionManager.getPlan(planId)
-        
-        if (!plan) {
+        const customerId = userData?.stripe_customer_id as string | null
+
+        if (customerId) {
+          console.log('📝 Fetching subscriptions for authenticated user:', user.userId)
+          const subscriptions = await subscriptionManager.getCustomerSubscriptions(customerId)
+
           return NextResponse.json({
-            success: false,
-            error: 'Plan not found'
-          }, { status: 404 })
+            success: true,
+            subscriptions: subscriptions.map(sub => ({
+              id: sub.id,
+              customerId: sub.customerId,
+              planId: sub.planId,
+              status: sub.status,
+              currentPeriodStart: sub.currentPeriodStart,
+              currentPeriodEnd: sub.currentPeriodEnd,
+              cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
+              trialStart: sub.trialStart,
+              trialEnd: sub.trialEnd,
+              quantity: sub.quantity,
+              metadata: sub.metadata,
+              createdAt: sub.createdAt
+            }))
+          })
         }
 
-        return NextResponse.json({
-          success: true,
-          plan: {
-            id: plan.id,
-            name: plan.name,
-            description: plan.description,
-            amount: plan.amount,
-            currency: plan.currency,
-            interval: plan.interval,
-            intervalCount: plan.intervalCount,
-            trialPeriodDays: plan.trialPeriodDays,
-            features: plan.features,
-            isActive: plan.isActive
-          }
-        })
+        return NextResponse.json({ success: true, subscriptions: [] })
       }
 
-      // Return all plans if no specific query
-      console.log('📝 Fetching all plans')
-      const plans = await subscriptionManager.getPlans()
-      
+      console.log('📝 Fetching plan details:', planId)
+      const plan = await subscriptionManager.getPlan(planId)
+
+      if (!plan) {
+        return NextResponse.json({
+          success: false,
+          error: 'Plan not found'
+        }, { status: 404 })
+      }
+
       return NextResponse.json({
         success: true,
-        plans: plans.map(plan => ({
+        plan: {
           id: plan.id,
           name: plan.name,
           description: plan.description,
@@ -152,7 +154,7 @@ export const GET = withRateLimit(
           trialPeriodDays: plan.trialPeriodDays,
           features: plan.features,
           isActive: plan.isActive
-        }))
+        }
       })
 
     } catch (error: any) {
