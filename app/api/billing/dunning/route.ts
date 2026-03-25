@@ -25,6 +25,12 @@ const processPaymentSuccessSchema = z.object({
 export const POST = withRateLimit(
   withValidation({
     body: z.union([
+      // Simplified format: { customerId, invoiceId, attemptNumber }
+      z.object({
+        customerId: z.string().min(1),
+        invoiceId: z.string().min(1),
+        attemptNumber: z.number().int().min(1),
+      }),
       z.object({
         action: z.literal('process_failure'),
         subscriptionId: z.string().min(1),
@@ -48,6 +54,31 @@ export const POST = withRateLimit(
       try {
         const body = validatedData?.body
         const action = body.action
+
+        // Simplified dunning trigger: { customerId, invoiceId, attemptNumber }
+        if (!action && 'invoiceId' in body) {
+          const { customerId, invoiceId, attemptNumber } = body
+
+          console.log(`🔔 Dunning trigger: customer=${customerId} invoice=${invoiceId} attempt=${attemptNumber}`)
+
+          const result = await dunningManager.sendDunningEmail(
+            customerId,
+            `payment_failed_${Math.min(attemptNumber, 3)}`,
+            {
+              customerName: customerId,
+              invoiceId,
+              attemptNumber: String(attemptNumber),
+            }
+          )
+
+          return NextResponse.json({
+            success: result,
+            message: result ? 'Dunning email sent' : 'Dunning email failed (template may not exist)',
+            customerId,
+            invoiceId,
+            attemptNumber,
+          })
+        }
 
         if (action === 'process_failure') {
           const parsedData = body
