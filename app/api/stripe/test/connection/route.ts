@@ -4,6 +4,11 @@ import { withRateLimit } from '@/lib/rate-limiter'
 
 export const GET = withRateLimit(
   async (request: NextRequest) => {
+    // Block this endpoint in production — it is for development/testing only
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     try {
       console.log('🔍 Testing Stripe connection...')
       

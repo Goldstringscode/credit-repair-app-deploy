@@ -71,6 +71,11 @@ const DEBUG_ROUTE_PREFIXES = [
   '/simple-test',
   '/api/test',
   '/api/debug',
+  '/api/stripe/test',
+  '/api/v2/test',
+  '/api/v4/test',
+  '/api/mlm/notifications/test',
+  '/api/notifications/test',
   '/dashboard/test-automation',
 ]
 
@@ -98,19 +103,22 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
  */
 function getValidToken(request: NextRequest): Record<string, unknown> | null {
   try {
-    // Try cookies (Supabase stores session in sb-access-token or sb-<project>-auth-token)
     let token: string | undefined
 
-    // Check for sb-access-token cookie first
-    token = request.cookies.get('sb-access-token')?.value
+    // Primary: check the app's own auth-token cookie (set by /api/auth routes)
+    token = request.cookies.get('auth-token')?.value
 
-    // Check Supabase default session cookie pattern
+    // Fallback: Supabase sb-access-token cookie
     if (!token) {
-      const cookies = request.cookies.getAll()
-      for (const cookie of cookies) {
+      token = request.cookies.get('sb-access-token')?.value
+    }
+
+    // Fallback: Supabase default session cookie pattern (sb-<project>-auth-token)
+    if (!token) {
+      const allCookies = request.cookies.getAll()
+      for (const cookie of allCookies) {
         if (cookie.name.startsWith('sb-') && cookie.name.endsWith('-auth-token')) {
           try {
-            // Supabase stores the session as JSON in this cookie
             const session = JSON.parse(cookie.value)
             token = session?.access_token
           } catch {
@@ -176,7 +184,7 @@ export function middleware(request: NextRequest) {
     if (!payload) {
       // Unauthenticated request
       if (isProtectedApi) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
       }
       // Redirect page requests to login
       const loginUrl = new URL('/login', request.url)
@@ -197,7 +205,13 @@ export function middleware(request: NextRequest) {
       }
     }
 
-    return NextResponse.next()
+    // Forward request with user identity headers derived from JWT payload
+    const response = NextResponse.next()
+    const userId = (payload.userId ?? payload.sub ?? payload.id) as string | undefined
+    const userRole = (payload.role) as string | undefined
+    if (userId) response.headers.set('x-user-id', String(userId))
+    if (userRole) response.headers.set('x-user-role', String(userRole))
+    return response
   } catch (error) {
     // Safety net: never break the app due to middleware errors
     console.error('Middleware error:', error)

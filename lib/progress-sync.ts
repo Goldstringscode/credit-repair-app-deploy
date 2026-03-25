@@ -50,13 +50,32 @@ export class ProgressSyncManager {
   }
 
   // Update lesson progress and emit event
-  updateLessonProgress(lessonId: string, currentTime: number, completed: boolean = false): void {
+  updateLessonProgress(lessonId: string, currentTime: number, completed: boolean = false, courseId?: string): void {
     try {
-      // Update in progress tracking service
+      // Update in progress tracking service (localStorage)
       progressTrackingService.updateLessonProgress(lessonId, currentTime, completed)
       
       // Emit the update event
       this.emit(lessonId, completed, currentTime)
+      
+      // Persist completion to the server when a lesson is marked complete
+      if (completed && typeof window !== 'undefined') {
+        if (!courseId) {
+          console.warn('ProgressSyncManager: courseId is required for server-side persistence; skipping API call for lesson', lessonId)
+        } else {
+          fetch('/api/mlm/training/progress', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              lesson_id: lessonId,
+              course_id: courseId,
+              completed_at: new Date().toISOString(),
+            }),
+          }).catch((err) => {
+            console.warn('ProgressSyncManager: Failed to persist progress to server:', err)
+          })
+        }
+      }
       
       console.log(`ProgressSyncManager: Updated lesson ${lessonId}`, { completed, currentTime })
     } catch (error) {
