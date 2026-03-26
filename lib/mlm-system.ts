@@ -463,6 +463,8 @@ export interface MLMGenealogy {
   binaryLeg?: string
   isActive: boolean
   joinDate: Date
+  displayName?: string
+  email?: string
 }
 
 export interface MLMPayout {

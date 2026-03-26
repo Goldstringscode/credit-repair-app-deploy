@@ -52,32 +52,27 @@ export class ProgressSyncManager {
   // Update lesson progress and emit event
   updateLessonProgress(lessonId: string, currentTime: number, completed: boolean = false, courseId?: string): void {
     try {
-      // Update in progress tracking service (localStorage)
+      // Keep localStorage as write-through cache for offline resilience
       progressTrackingService.updateLessonProgress(lessonId, currentTime, completed)
       
       // Emit the update event
       this.emit(lessonId, completed, currentTime)
-      
-      // Persist completion to the server when a lesson is marked complete
-      if (completed && typeof window !== 'undefined') {
-        if (!courseId) {
-          console.warn('ProgressSyncManager: courseId is required for server-side persistence; skipping API call for lesson', lessonId)
-        } else {
-          fetch('/api/mlm/training/progress', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              lesson_id: lessonId,
-              course_id: courseId,
-              completed_at: new Date().toISOString(),
-            }),
-          }).catch((err) => {
-            console.warn('ProgressSyncManager: Failed to persist progress to server:', err)
-          })
-        }
+
+      // Always sync to the server (not only on completion)
+      if (typeof window !== 'undefined' && courseId) {
+        fetch('/api/mlm/training/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lesson_id: lessonId,
+            course_id: courseId,
+            video_progress_seconds: Math.floor(currentTime),
+            completed_at: completed ? new Date().toISOString() : null,
+          }),
+        }).catch(err => console.warn('Progress sync failed:', err))
+      } else if (!courseId) {
+        console.warn('ProgressSyncManager: courseId is required for server-side persistence; skipping API call for lesson', lessonId)
       }
-      
-      console.log(`ProgressSyncManager: Updated lesson ${lessonId}`, { completed, currentTime })
     } catch (error) {
       console.error('ProgressSyncManager: Error updating lesson progress:', error)
     }

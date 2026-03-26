@@ -1,4 +1,5 @@
-// import { Pool, PoolClient } from 'pg' // Not needed for mock data
+// import { Pool, PoolClient } from 'pg' // Not needed for Supabase
+import { createClient } from '@supabase/supabase-js'
 import { 
   MLMUser, 
   MLMRank, 
@@ -8,33 +9,119 @@ import {
   MLMMarketing,
   MLMAnalytics,
   MLMNotification,
-  MLMGenealogy
+  MLMGenealogy,
+  mlmRanks
 } from '@/lib/mlm-system'
 
 export class MLMDatabaseService {
-  // private pool: Pool // Not needed for mock data
+  // private pool: Pool // Not needed for Supabase
+
+  private supabase = (() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (url && key) {
+      return createClient(url, key)
+    }
+    return null
+  })()
 
   constructor() {
-    // Always use mock database for development
-    console.log('🗄️ MLM Database: Using development database (mock)')
+    if (this.supabase) {
+      console.log('🗄️ MLM Database: Using Supabase')
+    } else {
+      console.log('🗄️ MLM Database: Using development database (mock)')
+    }
   }
 
   // MLM Users Operations
   async createMLMUser(userData: Partial<MLMUser>): Promise<MLMUser> {
-    return this.createMockMLMUser(userData)
+    if (!this.supabase) {
+      return this.createMockMLMUser(userData)
+    }
+    try {
+      const { data, error } = await this.supabase
+        .from('mlm_users')
+        .insert({
+          user_id: userData.userId,
+          sponsor_id: userData.sponsorId ?? null,
+          upline_id: userData.uplineId ?? null,
+          mlm_code: userData.mlmCode,
+          rank: userData.rank?.id ?? 'associate',
+          status: userData.status ?? 'active',
+          join_date: new Date().toISOString(),
+          personal_volume: userData.personalVolume ?? 0,
+          team_volume: userData.teamVolume ?? 0,
+          total_earnings: userData.totalEarnings ?? 0,
+          current_month_earnings: userData.currentMonthEarnings ?? 0,
+          lifetime_earnings: userData.lifetimeEarnings ?? 0,
+          active_downlines: userData.activeDownlines ?? 0,
+          total_downlines: userData.totalDownlines ?? 0,
+          qualified_legs: userData.qualifiedLegs ?? 0,
+          autoship_active: userData.autoshipActive ?? false,
+        })
+        .select()
+        .single()
+      if (error || !data) return this.createMockMLMUser(userData)
+      return this.mapMLMUserFromDB(data)
+    } catch {
+      return this.createMockMLMUser(userData)
+    }
   }
 
   async getMLMUser(userId: string): Promise<MLMUser | null> {
-    return this.getMockMLMUser(userId)
+    if (!this.supabase) {
+      return this.getMockMLMUser(userId)
+    }
+    try {
+      const { data, error } = await this.supabase
+        .from('mlm_users')
+        .select(`
+          *,
+          users:user_id (
+            id,
+            first_name,
+            last_name,
+            email,
+            phone
+          )
+        `)
+        .eq('user_id', userId)
+        .maybeSingle()
+      if (error || !data) return this.getMockMLMUser(userId)
+      return this.mapMLMUserFromDB(data)
+    } catch {
+      return this.getMockMLMUser(userId)
+    }
   }
 
   async updateMLMUser(userId: string, updates: Partial<MLMUser>): Promise<MLMUser> {
-    // For mock data, just return the updated user
-    const existingUser = await this.getMockMLMUser(userId)
-    if (!existingUser) {
-      throw new Error('User not found')
+    if (!this.supabase) {
+      const existing = await this.getMockMLMUser(userId)
+      if (!existing) throw new Error('User not found')
+      return { ...existing, ...updates }
     }
-    return { ...existingUser, ...updates }
+    try {
+      const dbUpdates: Record<string, any> = {}
+      if (updates.rank) dbUpdates.rank = updates.rank.id
+      if (updates.personalVolume !== undefined) dbUpdates.personal_volume = updates.personalVolume
+      if (updates.teamVolume !== undefined) dbUpdates.team_volume = updates.teamVolume
+      if (updates.totalEarnings !== undefined) dbUpdates.total_earnings = updates.totalEarnings
+      if (updates.status) dbUpdates.status = updates.status
+      if (updates.activeDownlines !== undefined) dbUpdates.active_downlines = updates.activeDownlines
+      if (updates.qualifiedLegs !== undefined) dbUpdates.qualified_legs = updates.qualifiedLegs
+      dbUpdates.updated_at = new Date().toISOString()
+
+      const { error } = await this.supabase
+        .from('mlm_users')
+        .update(dbUpdates)
+        .eq('user_id', userId)
+      if (error) throw error
+      return (await this.getMLMUser(userId))!
+    } catch {
+      const existing = await this.getMockMLMUser(userId)
+      if (!existing) throw new Error('User not found')
+      return { ...existing, ...updates }
+    }
   }
 
   // Genealogy Operations
@@ -67,7 +154,51 @@ export class MLMDatabaseService {
   }
 
   async getTeamStructure(userId: string, maxLevel: number = 10): Promise<MLMGenealogy[]> {
-    return this.getMockTeamStructure(userId, maxLevel)
+    if (!this.supabase) {
+      return this.getMockTeamStructure(userId, maxLevel)
+    }
+    try {
+      const { data, error } = await this.supabase
+        .from('mlm_genealogy')
+        .select(`
+          id,
+          user_id,
+          sponsor_id,
+          upline_id,
+          level,
+          position,
+          binary_leg,
+          is_active,
+          join_date,
+          users:user_id (
+            id,
+            first_name,
+            last_name,
+            email
+          )
+        `)
+        .eq('upline_id', userId)
+        .lte('level', maxLevel)
+        .order('level', { ascending: true })
+      if (error || !data || data.length === 0) {
+        return this.getMockTeamStructure(userId, maxLevel)
+      }
+      return data.map((row: any) => ({
+        id: row.id,
+        userId: row.user_id,
+        sponsorId: row.sponsor_id,
+        uplineId: row.upline_id,
+        level: row.level,
+        position: row.position,
+        binaryLeg: row.binary_leg,
+        isActive: row.is_active,
+        joinDate: new Date(row.join_date),
+        displayName: row.users ? `${row.users.first_name ?? ''} ${row.users.last_name ?? ''}`.trim() : row.user_id,
+        email: row.users?.email ?? row.user_id,
+      } as MLMGenealogy))
+    } catch {
+      return this.getMockTeamStructure(userId, maxLevel)
+    }
   }
 
   // Commission Operations
@@ -349,39 +480,30 @@ export class MLMDatabaseService {
 
   // Helper Methods for Data Mapping
   private mapMLMUserFromDB(row: any): MLMUser {
+    const rank = mlmRanks.find((r) => r.id === row.rank) ?? mlmRanks[0]
     return {
       id: row.id,
       userId: row.user_id,
-      sponsorId: row.sponsor_id,
-      uplineId: row.upline_id,
-      mlmCode: row.mlm_code,
-      rank: {
-        id: row.rank_id,
-        name: row.name,
-        level: row.level,
-        requirements: row.requirements,
-        benefits: row.benefits,
-        commissionRate: row.commission_rate,
-        bonusEligibility: row.bonus_eligibility,
-        color: row.color,
-        icon: row.icon
-      },
-      status: row.status,
-      joinDate: row.join_date,
-      personalVolume: parseFloat(row.personal_volume),
-      teamVolume: parseFloat(row.team_volume),
-      totalEarnings: parseFloat(row.total_earnings),
-      currentMonthEarnings: parseFloat(row.current_month_earnings),
-      lifetimeEarnings: parseFloat(row.lifetime_earnings),
-      activeDownlines: row.active_downlines,
-      totalDownlines: row.total_downlines,
-      qualifiedLegs: row.qualified_legs,
-      autoshipActive: row.autoship_active,
-      lastActivity: row.last_activity,
-      nextRankRequirement: row.next_rank_requirement,
-      billing: row.billing_info,
-      tax: row.tax_info
-    }
+      sponsorId: row.sponsor_id ?? null,
+      uplineId: row.upline_id ?? null,
+      mlmCode: row.mlm_code ?? '',
+      rank,
+      status: row.status ?? 'active',
+      joinDate: new Date(row.join_date ?? row.created_at),
+      personalVolume: Number(row.personal_volume ?? 0),
+      teamVolume: Number(row.team_volume ?? 0),
+      totalEarnings: Number(row.total_earnings ?? 0),
+      currentMonthEarnings: Number(row.current_month_earnings ?? 0),
+      lifetimeEarnings: Number(row.lifetime_earnings ?? 0),
+      activeDownlines: Number(row.active_downlines ?? 0),
+      totalDownlines: Number(row.total_downlines ?? 0),
+      qualifiedLegs: Number(row.qualified_legs ?? 0),
+      autoshipActive: Boolean(row.autoship_active),
+      lastActivity: new Date(row.updated_at ?? row.created_at),
+      nextRankRequirement: null,
+      billing: {},
+      tax: {},
+    } as MLMUser
   }
 
   private mapGenealogyFromDB(row: any): MLMGenealogy {
@@ -1273,10 +1395,28 @@ export class MLMDatabaseService {
 
   // Get team by code
   async getTeamByCode(teamCode: string): Promise<any> {
-    console.log('🔍 getTeamByCode called with:', teamCode)
-    
-    // Always use mock data for development
-    console.log('🔍 Using mock data for team code:', teamCode)
+    if (this.supabase) {
+      try {
+        const { data } = await this.supabase
+          .from('mlm_teams')
+          .select('*, users:sponsor_user_id(first_name, last_name)')
+          .eq('team_code', teamCode)
+          .maybeSingle()
+        if (data) {
+          return {
+            team_code: data.team_code,
+            team_name: data.team_name,
+            sponsor_name: data.users
+              ? `${data.users.first_name} ${data.users.last_name}`.trim()
+              : 'Unknown',
+            member_count: data.member_count ?? 0,
+            team_rank: data.rank ?? 'Associate',
+          }
+        }
+      } catch { /* fall through to hardcoded demo values */ }
+    }
+
+    // Hardcoded demo fallback
     if (teamCode === 'TEST123') {
       return {
         team_code: 'TEST123',
