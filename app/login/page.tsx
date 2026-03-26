@@ -11,30 +11,38 @@ import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!email) {
-      toast.error('Please enter your email address');
+
+    if (!email || !password) {
+      toast.error('Please enter your email and password');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      // In a real app, you'd validate the email and password
-      // For now, we'll just set the email in cookies and redirect
-      
-      // Set email in cookie for middleware to read
-      document.cookie = `user-email=${email}; path=/; max-age=86400`; // 24 hours
-      
-      toast.success('Login successful!');
-      
-      // Redirect to dashboard
-      router.push('/dashboard');
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      let data: { success?: boolean; message?: string; error?: string } = {};
+      try {
+        data = await res.json();
+      } catch {
+        // non-JSON response
+      }
+      if (res.ok && data.success) {
+        toast.success('Login successful!');
+        router.push('/dashboard');
+      } else {
+        toast.error('Invalid email or password. Please try again.');
+      }
     } catch (error) {
       console.error('Login error:', error);
       toast.error('Login failed. Please try again.');
@@ -76,6 +84,22 @@ export default function LoginPage() {
               </div>
             </div>
 
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  className="pl-10"
+                  required
+                />
+              </div>
+            </div>
+
             <Button 
               type="submit" 
               className="w-full" 
@@ -110,8 +134,7 @@ export default function LoginPage() {
           <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <h3 className="font-semibold text-yellow-800 mb-2">For Testing:</h3>
             <p className="text-sm text-yellow-700">
-              Use any email address that's been added to the trusted users list.
-              Contact the administrator to add your email.
+              Use email <strong>demo@example.com</strong> and password <strong>demo123</strong> to log in.
             </p>
           </div>
         </CardContent>
