@@ -36,6 +36,11 @@ export async function GET(request: NextRequest) {
       },
       rankIndex: currentRankIndex,
       totalRanks: mlmRanks.length,
+      personalVolume: user.personalVolume,
+      teamVolume: user.teamVolume,
+      activeDownlines: user.activeDownlines,
+      qualifiedLegs: user.qualifiedLegs,
+      currentMonthEarnings: user.currentMonthEarnings,
     }
 
     return NextResponse.json({ success: true, data: rankProgress })

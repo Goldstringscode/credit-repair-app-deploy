@@ -230,13 +230,13 @@ export function MLMRankProgressionChart() {
   useEffect(() => {
     const fetchUserProgress = async () => {
       try {
-        const response = await fetch('/api/mlm/users')
+        const response = await fetch('/api/mlm/ranks')
         if (response.ok) {
           const json = await response.json()
           const data = json.data
           if (data) {
             setUserProgress({
-              currentRank: data.rank?.id ?? 'associate',
+              currentRank: data.currentRank?.id ?? 'associate',
               personalVolume: data.personalVolume ?? 0,
               teamVolume: data.teamVolume ?? 0,
               activeDownlines: data.activeDownlines ?? 0,

@@ -398,14 +398,8 @@ export default function ModuleContentPage() {
     const currentLesson = moduleContent.lessons[currentLessonIndex]
     const lessonId = currentLesson.id
     
-    console.log('=== MARK COMPLETE DEBUG START ===')
-    console.log('Marking lesson as complete:', lessonId)
-    console.log('Lesson title:', currentLesson.title)
-    
     updateLessonProgress(lessonId, currentLesson.duration, true)
     
-    console.log('=== MARK COMPLETE DEBUG END ===')
-
     toast({
       title: "Lesson Completed! 🎉",
       description: `"${currentLesson.title}" has been marked as complete. Great job!`,

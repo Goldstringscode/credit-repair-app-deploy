@@ -515,14 +515,6 @@ export default function LessonPage() {
                   // Check if this lesson is completed using the global context
                   const isLessonCompleted = getLessonCompletionStatus(lesson.id)
                   
-                  // Enhanced debug logging for all lessons
-                  console.log(`=== SIDEBAR RENDER - Lesson ${lesson.id} ===`, {
-                    isLessonCompleted,
-                    refreshTrigger,
-                    mounted,
-                    index
-                  })
-
                     return (
                     <div
                       key={`${lesson.id}-${refreshTrigger}-${isLessonCompleted}`}
