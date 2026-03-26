@@ -4,8 +4,8 @@ import { getStripeClient } from '@/lib/stripe-client'
 import { getSupabaseClient } from '@/lib/supabase-client'
 import { dunningManager } from '@/lib/dunning-manager'
 
-// Disable body parsing — Stripe requires the raw body for signature verification
-export const config = { api: { bodyParser: false } }
+// Raw body access is handled via request.text() below — required for Stripe signature verification
+export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   const body = await request.text()

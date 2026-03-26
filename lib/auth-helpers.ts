@@ -1,21 +1,48 @@
-import { type NextRequest } from "next/server"
-import jwt from "jsonwebtoken"
+import { NextRequest } from 'next/server'
+import jwt from 'jsonwebtoken'
 
-export interface AuthenticatedUser {
+export interface AuthUser {
   userId: string
   email: string
   role: string
 }
 
-export function getAuthenticatedUser(request: NextRequest): AuthenticatedUser | null {
-  const token = request.cookies.get("auth-token")?.value
+interface JwtPayload {
+  userId?: string
+  sub?: string
+  id?: string
+  email: string
+  role?: string
+  exp?: number
+}
 
-  if (!token) {
-    return null
-  }
-
+export function getAuthenticatedUser(request: NextRequest): AuthUser | null {
   try {
-    return jwt.verify(token, process.env.JWT_SECRET!) as AuthenticatedUser
+    let token: string | undefined
+
+    // Primary: auth-token cookie
+    token = request.cookies.get('auth-token')?.value
+
+    // Fallback: Authorization header
+    if (!token) {
+      const authHeader = request.headers.get('authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        token = authHeader.slice(7)
+      }
+    }
+
+    if (!token) return null
+
+    const secret = process.env.JWT_SECRET
+    if (!secret) return null
+
+    const decoded = jwt.verify(token, secret) as JwtPayload
+
+    return {
+      userId: decoded.userId ?? decoded.sub ?? decoded.id ?? '',
+      email: decoded.email,
+      role: decoded.role ?? 'user',
+    }
   } catch {
     return null
   }
