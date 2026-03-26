@@ -38,8 +38,11 @@ export function getAuthenticatedUser(request: NextRequest): AuthUser | null {
 
     const decoded = jwt.verify(token, secret) as JwtPayload
 
+    const userId = decoded.userId ?? decoded.sub ?? decoded.id
+    if (!userId) return null
+
     return {
-      userId: decoded.userId ?? decoded.sub ?? decoded.id ?? '',
+      userId,
       email: decoded.email,
       role: decoded.role ?? 'user',
     }

@@ -44,11 +44,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    body.userId = user.userId
+    const itemData = { ...body, userId: user.userId }
     
     // Validate required fields
     const requiredFields = ['creditor', 'accountNumber', 'originalAmount', 'currentBalance', 'dateOpened', 'dateReported', 'status', 'itemType', 'disputeReason']
-    const missingFields = requiredFields.filter(field => !body[field])
+    const missingFields = requiredFields.filter(field => !itemData[field])
     
     if (missingFields.length > 0) {
       return NextResponse.json(
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = await databaseService.createNegativeItem(body)
+    const result = await databaseService.createNegativeItem(itemData)
     
     if (result.success) {
       return NextResponse.json(result, { status: 201 })
