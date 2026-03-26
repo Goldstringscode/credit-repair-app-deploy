@@ -9,13 +9,15 @@ export async function GET(request: NextRequest) {
       const user = getAuthenticatedUser(req)
       if (!user) {
         return NextResponse.json(
-          { success: false, error: "Unauthorized" },
+          { success: false, error: 'Unauthorized' },
           { status: 401 }
         )
       }
 
-      // Get commissions from database service, scoped to the authenticated user
-      const commissions = await mlmDatabaseService.getCommissions(user.userId)
+      const userId = user.userId
+
+      // Get commissions from database service
+      const commissions = await mlmDatabaseService.getCommissions(userId)
 
       // Transform commissions to match dashboard format
       const formattedCommissions = commissions.map(comm => ({

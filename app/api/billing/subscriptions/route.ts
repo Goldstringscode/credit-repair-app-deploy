@@ -84,10 +84,7 @@ export const GET = withRateLimit(
     try {
       const user = getAuthenticatedUser(request)
       if (!user) {
-        return NextResponse.json(
-          { success: false, error: 'Unauthorized' },
-          { status: 401 }
-        )
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
       }
 
       const { searchParams } = new URL(request.url)
@@ -133,7 +130,7 @@ export const GET = withRateLimit(
 
       console.log('📝 Fetching plan details:', planId)
       const plan = await subscriptionManager.getPlan(planId)
-
+      
       if (!plan) {
         return NextResponse.json({
           success: false,
