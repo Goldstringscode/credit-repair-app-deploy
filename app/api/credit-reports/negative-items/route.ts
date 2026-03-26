@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { databaseService } from '@/lib/database-service'
+import { getAuthenticatedUser } from '@/lib/auth-helpers'
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
+    const user = getAuthenticatedUser(request)
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
 
-    const result = await databaseService.getNegativeItems(userId || undefined)
+    const result = await databaseService.getNegativeItems(user.userId)
     
     if (result.success) {
       return NextResponse.json(result)
@@ -35,10 +38,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = getAuthenticatedUser(request)
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
+    body.userId = user.userId
     
     // Validate required fields
-    const requiredFields = ['userId', 'creditor', 'accountNumber', 'originalAmount', 'currentBalance', 'dateOpened', 'dateReported', 'status', 'itemType', 'disputeReason']
+    const requiredFields = ['creditor', 'accountNumber', 'originalAmount', 'currentBalance', 'dateOpened', 'dateReported', 'status', 'itemType', 'disputeReason']
     const missingFields = requiredFields.filter(field => !body[field])
     
     if (missingFields.length > 0) {
@@ -80,6 +89,11 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const user = getAuthenticatedUser(request)
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { id, ...updates } = body
     
@@ -122,6 +136,11 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const user = getAuthenticatedUser(request)
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     
