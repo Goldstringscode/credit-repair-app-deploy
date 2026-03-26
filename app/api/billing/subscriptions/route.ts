@@ -3,6 +3,7 @@ import { subscriptionManager } from '@/lib/subscription-manager'
 import { withRateLimit } from '@/lib/rate-limiter'
 import { withValidation } from '@/lib/validation-middleware'
 import { z } from 'zod'
+import { getAuthenticatedUser } from '@/lib/auth-helpers'
 
 // Validation schemas
 const createSubscriptionSchema = z.object({
@@ -80,6 +81,11 @@ export const POST = withRateLimit(
 export const GET = withRateLimit(
   async (request: NextRequest) => {
     try {
+      const user = getAuthenticatedUser(request)
+      if (!user) {
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+      }
+
       const { searchParams } = new URL(request.url)
       const customerId = searchParams.get('customerId')
       const planId = searchParams.get('planId')
