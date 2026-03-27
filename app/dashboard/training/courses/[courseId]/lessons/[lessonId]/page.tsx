@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useParams, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -56,12 +56,30 @@ export default function LessonPage() {
   }
 
   // Simple function to refresh progress data
-  const refreshProgress = () => {
-    const progress = progressTrackingService.getUserProgress()
-    setUserProgress(progress)
+  const refreshProgress = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/training/progress?courseId=${courseId}`)
+      if (res.ok) {
+        const json = await res.json()
+        const lessons: Array<{ lessonId: string; isCompleted: boolean; videoProgressSeconds: number }> = json.data ?? []
+        // Hydrate local state from API data
+        const completed = new Set(lessons.filter((l: any) => l.isCompleted || l.is_completed).map((l: any) => l.lessonId || l.lesson_id))
+        setIsCompleted(completed.has(lessonId))
+        // Mirror to localStorage as write-through cache for offline resilience
+        if (typeof window !== 'undefined') {
+          const progressObj = { lessons: lessons.map((l: any) => ({ lessonId: l.lessonId || l.lesson_id, completed: l.isCompleted || l.is_completed, currentTime: l.videoProgressSeconds || l.video_progress_seconds || 0 })) }
+          localStorage.setItem('userProgress', JSON.stringify(progressObj))
+          setUserProgress(progressObj)
+        }
+      }
+    } catch (err) {
+      console.error('refreshProgress: API fetch failed, falling back to localStorage', err)
+      // Fallback: read from localStorage
+      const progress = progressTrackingService.getUserProgress()
+      setUserProgress(progress)
+    }
     setRefreshTrigger(prev => prev + 1)
-    console.log('Progress refreshed:', progress)
-  }
+  }, [courseId, lessonId])
 
   // Simple function to update lesson progress
   const updateLessonProgress = (lessonId: string, currentTime: number, completed: boolean = false) => {
@@ -74,7 +92,6 @@ export default function LessonPage() {
       duration
     )
     refreshProgress() // Immediately refresh the UI
-    console.log(`Updated lesson ${lessonId}:`, { currentTime, completed, courseId, title: lessonData.title, duration })
   }
 
   // Get course lessons and current lesson data
@@ -111,12 +128,11 @@ export default function LessonPage() {
     // Set initial time from resume parameter
     if (resumeTime > 0) {
       setCurrentTime(resumeTime)
-      console.log(`Resuming lesson from ${Math.floor(resumeTime / 60)}:${(resumeTime % 60).toString().padStart(2, '0')}`)
     }
 
     // Load initial progress data
     refreshProgress()
-  }, [lessonId, resumeTime])
+  }, [lessonId, resumeTime, refreshProgress])
 
   // Load progress data when userProgress is available
   useEffect(() => {
@@ -141,50 +157,27 @@ export default function LessonPage() {
       }
     }
 
-    // Listen for localStorage changes (cross-tab sync)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'user-learning-progress') {
-        console.log('Storage change detected, refreshing progress')
-        refreshProgress()
-      }
-    }
-
-    // Listen for lesson completion changes
+    // Listen for lesson completion changes (fired by ProgressSyncManager after API call)
     const handleLessonCompletionChange = () => {
-      console.log('Lesson completion change detected, refreshing progress')
       refreshProgress()
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('storage', handleStorageChange)
     window.addEventListener('lessonCompletionChanged', handleLessonCompletionChange)
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('lessonCompletionChanged', handleLessonCompletionChange)
     }
-  }, [lessonId])
+  }, [lessonId, refreshProgress])
 
   // Force re-render when refreshTrigger changes
   useEffect(() => {
     if (refreshTrigger > 0) {
-      // This effect will run when refreshTrigger changes, causing a re-render
-      console.log('=== REFRESH TRIGGER EFFECT ===')
-      console.log('Refreshing lesson sidebar due to completion status change')
-      console.log('refreshTrigger:', refreshTrigger)
-      
-      // Force a state update to trigger re-render
       const currentCompletionStatus = getLessonCompletionStatus(lessonId)
-      console.log('Current completion status:', currentCompletionStatus)
-      console.log('isCompleted state:', isCompleted)
-      
       if (currentCompletionStatus !== isCompleted) {
-        console.log('Updating isCompleted state from', isCompleted, 'to', currentCompletionStatus)
         setIsCompleted(currentCompletionStatus)
       }
-      
-      console.log('=== REFRESH TRIGGER EFFECT END ===')
     }
   }, [refreshTrigger, lessonId, isCompleted, getLessonCompletionStatus])
 
@@ -222,14 +215,6 @@ export default function LessonPage() {
   }
 
   const handleMarkComplete = async () => {
-    console.log('=== MARK COMPLETE DEBUG START ===')
-    console.log('Marking lesson as complete:', lessonId)
-    console.log('Current time:', currentTime)
-    console.log('Course ID:', courseId)
-    console.log('Lesson title:', lessonData.title)
-    console.log('Duration:', duration)
-    console.log('User progress before:', userProgress)
-    
     setIsCompleted(true)
     updateLessonProgress(lessonId, currentTime, true)
     
@@ -253,8 +238,6 @@ export default function LessonPage() {
       console.error('Failed to send lesson completion notification:', error)
     }
     
-    console.log('=== MARK COMPLETE DEBUG END ===')
-    
     // Show success toast
     toast({
       title: "Lesson Completed! 🎉",
@@ -264,13 +247,8 @@ export default function LessonPage() {
   }
 
   const handleMarkIncomplete = () => {
-    console.log('=== MARK INCOMPLETE DEBUG START ===')
-    console.log('Marking lesson as incomplete:', lessonId)
-    
     setIsCompleted(false)
     updateLessonProgress(lessonId, currentTime, false)
-    
-    console.log('=== MARK INCOMPLETE DEBUG END ===')
     
     // Show success toast
     toast({
@@ -444,61 +422,6 @@ export default function LessonPage() {
               </Button>
             )}
           </div>
-          
-          {/* Debug Test Button */}
-          <div className="mt-4 flex justify-center">
-            <div className="flex gap-2">
-              <Button
-                onClick={() => {
-                  console.log('=== DEBUG TEST BUTTON ===')
-                  console.log('All lessons:', userProgress?.lessons.map((l: any) => ({ id: l.lessonId, completed: l.completed })))
-                  console.log('Current lesson status:', getLessonCompletionStatus(lessonId))
-                  console.log('Refresh trigger:', refreshTrigger)
-                  console.log('User progress:', userProgress)
-                  console.log('=== DEBUG TEST END ===')
-                }}
-                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 text-sm font-semibold rounded-lg"
-              >
-                🔍 Debug
-              </Button>
-              
-              <Button
-                onClick={() => {
-                  console.log('=== FORCE SYNC TEST ===')
-                  updateLessonProgress(lessonId, currentTime, true)
-                  console.log('Force marked lesson as complete')
-                  console.log('=== FORCE SYNC TEST END ===')
-                }}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 text-sm font-semibold rounded-lg"
-              >
-                🔄 Force Sync
-              </Button>
-              
-              <Button
-                onClick={() => {
-                  console.log('=== MANUAL REFRESH TEST ===')
-                  refreshProgress()
-                  console.log('Manually refreshed progress')
-                  console.log('=== MANUAL REFRESH TEST END ===')
-                }}
-                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 text-sm font-semibold rounded-lg"
-              >
-                🔄 Refresh
-              </Button>
-              
-              <Button
-                onClick={() => {
-                  console.log('=== LOCALSTORAGE TEST ===')
-                  const stored = localStorage.getItem('userProgress')
-                  console.log('Stored progress:', stored ? JSON.parse(stored) : 'No data')
-                  console.log('=== LOCALSTORAGE TEST END ===')
-                }}
-                className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 text-sm font-semibold rounded-lg"
-              >
-                💾 Check Storage
-              </Button>
-            </div>
-          </div>
 
           {/* Completion Status */}
           {isCompleted && (
@@ -592,14 +515,6 @@ export default function LessonPage() {
                   // Check if this lesson is completed using the global context
                   const isLessonCompleted = getLessonCompletionStatus(lesson.id)
                   
-                  // Enhanced debug logging for all lessons
-                  console.log(`=== SIDEBAR RENDER - Lesson ${lesson.id} ===`, {
-                    isLessonCompleted,
-                    refreshTrigger,
-                    mounted,
-                    index
-                  })
-
                     return (
                     <div
                       key={`${lesson.id}-${refreshTrigger}-${isLessonCompleted}`}

@@ -1,12 +1,21 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { mlmDatabaseService } from "@/lib/mlm/database-service"
+import { getAuthenticatedUser } from "@/lib/auth-helpers"
 import { withRateLimit } from "@/lib/rate-limiter"
 
 export const GET = withRateLimit(async (request: NextRequest) => {
   try {
+    const authUser = getAuthenticatedUser(request)
+    if (!authUser) {
+      return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
-    const targetUserId = searchParams.get("userId") || 'demo-user-123'
-    const depth = Number.parseInt(searchParams.get("depth") || "5")
+    // Admins can pass ?userId= to view other users' trees; normal users always see their own
+    const targetUserId = authUser.role === 'admin'
+      ? (searchParams.get("userId") ?? authUser.userId)
+      : authUser.userId
+    const depth = Math.min(Number.parseInt(searchParams.get("depth") ?? "5"), 10)
 
       // Get the main user data
       const mainUser = await mlmDatabaseService.getMLMUser(targetUserId)
@@ -29,60 +38,48 @@ export const GET = withRateLimit(async (request: NextRequest) => {
 
         // Get direct children
         const children = genealogy.filter(g => g.sponsorId === userId && g.level === level + 1)
-        
-        const childrenData = await Promise.all(
-          children.map(async (child) => {
-            const childUser = await mlmDatabaseService.getMLMUser(child.userId)
-            if (!childUser) return null
 
-            return {
-              id: childUser.userId,
-              name: childUser.mlmCode || 'Unknown User',
-              email: '', // Personal info would come from user profile
-              rank: childUser.rank.name,
-              status: childUser.status,
-              volume: childUser.personalVolume,
-              earnings: childUser.currentMonthEarnings,
-              joinDate: childUser.joinDate,
-              level: level + 1,
-              children: await buildTree(childUser.userId, level + 1)
-            }
-          })
+        const childrenData = await Promise.all(
+          children.map(child => buildTree(child.userId, level + 1))
         )
 
-        return childrenData.filter(child => child !== null)
+        // Use displayName/email enriched by getTeamStructure, fall back to userId
+        const enriched = genealogy.find(g => g.userId === userId) as any
+        return {
+          id: user.id,
+          userId: user.userId,
+          name: enriched?.displayName ?? user.userId,
+          email: enriched?.email ?? user.userId,
+          rank: user.rank.name,
+          rankId: user.rank.id,
+          status: user.status,
+          personalVolume: user.personalVolume,
+          teamVolume: user.teamVolume,
+          totalEarnings: user.totalEarnings,
+          joinDate: user.joinDate,
+          level,
+          activeDownlines: user.activeDownlines,
+          children: childrenData.filter(Boolean),
+        }
       }
 
-      const children = await buildTree(targetUserId, 0)
-
-      const genealogyTree = {
-        id: mainUser.userId,
-        name: mainUser.mlmCode || 'You',
-        email: '', // Personal info would come from user profile
-        rank: mainUser.rank.name,
-        status: mainUser.status,
-        volume: mainUser.personalVolume,
-        earnings: mainUser.currentMonthEarnings,
-        joinDate: mainUser.joinDate,
-        level: 0,
-        children: children
-      }
+      const tree = await buildTree(targetUserId, 0)
 
       // Calculate stats
-      const allMembers = [genealogyTree, ...getAllChildren(genealogyTree)]
+      const allMembers = tree ? [tree, ...getAllChildren(tree)] : []
       const stats = {
-        totalMembers: allMembers.length,
-        activeMembers: allMembers.filter(m => m.status === 'active').length,
-        totalVolume: allMembers.reduce((sum, m) => sum + m.volume, 0),
-        totalEarnings: allMembers.reduce((sum, m) => sum + m.earnings, 0),
-        averageDepth: calculateAverageDepth(genealogyTree),
-        maxDepth: Math.max(...allMembers.map(m => m.level), 0)
+        totalMembers: genealogy.length,
+        activeMembers: allMembers.filter((m: any) => m.status === 'active').length,
+        totalVolume: allMembers.reduce((sum: number, m: any) => sum + (m.personalVolume ?? 0), 0),
+        totalEarnings: allMembers.reduce((sum: number, m: any) => sum + (m.totalEarnings ?? 0), 0),
+        averageDepth: tree ? calculateAverageDepth(tree) : 0,
+        maxDepth: Math.max(...allMembers.map((m: any) => m.level), 0)
       }
 
     return NextResponse.json({
       success: true,
       data: {
-        tree: genealogyTree,
+        tree,
         stats,
         depth,
       },

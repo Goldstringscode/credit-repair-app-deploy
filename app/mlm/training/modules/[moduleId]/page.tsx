@@ -100,7 +100,6 @@ export default function ModuleContentPage() {
     const progress = progressTrackingService.getUserProgress()
     setUserProgress(progress)
     setRefreshTrigger(prev => prev + 1)
-    console.log('Progress refreshed:', progress)
   }
 
   const getLessonCompletionStatus = (lessonId: string): boolean => {
@@ -123,7 +122,6 @@ export default function ModuleContentPage() {
       currentLesson?.duration || 600
     )
     refreshProgress()
-    console.log(`Updated lesson ${lessonId}:`, { currentTime, completed, courseId: moduleId })
   }
 
   const handleMarkComplete = () => {
@@ -132,13 +130,7 @@ export default function ModuleContentPage() {
     const currentLesson = moduleContent.lessons[currentLessonIndex]
     const lessonId = currentLesson.id
     
-    console.log('=== MARK COMPLETE DEBUG START ===')
-    console.log('Marking lesson as complete:', lessonId)
-    console.log('Lesson title:', currentLesson.title)
-    
     updateLessonProgress(lessonId, currentLesson.duration, true)
-    
-    console.log('=== MARK COMPLETE DEBUG END ===')
     
     toast({
       title: "Lesson Completed! 🎉",
@@ -153,12 +145,7 @@ export default function ModuleContentPage() {
     const currentLesson = moduleContent.lessons[currentLessonIndex]
     const lessonId = currentLesson.id
     
-    console.log('=== MARK INCOMPLETE DEBUG START ===')
-    console.log('Marking lesson as incomplete:', lessonId)
-    
     updateLessonProgress(lessonId, 0, false)
-    
-    console.log('=== MARK INCOMPLETE DEBUG END ===')
     
     toast({
       title: "Lesson Marked as Incomplete",
@@ -176,23 +163,13 @@ export default function ModuleContentPage() {
   // Listen for completion changes
   useEffect(() => {
     const handleLessonCompletionChange = () => {
-      console.log('Lesson completion change detected, refreshing progress')
       refreshProgress()
     }
 
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'user-learning-progress') {
-        console.log('Storage change detected, refreshing progress')
-        refreshProgress()
-      }
-    }
-
     window.addEventListener('lessonCompletionChanged', handleLessonCompletionChange)
-    window.addEventListener('storage', handleStorageChange)
     
     return () => {
       window.removeEventListener('lessonCompletionChanged', handleLessonCompletionChange)
-      window.removeEventListener('storage', handleStorageChange)
     }
   }, [])
 
@@ -421,14 +398,8 @@ export default function ModuleContentPage() {
     const currentLesson = moduleContent.lessons[currentLessonIndex]
     const lessonId = currentLesson.id
     
-    console.log('=== MARK COMPLETE DEBUG START ===')
-    console.log('Marking lesson as complete:', lessonId)
-    console.log('Lesson title:', currentLesson.title)
-    
     updateLessonProgress(lessonId, currentLesson.duration, true)
     
-    console.log('=== MARK COMPLETE DEBUG END ===')
-
     toast({
       title: "Lesson Completed! 🎉",
       description: `"${currentLesson.title}" has been marked as complete. Great job!`,

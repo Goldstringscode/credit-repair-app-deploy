@@ -1,17 +1,26 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { mlmRanks, calculateRankAdvancement, mockMLMUser } from "@/lib/mlm-system"
+import { mlmRanks, calculateRankAdvancement } from "@/lib/mlm-system"
+import { mlmDatabaseService } from "@/lib/mlm/database-service"
+import { getAuthenticatedUser } from "@/lib/auth-helpers"
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get("userId")
+    const requestedUserId = searchParams.get("userId")
+
+    // Prefer the authenticated user's ID; fall back to query param if provided
+    const authUser = getAuthenticatedUser(request)
+    const userId = authUser?.userId ?? requestedUserId
 
     if (!userId) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 })
     }
 
-    // In a real app, you would fetch user data from database
-    const user = mockMLMUser
+    const user = await mlmDatabaseService.getMLMUser(userId)
+    if (!user) {
+      return NextResponse.json({ error: "MLM user not found" }, { status: 404 })
+    }
+
     const nextRank = calculateRankAdvancement(user)
     const currentRankIndex = mlmRanks.findIndex((rank) => rank.id === user.rank.id)
 
@@ -27,15 +36,17 @@ export async function GET(request: NextRequest) {
       },
       rankIndex: currentRankIndex,
       totalRanks: mlmRanks.length,
+      personalVolume: user.personalVolume,
+      teamVolume: user.teamVolume,
+      activeDownlines: user.activeDownlines,
+      qualifiedLegs: user.qualifiedLegs,
+      currentMonthEarnings: user.currentMonthEarnings,
     }
 
-    return NextResponse.json({
-      success: true,
-      data: rankProgress,
-    })
+    return NextResponse.json({ success: true, data: rankProgress })
   } catch (error) {
-    console.error("Rank data fetch error:", error)
-    return NextResponse.json({ error: "Failed to fetch rank data" }, { status: 500 })
+    console.error("Error fetching rank data:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 

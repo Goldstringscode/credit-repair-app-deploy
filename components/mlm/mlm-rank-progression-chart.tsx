@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -211,22 +211,66 @@ interface UserProgress {
   monthlyEarnings: number
 }
 
-const mockUserProgress: UserProgress = {
-  currentRank: "manager",
-  personalVolume: 1250,
-  teamVolume: 8500,
-  activeDownlines: 8,
-  qualifiedLegs: 2,
-  timeInCurrentRank: 4,
-  monthlyEarnings: 3200,
+const defaultUserProgress: UserProgress = {
+  currentRank: "associate",
+  personalVolume: 0,
+  teamVolume: 0,
+  activeDownlines: 0,
+  qualifiedLegs: 0,
+  timeInCurrentRank: 0,
+  monthlyEarnings: 0,
 }
 
 export function MLMRankProgressionChart() {
   const [selectedRank, setSelectedRank] = useState<MLMRank | null>(null)
   const [showRequirements, setShowRequirements] = useState(false)
+  const [userProgress, setUserProgress] = useState<UserProgress | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  const currentRankIndex = mlmRanks.findIndex((rank) => rank.id === mockUserProgress.currentRank)
-  const currentRank = mlmRanks[currentRankIndex]
+  useEffect(() => {
+    const fetchUserProgress = async () => {
+      try {
+        const response = await fetch('/api/mlm/ranks')
+        if (response.ok) {
+          const json = await response.json()
+          const data = json.data
+          if (data) {
+            setUserProgress({
+              currentRank: data.currentRank?.id ?? 'associate',
+              personalVolume: data.personalVolume ?? 0,
+              teamVolume: data.teamVolume ?? 0,
+              activeDownlines: data.activeDownlines ?? 0,
+              qualifiedLegs: data.qualifiedLegs ?? 0,
+              timeInCurrentRank: 0,
+              monthlyEarnings: data.currentMonthEarnings ?? 0,
+            })
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load rank progress:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchUserProgress()
+  }, [])
+
+  // Show skeleton while loading
+  if (isLoading) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="h-8 bg-gray-200 rounded w-64 mx-auto" />
+        <div className="h-40 bg-gray-200 rounded" />
+        <div className="h-40 bg-gray-200 rounded" />
+      </div>
+    )
+  }
+
+  // Fallback to neutral defaults if fetch failed
+  const effectiveProgress = userProgress ?? defaultUserProgress
+
+  const currentRankIndex = mlmRanks.findIndex((rank) => rank.id === effectiveProgress.currentRank)
+  const currentRank = mlmRanks[currentRankIndex] ?? mlmRanks[0]
   const nextRank = mlmRanks[currentRankIndex + 1]
 
   const calculateProgress = (current: number, required: number) => {
@@ -262,11 +306,11 @@ export function MLMRankProgressionChart() {
               <div>
                 <h3 className="text-xl font-bold text-blue-900">Current Rank: {currentRank.name}</h3>
                 <p className="text-blue-700">
-                  Level {currentRank.level} • {mockUserProgress.timeInCurrentRank} months in rank
+                  Level {currentRank.level} • {effectiveProgress.timeInCurrentRank} months in rank
                 </p>
               </div>
             </div>
-            <Badge className="bg-blue-600 text-white">{formatCurrency(mockUserProgress.monthlyEarnings)}/month</Badge>
+            <Badge className="bg-blue-600 text-white">{formatCurrency(effectiveProgress.monthlyEarnings)}/month</Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -282,12 +326,12 @@ export function MLMRankProgressionChart() {
                   <div className="flex justify-between text-sm">
                     <span>Personal Volume</span>
                     <span>
-                      {formatCurrency(mockUserProgress.personalVolume)} /{" "}
+                      {formatCurrency(effectiveProgress.personalVolume)} /{" "}
                       {formatCurrency(nextRank.requirements.personalVolume)}
                     </span>
                   </div>
                   <Progress
-                    value={calculateProgress(mockUserProgress.personalVolume, nextRank.requirements.personalVolume)}
+                    value={calculateProgress(effectiveProgress.personalVolume, nextRank.requirements.personalVolume)}
                     className="h-2"
                   />
                 </div>
@@ -296,11 +340,11 @@ export function MLMRankProgressionChart() {
                   <div className="flex justify-between text-sm">
                     <span>Team Volume</span>
                     <span>
-                      {formatCurrency(mockUserProgress.teamVolume)} / {formatCurrency(nextRank.requirements.teamVolume)}
+                      {formatCurrency(effectiveProgress.teamVolume)} / {formatCurrency(nextRank.requirements.teamVolume)}
                     </span>
                   </div>
                   <Progress
-                    value={calculateProgress(mockUserProgress.teamVolume, nextRank.requirements.teamVolume)}
+                    value={calculateProgress(effectiveProgress.teamVolume, nextRank.requirements.teamVolume)}
                     className="h-2"
                   />
                 </div>
@@ -309,11 +353,11 @@ export function MLMRankProgressionChart() {
                   <div className="flex justify-between text-sm">
                     <span>Active Downlines</span>
                     <span>
-                      {mockUserProgress.activeDownlines} / {nextRank.requirements.activeDownlines}
+                      {effectiveProgress.activeDownlines} / {nextRank.requirements.activeDownlines}
                     </span>
                   </div>
                   <Progress
-                    value={calculateProgress(mockUserProgress.activeDownlines, nextRank.requirements.activeDownlines)}
+                    value={calculateProgress(effectiveProgress.activeDownlines, nextRank.requirements.activeDownlines)}
                     className="h-2"
                   />
                 </div>
@@ -322,11 +366,11 @@ export function MLMRankProgressionChart() {
                   <div className="flex justify-between text-sm">
                     <span>Qualified Legs</span>
                     <span>
-                      {mockUserProgress.qualifiedLegs} / {nextRank.requirements.qualifiedLegs}
+                      {effectiveProgress.qualifiedLegs} / {nextRank.requirements.qualifiedLegs}
                     </span>
                   </div>
                   <Progress
-                    value={calculateProgress(mockUserProgress.qualifiedLegs, nextRank.requirements.qualifiedLegs)}
+                    value={calculateProgress(effectiveProgress.qualifiedLegs, nextRank.requirements.qualifiedLegs)}
                     className="h-2"
                   />
                 </div>
@@ -447,7 +491,7 @@ export function MLMRankProgressionChart() {
                             <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                               <p className="text-sm text-blue-800">
                                 <strong>You are here!</strong> You've been at this rank for{" "}
-                                {mockUserProgress.timeInCurrentRank} months.
+                                {effectiveProgress.timeInCurrentRank} months.
                                 {nextRank && ` Focus on reaching ${nextRank.name} to unlock higher earnings.`}
                               </p>
                             </div>
@@ -480,7 +524,7 @@ export function MLMRankProgressionChart() {
             {mlmRanks.map((rank) => (
               <Card
                 key={rank.id}
-                className={`hover:shadow-lg transition-shadow ${rank.id === mockUserProgress.currentRank ? "ring-2 ring-blue-500" : ""}`}
+                className={`hover:shadow-lg transition-shadow ${rank.id === effectiveProgress.currentRank ? "ring-2 ring-blue-500" : ""}`}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">

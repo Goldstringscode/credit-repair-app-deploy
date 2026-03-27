@@ -41,8 +41,8 @@ function getServiceClient() {
 
 /**
  * POST /api/mlm/training/progress
- * Body: { lesson_id, course_id, completed_at? }
- * Saves a lesson completion record for the authenticated user.
+ * Body: { lesson_id, course_id, video_progress_seconds?, completed_at? }
+ * Saves lesson progress (partial or completed) for the authenticated user.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { lesson_id, course_id, completed_at } = body
+    const { lesson_id, course_id, video_progress_seconds, completed_at } = body
 
     if (!lesson_id || !course_id) {
       return NextResponse.json(
@@ -62,7 +62,8 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getServiceClient()
-    const now = completed_at ?? new Date().toISOString()
+    const now = new Date().toISOString()
+    const is_completed = !!completed_at
 
     const { data, error } = await supabase
       .from("training_progress")
@@ -71,8 +72,10 @@ export async function POST(request: NextRequest) {
           user_id: userId,
           lesson_id,
           course_id,
-          completed_at: now,
-          is_completed: true,
+          video_progress_seconds: video_progress_seconds ?? 0,
+          is_completed,
+          completed_at: is_completed ? (completed_at ?? now) : null,
+          updated_at: now,
         },
         { onConflict: "user_id,course_id,lesson_id" }
       )
