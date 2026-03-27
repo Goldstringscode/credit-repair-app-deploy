@@ -830,7 +830,7 @@ export default function VoiceLearningPage() {
                 <Mic className="h-4 w-4 text-green-600 animate-pulse" />
                 <span className="text-sm font-medium text-green-800">Live Transcript:</span>
               </div>
-              <p className="text-green-700">"{transcript}"</p>
+              <p className="text-green-700">&quot;{transcript}&quot;</p>
             </div>
           )}
 
@@ -841,7 +841,7 @@ export default function VoiceLearningPage() {
                 <MessageSquare className="h-4 w-4 text-blue-600" />
                 <span className="text-sm font-medium text-blue-800">Last Command:</span>
               </div>
-              <p className="text-blue-700">"{lastCommand}"</p>
+              <p className="text-blue-700">&quot;{lastCommand}&quot;</p>
             </div>
           )}
         </div>
@@ -1083,7 +1083,7 @@ export default function VoiceLearningPage() {
                       <div className="text-center py-8 text-gray-500">
                         <Volume2 className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                         <p>Select a module and lesson to start learning</p>
-                        <p className="text-sm mt-2">Say "select basics" to get started</p>
+                        <p className="text-sm mt-2">Say &quot;select basics&quot; to get started</p>
                       </div>
                     )}
                   </CardContent>
@@ -1264,7 +1264,7 @@ export default function VoiceLearningPage() {
                     </div>
 
                     <div className="flex justify-between items-center text-sm text-gray-600">
-                      <div>Say "answer [number]" or click an option</div>
+                      <div>Say &quot;answer [number]&quot; or click an option</div>
                       <div>
                         Score: {currentQuiz.score}/{currentQuestionIndex}
                       </div>
@@ -1457,7 +1457,7 @@ export default function VoiceLearningPage() {
                     <p className="text-gray-500 mb-4">
                       Add bookmarks while listening to audio lessons to save important moments
                     </p>
-                    <p className="text-sm text-gray-400">Say "add bookmark" during audio playback</p>
+                    <p className="text-sm text-gray-400">Say &quot;add bookmark&quot; during audio playback</p>
                   </CardContent>
                 </Card>
               ) : (
@@ -1501,10 +1501,10 @@ export default function VoiceLearningPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              const module = modules.find((m) => m.id === bookmark.moduleId)
-                              const lesson = module?.lessons.find((l) => l.id === bookmark.lessonId)
-                              if (module && lesson) {
-                                setSelectedModule(module)
+                              const trainingModule = modules.find((m) => m.id === bookmark.moduleId)
+                              const lesson = trainingModule?.lessons.find((l) => l.id === bookmark.lessonId)
+                              if (trainingModule && lesson) {
+                                setSelectedModule(trainingModule)
                                 setCurrentLesson(lesson)
                                 // TODO: Seek to bookmark timestamp
                               }
@@ -1596,19 +1596,19 @@ export default function VoiceLearningPage() {
                     <h4 className="font-semibold text-gray-900 mb-3">Module Selection</h4>
                     <div className="grid gap-2 text-sm">
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Select basics"</span>
+                        <span className="font-mono text-blue-600">&quot;Select basics&quot;</span>
                         <span className="text-gray-600">Open MLM Fundamentals</span>
                       </div>
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Choose sales"</span>
+                        <span className="font-mono text-blue-600">&quot;Choose sales&quot;</span>
                         <span className="text-gray-600">Open Sales & Prospecting</span>
                       </div>
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Select leadership"</span>
+                        <span className="font-mono text-blue-600">&quot;Select leadership&quot;</span>
                         <span className="text-gray-600">Open Leadership module</span>
                       </div>
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Choose marketing"</span>
+                        <span className="font-mono text-blue-600">&quot;Choose marketing&quot;</span>
                         <span className="text-gray-600">Open Digital Marketing</span>
                       </div>
                     </div>
@@ -1618,19 +1618,19 @@ export default function VoiceLearningPage() {
                     <h4 className="font-semibold text-gray-900 mb-3">Learning Control</h4>
                     <div className="grid gap-2 text-sm">
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Start learning"</span>
+                        <span className="font-mono text-blue-600">&quot;Start learning&quot;</span>
                         <span className="text-gray-600">Begin current module</span>
                       </div>
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Next lesson"</span>
+                        <span className="font-mono text-blue-600">&quot;Next lesson&quot;</span>
                         <span className="text-gray-600">Move to next lesson</span>
                       </div>
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Previous lesson"</span>
+                        <span className="font-mono text-blue-600">&quot;Previous lesson&quot;</span>
                         <span className="text-gray-600">Go to previous lesson</span>
                       </div>
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Take quiz"</span>
+                        <span className="font-mono text-blue-600">&quot;Take quiz&quot;</span>
                         <span className="text-gray-600">Start module quiz</span>
                       </div>
                     </div>
@@ -1640,27 +1640,27 @@ export default function VoiceLearningPage() {
                     <h4 className="font-semibold text-gray-900 mb-3">Audio Control</h4>
                     <div className="grid gap-2 text-sm">
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Play audio"</span>
+                        <span className="font-mono text-blue-600">&quot;Play audio&quot;</span>
                         <span className="text-gray-600">Start/resume playback</span>
                       </div>
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Pause audio"</span>
+                        <span className="font-mono text-blue-600">&quot;Pause audio&quot;</span>
                         <span className="text-gray-600">Pause current audio</span>
                       </div>
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Skip forward"</span>
+                        <span className="font-mono text-blue-600">&quot;Skip forward&quot;</span>
                         <span className="text-gray-600">Skip ahead 30 seconds</span>
                       </div>
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Skip back"</span>
+                        <span className="font-mono text-blue-600">&quot;Skip back&quot;</span>
                         <span className="text-gray-600">Skip back 30 seconds</span>
                       </div>
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Speed up"</span>
+                        <span className="font-mono text-blue-600">&quot;Speed up&quot;</span>
                         <span className="text-gray-600">Increase playback speed</span>
                       </div>
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Slow down"</span>
+                        <span className="font-mono text-blue-600">&quot;Slow down&quot;</span>
                         <span className="text-gray-600">Decrease playback speed</span>
                       </div>
                     </div>
@@ -1670,15 +1670,15 @@ export default function VoiceLearningPage() {
                     <h4 className="font-semibold text-gray-900 mb-3">Quiz Commands</h4>
                     <div className="grid gap-2 text-sm">
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Answer 1" / "Answer 2"</span>
+                        <span className="font-mono text-blue-600">&quot;Answer 1&quot; / &quot;Answer 2&quot;</span>
                         <span className="text-gray-600">Select quiz answer</span>
                       </div>
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Next question"</span>
+                        <span className="font-mono text-blue-600">&quot;Next question&quot;</span>
                         <span className="text-gray-600">Move to next question</span>
                       </div>
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Repeat question"</span>
+                        <span className="font-mono text-blue-600">&quot;Repeat question&quot;</span>
                         <span className="text-gray-600">Repeat current question</span>
                       </div>
                     </div>
@@ -1688,15 +1688,15 @@ export default function VoiceLearningPage() {
                     <h4 className="font-semibold text-gray-900 mb-3">Notes & Bookmarks</h4>
                     <div className="grid gap-2 text-sm">
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Add bookmark"</span>
+                        <span className="font-mono text-blue-600">&quot;Add bookmark&quot;</span>
                         <span className="text-gray-600">Bookmark current position</span>
                       </div>
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Start note"</span>
+                        <span className="font-mono text-blue-600">&quot;Start note&quot;</span>
                         <span className="text-gray-600">Begin recording note</span>
                       </div>
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Save note"</span>
+                        <span className="font-mono text-blue-600">&quot;Save note&quot;</span>
                         <span className="text-gray-600">Save current note</span>
                       </div>
                     </div>
@@ -1706,7 +1706,7 @@ export default function VoiceLearningPage() {
                     <h4 className="font-semibold text-gray-900 mb-3">Help</h4>
                     <div className="grid gap-2 text-sm">
                       <div className="flex justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-blue-600">"Help" / "Commands"</span>
+                        <span className="font-mono text-blue-600">&quot;Help&quot; / &quot;Commands&quot;</span>
                         <span className="text-gray-600">Show available commands</span>
                       </div>
                     </div>
