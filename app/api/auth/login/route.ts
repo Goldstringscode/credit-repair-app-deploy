@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withRateLimit } from '@/lib/rate-limiter'
 import { withValidation } from '@/lib/validation-middleware'
-import { generateTokenPair, createTokenCookies } from '@/lib/jwt'
+import { generateTokenPair } from '@/lib/jwt'
 import { database } from '@/lib/database-config'
 import { emailService } from '@/lib/email-service-server'
 import { auditLogger } from '@/lib/audit-logger'
@@ -41,7 +41,6 @@ export const POST = withRateLimit(
 
           // Generate JWT tokens
           const tokens = generateTokenPair(user)
-          const cookies = createTokenCookies(tokens)
 
           // Log authentication event
           await auditLogger.log('user_login', 'user', user.id, {
@@ -67,19 +66,27 @@ export const POST = withRateLimit(
             },
             token: tokens.accessToken,
             message: 'Login successful'
-          }, {
-            headers: {
-              'Set-Cookie': `${cookies.accessToken}; ${cookies.refreshToken}`
-            }
           })
 
-          // Set auth-token cookie so middleware (getValidToken) can find it
-          response.cookies.set('auth-token', tokens.accessToken, {
+          const isProduction = process.env.NODE_ENV === 'production'
+          const accessCookieOptions = {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
+            secure: isProduction,
+            sameSite: 'lax' as const,
             path: '/',
             maxAge: 7 * 24 * 60 * 60 // 7 days in seconds
+          }
+
+          // Set auth-token cookie so middleware (getValidToken) can find it
+          response.cookies.set('auth-token', tokens.accessToken, accessCookieOptions)
+
+          // Also set accessToken cookie (legacy fallback read by middleware)
+          response.cookies.set('accessToken', tokens.accessToken, accessCookieOptions)
+
+          // Set refreshToken cookie
+          response.cookies.set('refreshToken', tokens.refreshToken, {
+            ...accessCookieOptions,
+            maxAge: 30 * 24 * 60 * 60 // 30 days in seconds
           })
 
           return response

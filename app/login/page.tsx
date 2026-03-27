@@ -29,6 +29,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
       let data: { success?: boolean; message?: string; error?: string } = {};
@@ -41,7 +42,7 @@ export default function LoginPage() {
         toast.success('Login successful!');
         router.push('/dashboard');
       } else {
-        toast.error('Invalid email or password. Please try again.');
+        toast.error(data.message || 'Invalid email or password. Please try again.');
       }
     } catch (error) {
       console.error('Login error:', error);
