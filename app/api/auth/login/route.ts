@@ -57,7 +57,7 @@ export const POST = withRateLimit(
             nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()
           })
 
-          return NextResponse.json({
+          const response = NextResponse.json({
             success: true,
             user: {
               id: user.id,
@@ -72,6 +72,17 @@ export const POST = withRateLimit(
               'Set-Cookie': `${cookies.accessToken}; ${cookies.refreshToken}`
             }
           })
+
+          // Set auth-token cookie so middleware (getValidToken) can find it
+          response.cookies.set('auth-token', tokens.accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 7 * 24 * 60 * 60 // 7 days in seconds
+          })
+
+          return response
         }
 
         // Invalid credentials
