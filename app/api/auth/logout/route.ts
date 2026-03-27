@@ -17,7 +17,7 @@ export const POST = withRateLimit(
       // Clear token cookies
       const cookies = clearTokenCookies()
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         message: 'Logout successful'
       }, {
@@ -25,6 +25,17 @@ export const POST = withRateLimit(
           'Set-Cookie': `${cookies.accessToken}; ${cookies.refreshToken}`
         }
       })
+
+      // Also clear auth-token cookie so middleware stops recognising the session
+      response.cookies.set('auth-token', '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 0
+      })
+
+      return response
 
     } catch (error: any) {
       console.error('❌ Logout failed:', error)

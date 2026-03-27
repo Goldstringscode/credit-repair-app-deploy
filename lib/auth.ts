@@ -28,7 +28,7 @@ export async function getCurrentUser(request: NextRequest): Promise<AuthResult> 
     // Extract JWT token from Authorization header or cookies
     const authHeader = request.headers.get('authorization')
     const cookieStore = await cookies()
-    const accessToken = cookieStore.get('accessToken')?.value
+    const accessToken = cookieStore.get('auth-token')?.value || cookieStore.get('accessToken')?.value
     
     let token: string | null = null
     
