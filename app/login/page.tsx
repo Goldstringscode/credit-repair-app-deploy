@@ -39,7 +39,8 @@ export default function LoginPage() {
       }
       if (res.ok && data.success) {
         toast.success('Login successful!');
-        router.push('/dashboard');
+        // Hard navigation so the new auth-token cookie is sent with the first request
+        window.location.href = '/dashboard';
       } else {
         toast.error('Invalid email or password. Please try again.');
       }

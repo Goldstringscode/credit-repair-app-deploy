@@ -128,8 +128,9 @@ export function createTokenCookies(tokens: TokenPair): { accessToken: string; re
     maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
   }
 
-  const accessTokenCookie = `accessToken=${tokens.accessToken}; HttpOnly; Secure=${process.env.NODE_ENV === 'production'}; SameSite=strict; Path=/; Max-Age=${Math.floor(cookieOptions.maxAge / 1000)}`
-  const refreshTokenCookie = `refreshToken=${tokens.refreshToken}; HttpOnly; Secure=${process.env.NODE_ENV === 'production'}; SameSite=strict; Path=/; Max-Age=${Math.floor(refreshCookieOptions.maxAge / 1000)}`
+  const isProduction = process.env.NODE_ENV === 'production'
+  const accessTokenCookie = `auth-token=${tokens.accessToken}; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=Strict; Path=/; Max-Age=${Math.floor(cookieOptions.maxAge / 1000)}`
+  const refreshTokenCookie = `refreshToken=${tokens.refreshToken}; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=Strict; Path=/; Max-Age=${Math.floor(refreshCookieOptions.maxAge / 1000)}`
 
   return {
     accessToken: accessTokenCookie,
@@ -142,7 +143,7 @@ export function createTokenCookies(tokens: TokenPair): { accessToken: string; re
  */
 export function clearTokenCookies(): { accessToken: string; refreshToken: string } {
   return {
-    accessToken: 'accessToken=; HttpOnly; Secure; SameSite=strict; Path=/; Max-Age=0',
-    refreshToken: 'refreshToken=; HttpOnly; Secure; SameSite=strict; Path=/; Max-Age=0'
+    accessToken: 'auth-token=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0',
+    refreshToken: 'refreshToken=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'
   }
 }

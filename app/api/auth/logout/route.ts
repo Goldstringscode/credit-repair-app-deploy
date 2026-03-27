@@ -22,7 +22,7 @@ export const POST = withRateLimit(
         message: 'Logout successful'
       }, {
         headers: {
-          'Set-Cookie': `${cookies.accessToken}; ${cookies.refreshToken}`
+          'Set-Cookie': `${cookies.accessToken}, ${cookies.refreshToken}`
         }
       })
 

@@ -108,6 +108,11 @@ function getValidToken(request: NextRequest): Record<string, unknown> | null {
     // Primary: check the app's own auth-token cookie (set by /api/auth routes)
     token = request.cookies.get('auth-token')?.value
 
+    // Backward-compat: cookie name used before the rename to auth-token
+    if (!token) {
+      token = request.cookies.get('accessToken')?.value
+    }
+
     // Fallback: Supabase sb-access-token cookie
     if (!token) {
       token = request.cookies.get('sb-access-token')?.value
