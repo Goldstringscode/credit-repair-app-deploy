@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withRateLimit } from '@/lib/rate-limiter'
 import { withValidation } from '@/lib/validation-middleware'
 import { generateTokenPair } from '@/lib/jwt'
-import { database } from '@/lib/database-config'
-import { emailService } from '@/lib/email-service-server'
+import { getSupabaseClient } from '@/lib/supabase-client'
 import { auditLogger } from '@/lib/audit-logger'
+import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 
 const loginSchema = z.object({
@@ -20,90 +20,90 @@ export const POST = withRateLimit(
       try {
         const { email, password } = validatedData?.body
 
-        // In production, you would:
-        // 1. Hash the password with bcrypt
-        // 2. Compare with stored hash
-        // 3. Use proper password validation
-        
-        // For now, we'll use a simple demo authentication
-        if (email === 'demo@example.com' && password === 'demo123') {
-          // Get or create demo user
-          let user = await database.getUser('demo-user-123')
-          if (!user) {
-            user = await database.createUser({
-              email: 'demo@example.com',
-              name: 'Demo User',
-              role: 'user',
-              customerId: 'cus_demo_123',
-              subscriptionId: 'sub_demo_123'
-            })
-          }
+        const supabase = getSupabaseClient()
 
-          // Generate JWT tokens
-          const tokens = generateTokenPair(user)
+        // Look up user by email in Supabase
+        const { data: user, error: lookupError } = await supabase
+          .from('users')
+          .select('id, email, password_hash, first_name, last_name, email_verified, subscription_status, subscription_tier')
+          .eq('email', email.toLowerCase())
+          .maybeSingle()
 
-          // Log authentication event
-          await auditLogger.log('user_login', 'user', user.id, {
-            email: user.email,
-            ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-            userAgent: request.headers.get('user-agent') || 'unknown'
-          }, user, request)
+        if (lookupError || !user) {
+          await auditLogger.log('login_failed', 'user', 'unknown', {
+            email,
+            reason: 'User not found',
+            ipAddress: request.headers.get('x-forwarded-for') || 'unknown'
+          }, { id: 'unknown', email: 'unknown', name: 'Unknown', role: 'user' } as any, request)
 
-          // Send login confirmation email
-          await emailService.sendBillingNotification(user, 'subscription_created', {
-            planName: 'Demo Plan',
-            billingCycle: 'Monthly',
-            nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()
-          })
-
-          const response = NextResponse.json({
-            success: true,
-            user: {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              role: user.role
-            },
-            token: tokens.accessToken,
-            message: 'Login successful'
-          })
-
-          const isProduction = process.env.NODE_ENV === 'production'
-          const accessCookieOptions = {
-            httpOnly: true,
-            secure: isProduction,
-            sameSite: 'lax' as const,
-            path: '/',
-            maxAge: 7 * 24 * 60 * 60 // 7 days in seconds
-          }
-
-          // Set auth-token cookie so middleware (getValidToken) can find it
-          response.cookies.set('auth-token', tokens.accessToken, accessCookieOptions)
-
-          // Also set accessToken cookie (legacy fallback read by middleware)
-          response.cookies.set('accessToken', tokens.accessToken, accessCookieOptions)
-
-          // Set refreshToken cookie
-          response.cookies.set('refreshToken', tokens.refreshToken, {
-            ...accessCookieOptions,
-            maxAge: 30 * 24 * 60 * 60 // 30 days in seconds
-          })
-
-          return response
+          return NextResponse.json({
+            success: false,
+            error: 'Invalid credentials',
+            message: 'Email or password is incorrect'
+          }, { status: 401 })
         }
 
-        // Invalid credentials
-        await auditLogger.log('login_failed', 'user', 'unknown', {
-          email,
-          reason: 'Invalid credentials',
-          ipAddress: request.headers.get('x-forwarded-for') || 'unknown'
-        }, { id: 'unknown', email: 'unknown', name: 'Unknown', role: 'user' } as any, request)
+        // Compare submitted password against stored hash
+        const passwordMatch = await bcrypt.compare(password, user.password_hash)
+        if (!passwordMatch) {
+          await auditLogger.log('login_failed', 'user', user.id, {
+            email,
+            reason: 'Invalid password',
+            ipAddress: request.headers.get('x-forwarded-for') || 'unknown'
+          }, { id: user.id, email: user.email, name: '', role: 'user' } as any, request)
 
-        return NextResponse.json({
-          success: false,
-          error: 'Invalid credentials',
-          message: 'Email or password is incorrect'
-        }, { status: 401 })
+          return NextResponse.json({
+            success: false,
+            error: 'Invalid credentials',
+            message: 'Email or password is incorrect'
+          }, { status: 401 })
+        }
+
+        const userForToken = { id: user.id, email: user.email, role: (user as any).role ?? 'user' }
+
+        // Generate JWT tokens
+        const tokens = generateTokenPair(userForToken as any)
+
+        // Log authentication event
+        await auditLogger.log('user_login', 'user', user.id, {
+          email: user.email,
+          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+          userAgent: request.headers.get('user-agent') || 'unknown'
+        }, userForToken as any, request)
+
+        const response = NextResponse.json({
+          success: true,
+          user: {
+            id: user.id,
+            email: user.email,
+            name: `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim(),
+            role: userForToken.role
+          },
+          message: 'Login successful'
+        })
+
+        const isProduction = process.env.NODE_ENV === 'production'
+        const accessCookieOptions = {
+          httpOnly: true,
+          secure: isProduction,
+          sameSite: 'lax' as const,
+          path: '/',
+          maxAge: 7 * 24 * 60 * 60 // 7 days in seconds
+        }
+
+        // Set auth-token cookie so middleware (getValidToken) can find it
+        response.cookies.set('auth-token', tokens.accessToken, accessCookieOptions)
+
+        // Also set accessToken cookie (legacy fallback read by middleware)
+        response.cookies.set('accessToken', tokens.accessToken, accessCookieOptions)
+
+        // Set refreshToken cookie
+        response.cookies.set('refreshToken', tokens.refreshToken, {
+          ...accessCookieOptions,
+          maxAge: 30 * 24 * 60 * 60 // 30 days in seconds
+        })
+
+        return response
 
       } catch (error: any) {
         console.error('❌ Login failed:', error)
