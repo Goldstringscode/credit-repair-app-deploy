@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withRateLimit } from '@/lib/rate-limiter'
 import { withValidation } from '@/lib/validation-middleware'
-import { generateTokenPair, createTokenCookies } from '@/lib/jwt'
-import { database } from '@/lib/database-config'
-import { emailService } from '@/lib/email-service-server'
+import { generateTokenPair } from '@/lib/jwt'
+import { getSupabaseClient } from '@/lib/supabase-client'
 import { auditLogger } from '@/lib/audit-logger'
+import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 import { z } from 'zod'
 
 const registerSchema = z.object({
@@ -25,8 +26,15 @@ export const POST = withRateLimit(
       try {
         const { email, password, name } = validatedData?.body
 
+        const supabase = getSupabaseClient()
+
         // Check if user already exists
-        const existingUser = await database.getUser(email) // Using email as ID for demo
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', email.toLowerCase())
+          .maybeSingle()
+
         if (existingUser) {
           return NextResponse.json({
             success: false,
@@ -35,54 +43,85 @@ export const POST = withRateLimit(
           }, { status: 409 })
         }
 
-        // In production, you would:
-        // 1. Hash the password with bcrypt
-        // 2. Validate password strength
-        // 3. Send email verification
-        // 4. Create customer in payment provider
+        // Hash the password
+        const passwordHash = await bcrypt.hash(password, 12)
 
-        // Create new user
-        const user = await database.createUser({
-          email,
-          name,
-          role: 'user',
-          customerId: `cus_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          subscriptionId: undefined // No subscription yet
-        })
+        // Split name into first and last (everything after first space is last name)
+        const trimmedName = name.trim()
+        const spaceIdx = trimmedName.indexOf(' ')
+        const firstName = spaceIdx === -1 ? trimmedName : trimmedName.slice(0, spaceIdx)
+        const lastName = spaceIdx === -1 ? '' : trimmedName.slice(spaceIdx + 1).trim()
+
+        // Generate email verification token
+        const emailVerificationToken = crypto.randomBytes(32).toString('hex')
+
+        // Insert new user into Supabase
+        const { data: newUser, error: insertError } = await supabase
+          .from('users')
+          .insert({
+            email: email.toLowerCase(),
+            password_hash: passwordHash,
+            first_name: firstName,
+            last_name: lastName,
+            email_verified: false,
+            email_verification_token: emailVerificationToken,
+            subscription_status: 'inactive',
+            subscription_tier: 'free',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .select('id, email, first_name, last_name, subscription_status, subscription_tier')
+          .single()
+
+        if (insertError || !newUser) {
+          return NextResponse.json({
+            success: false,
+            error: 'Registration failed',
+            message: insertError?.message ?? 'Unknown error'
+          }, { status: 500 })
+        }
+
+        const userForToken = { id: newUser.id, email: newUser.email, role: 'user' }
 
         // Generate JWT tokens
-        const tokens = generateTokenPair(user)
-        const cookies = createTokenCookies(tokens)
+        const tokens = generateTokenPair(userForToken as any)
 
         // Log registration event
-        await auditLogger.log('user_registered', 'user', user.id, {
-          email: user.email,
-          name: user.name,
+        await auditLogger.log('user_registered', 'user', newUser.id, {
+          email: newUser.email,
+          name,
           ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
           userAgent: request.headers.get('user-agent') || 'unknown'
-        }, user, request)
+        }, userForToken as any, request)
 
-        // Send welcome email
-        await emailService.sendBillingNotification(user, 'subscription_created', {
-          planName: 'Welcome to Credit Repair App',
-          billingCycle: 'Get started with a free trial',
-          nextBillingDate: 'No subscription yet'
-        })
-
-        return NextResponse.json({
+        const response = NextResponse.json({
           success: true,
           user: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role
+            id: newUser.id,
+            email: newUser.email,
+            name: `${newUser.first_name ?? ''} ${newUser.last_name ?? ''}`.trim(),
+            role: 'user'
           },
           message: 'Registration successful'
-        }, {
-          headers: {
-            'Set-Cookie': `${cookies.accessToken}; ${cookies.refreshToken}`
-          }
         })
+
+        const isProduction = process.env.NODE_ENV === 'production'
+        const accessCookieOptions = {
+          httpOnly: true,
+          secure: isProduction,
+          sameSite: 'lax' as const,
+          path: '/',
+          maxAge: 7 * 24 * 60 * 60 // 7 days in seconds
+        }
+
+        response.cookies.set('auth-token', tokens.accessToken, accessCookieOptions)
+        response.cookies.set('accessToken', tokens.accessToken, accessCookieOptions)
+        response.cookies.set('refreshToken', tokens.refreshToken, {
+          ...accessCookieOptions,
+          maxAge: 30 * 24 * 60 * 60 // 30 days in seconds
+        })
+
+        return response
 
       } catch (error: any) {
         console.error('❌ Registration failed:', error)
