@@ -7,13 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Shield, Mail, Lock } from 'lucide-react';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +38,7 @@ export default function LoginPage() {
       }
       if (res.ok && data.success) {
         toast.success('Login successful!');
-        router.push('/dashboard');
+        window.location.href = '/dashboard';
       } else {
         toast.error(data.message || 'Invalid email or password. Please try again.');
       }
