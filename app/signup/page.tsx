@@ -55,10 +55,51 @@ export default function SignupPage() {
     setPasswordStrength((strength / 5) * 100)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('Signup form submitted:', formData)
-    // Handle signup logic here
+    setError('')
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
+    if (!formData.agreeToTerms) {
+      setError('You must agree to the Terms of Service')
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: formData.email,
+          name: `${formData.firstName} ${formData.lastName}`.trim(),
+          password: formData.password,
+          confirmPassword: formData.confirmPassword,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        window.location.href = '/dashboard'
+      } else if (res.status === 409) {
+        setError('An account with this email already exists. Try logging in.')
+      } else {
+        setError(data.message || data.error || 'Registration failed. Please try again.')
+      }
+    } catch (err) {
+      setError('Something went wrong. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const getPasswordStrengthColor = () => {
@@ -237,12 +278,23 @@ export default function SignupPage() {
               </div>
             </div>
 
+            {error && (
+              <p className="text-sm text-red-500">{error}</p>
+            )}
+
             <Button 
               type="submit" 
               className="w-full"
-              disabled={!formData.agreeToTerms || formData.password !== formData.confirmPassword}
+              disabled={!formData.agreeToTerms || formData.password !== formData.confirmPassword || isLoading}
             >
-              Create Account
+              {isLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Creating Account...
+                </>
+              ) : (
+                'Create Account'
+              )}
             </Button>
           </form>
 
