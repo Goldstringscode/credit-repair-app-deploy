@@ -8,6 +8,8 @@ const PUBLIC_ROUTES = [
   '/signup',
   '/join',
   '/verify-email',
+  '/forgot-password',
+  '/reset-password',
   '/access-denied',
   '/privacy',
   '/terms',
@@ -108,7 +110,7 @@ function getValidToken(request: NextRequest): Record<string, unknown> | null {
     // Primary: check the app's own auth-token cookie (set by /api/auth routes)
     token = request.cookies.get('auth-token')?.value
 
-    // Backward-compat: cookie name used before the rename to auth-token
+    // Fallback: app's accessToken cookie (legacy name used by createTokenCookies)
     if (!token) {
       token = request.cookies.get('accessToken')?.value
     }
