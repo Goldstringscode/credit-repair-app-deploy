@@ -8,6 +8,8 @@ const PUBLIC_ROUTES = [
   '/signup',
   '/join',
   '/verify-email',
+  '/forgot-password',
+  '/reset-password',
   '/access-denied',
   '/privacy',
   '/terms',
