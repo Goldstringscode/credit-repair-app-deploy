@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withRateLimit } from '@/lib/rate-limiter'
 import { requireAuth } from '@/lib/auth'
-import { clearTokenCookies } from '@/lib/jwt'
 import { auditLogger } from '@/lib/audit-logger'
 
 export const POST = withRateLimit(
@@ -14,17 +13,24 @@ export const POST = withRateLimit(
         userAgent: request.headers.get('user-agent') || 'unknown'
       }, user, request)
 
-      // Clear token cookies
-      const cookies = clearTokenCookies()
-
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         message: 'Logout successful'
-      }, {
-        headers: {
-          'Set-Cookie': `${cookies.accessToken}, ${cookies.refreshToken}`
-        }
       })
+
+      // Clear all auth cookies so middleware stops recognising the session
+      const clearOpts = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax' as const,
+        path: '/',
+        maxAge: 0
+      }
+      response.cookies.set('auth-token', '', clearOpts)
+      response.cookies.set('accessToken', '', clearOpts)
+      response.cookies.set('refreshToken', '', clearOpts)
+
+      return response
 
     } catch (error: any) {
       console.error('❌ Logout failed:', error)

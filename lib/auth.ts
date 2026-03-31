@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { verifyToken, extractTokenFromHeader, isTokenExpired } from './jwt'
-import { database } from './database-config'
 
 export interface User {
   id: string
@@ -28,7 +27,7 @@ export async function getCurrentUser(request: NextRequest): Promise<AuthResult> 
     // Extract JWT token from Authorization header or cookies
     const authHeader = request.headers.get('authorization')
     const cookieStore = await cookies()
-    const accessToken = cookieStore.get('auth-token')?.value
+    const accessToken = cookieStore.get('auth-token')?.value || cookieStore.get('accessToken')?.value
     
     let token: string | null = null
     
@@ -65,35 +64,33 @@ export async function getCurrentUser(request: NextRequest): Promise<AuthResult> 
       }
     }
     
-    // Get user from database
-    const user = await database.getUser(payload.userId)
-    if (!user) {
+    // Look up user in Supabase
+    const { getSupabaseClient } = await import('./supabase-client')
+    const supabase = getSupabaseClient()
+    const { data: dbUser, error: dbError } = await supabase
+      .from('users')
+      .select('id, email, first_name, last_name, subscription_status, subscription_tier, stripe_customer_id, created_at, updated_at')
+      .eq('id', payload.userId)
+      .maybeSingle()
+
+    if (dbError || !dbUser) {
       return {
         user: null,
         isAuthenticated: false,
         error: 'User not found'
       }
     }
-    
-    // Check if user is active (you might want to add an 'active' field)
-    if (user.role === 'banned' || user.role === 'suspended') {
-      return {
-        user: null,
-        isAuthenticated: false,
-        error: 'User account is not active'
-      }
-    }
-    
+
     return {
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role as 'user' | 'admin',
-        subscriptionId: user.subscriptionId,
-        customerId: user.customerId,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt
+        id: dbUser.id,
+        email: dbUser.email,
+        name: [dbUser.first_name, dbUser.last_name].filter(Boolean).join(' ') || dbUser.email,
+        role: (payload.role as 'user' | 'admin') ?? 'user',
+        subscriptionId: dbUser.subscription_status ?? undefined,
+        customerId: dbUser.stripe_customer_id ?? undefined,
+        createdAt: dbUser.created_at ?? new Date().toISOString(),
+        updatedAt: dbUser.updated_at ?? new Date().toISOString(),
       },
       isAuthenticated: true
     }

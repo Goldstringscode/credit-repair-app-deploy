@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withRateLimit } from '@/lib/rate-limiter'
 import { withValidation } from '@/lib/validation-middleware'
-import { generateTokenPair, createTokenCookies } from '@/lib/jwt'
-import { database } from '@/lib/database-config'
+import { generateTokenPair } from '@/lib/jwt'
+import { getSupabaseClient } from '@/lib/supabase-client'
 import { auditLogger } from '@/lib/audit-logger'
+import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 
 const loginSchema = z.object({
@@ -19,100 +20,90 @@ export const POST = withRateLimit(
       try {
         const { email, password } = validatedData?.body
 
-        // Supabase Auth path
-        if (
-          process.env.NEXT_PUBLIC_SUPABASE_URL &&
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-        ) {
-          const { createClient } = await import('@supabase/supabase-js')
-          const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-          )
+        const supabase = getSupabaseClient()
 
-          const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        // Look up user by email in Supabase
+        const { data: user, error: lookupError } = await supabase
+          .from('users')
+          .select('id, email, password_hash, first_name, last_name, email_verified, subscription_status, subscription_tier')
+          .eq('email', email.toLowerCase())
+          .maybeSingle()
+
+        if (lookupError || !user) {
+          await auditLogger.log('login_failed', 'user', 'unknown', {
             email,
-            password,
-          })
+            reason: 'User not found',
+            ipAddress: request.headers.get('x-forwarded-for') || 'unknown'
+          }, { id: 'unknown', email: 'unknown', name: 'Unknown', role: 'user' } as any, request)
 
-          if (!authError && authData.user) {
-            const sbUser = authData.user
-            const user = {
-              id: sbUser.id,
-              email: sbUser.email ?? email,
-              name: sbUser.user_metadata?.full_name ?? sbUser.user_metadata?.name ?? email.split('@')[0],
-              role: (sbUser.user_metadata?.role as string) ?? 'user',
-            }
-
-            const tokens = generateTokenPair(user as any)
-            const cookieStrings = createTokenCookies(tokens)
-
-            await auditLogger.log('user_login', 'user', user.id, {
-              email: user.email,
-              ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-              userAgent: request.headers.get('user-agent') || 'unknown',
-              method: 'supabase',
-            }, user as any, request).catch(() => {})
-
-            return NextResponse.json(
-              { success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role }, message: 'Login successful' },
-              { headers: { 'Set-Cookie': `${cookieStrings.accessToken}, ${cookieStrings.refreshToken}` } }
-            )
-          }
-
-          // Supabase returned an auth error — invalid credentials
-          return NextResponse.json(
-            { success: false, error: 'Invalid credentials', message: 'Email or password is incorrect' },
-            { status: 401 }
-          )
+          return NextResponse.json({
+            success: false,
+            error: 'Invalid credentials',
+            message: 'Email or password is incorrect'
+          }, { status: 401 })
         }
 
-        // Demo / fallback path (no Supabase configured)
-        if (email === 'demo@example.com' && password === 'demo123') {
-          let user = await database.getUser('demo-user-123').catch(() => null)
-          if (!user) {
-            user = await database.createUser({
-              email: 'demo@example.com',
-              name: 'Demo User',
-              role: 'user',
-              customerId: 'cus_demo_123',
-              subscriptionId: 'sub_demo_123',
-            }).catch(() => ({
-              id: 'demo-user-123',
-              email: 'demo@example.com',
-              name: 'Demo User',
-              role: 'user',
-            } as any))
-          }
+        // Compare submitted password against stored hash
+        const passwordMatch = await bcrypt.compare(password, user.password_hash)
+        if (!passwordMatch) {
+          await auditLogger.log('login_failed', 'user', user.id, {
+            email,
+            reason: 'Invalid password',
+            ipAddress: request.headers.get('x-forwarded-for') || 'unknown'
+          }, { id: user.id, email: user.email, name: '', role: 'user' } as any, request)
 
-          const tokens = generateTokenPair(user!)
-          const cookieStrings = createTokenCookies(tokens)
-
-          await auditLogger.log('user_login', 'user', user!.id, {
-            email: user!.email,
-            ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-            userAgent: request.headers.get('user-agent') || 'unknown',
-            method: 'demo',
-          }, user! as any, request).catch(() => {})
-
-          return NextResponse.json(
-            { success: true, user: { id: user!.id, email: user!.email, name: user!.name, role: user!.role }, message: 'Login successful' },
-            { headers: { 'Set-Cookie': `${cookieStrings.accessToken}, ${cookieStrings.refreshToken}` } }
-          )
+          return NextResponse.json({
+            success: false,
+            error: 'Invalid credentials',
+            message: 'Email or password is incorrect'
+          }, { status: 401 })
         }
 
-        // Invalid credentials
-        await auditLogger.log('login_failed', 'user', 'unknown', {
-          email,
-          reason: 'Invalid credentials',
-          ipAddress: request.headers.get('x-forwarded-for') || 'unknown'
-        }, { id: 'unknown', email: 'unknown', name: 'Unknown', role: 'user' } as any, request).catch(() => {})
+        const userForToken = { id: user.id, email: user.email, role: (user as any).role ?? 'user' }
 
-        return NextResponse.json({
-          success: false,
-          error: 'Invalid credentials',
-          message: 'Email or password is incorrect'
-        }, { status: 401 })
+        // Generate JWT tokens
+        const tokens = generateTokenPair(userForToken as any)
+
+        // Log authentication event
+        await auditLogger.log('user_login', 'user', user.id, {
+          email: user.email,
+          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+          userAgent: request.headers.get('user-agent') || 'unknown'
+        }, userForToken as any, request)
+
+        const response = NextResponse.json({
+          success: true,
+          user: {
+            id: user.id,
+            email: user.email,
+            name: `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim(),
+            role: userForToken.role
+          },
+          message: 'Login successful'
+        })
+
+        const isProduction = process.env.NODE_ENV === 'production'
+        const accessCookieOptions = {
+          httpOnly: true,
+          secure: isProduction,
+          sameSite: 'lax' as const,
+          path: '/',
+          maxAge: 7 * 24 * 60 * 60 // 7 days in seconds
+        }
+
+        // Set auth-token cookie so middleware (getValidToken) can find it
+        response.cookies.set('auth-token', tokens.accessToken, accessCookieOptions)
+
+        // Also set accessToken cookie (legacy fallback read by middleware)
+        response.cookies.set('accessToken', tokens.accessToken, accessCookieOptions)
+
+        // Set refreshToken cookie
+        response.cookies.set('refreshToken', tokens.refreshToken, {
+          ...accessCookieOptions,
+          maxAge: 30 * 24 * 60 * 60 // 30 days in seconds
+        })
+
+        return response
 
       } catch (error: any) {
         console.error('❌ Login failed:', error)

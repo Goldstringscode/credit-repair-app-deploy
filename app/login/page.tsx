@@ -7,13 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Shield, Mail, Lock } from 'lucide-react';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +28,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
       let data: { success?: boolean; message?: string; error?: string } = {};
@@ -39,10 +39,9 @@ export default function LoginPage() {
       }
       if (res.ok && data.success) {
         toast.success('Login successful!');
-        // Hard navigation so the new auth-token cookie is sent with the first request
         window.location.href = '/dashboard';
       } else {
-        toast.error('Invalid email or password. Please try again.');
+        toast.error(data.message || 'Invalid email or password. Please try again.');
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -86,7 +85,12 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link href="/forgot-password" className="text-sm text-blue-600 hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
@@ -122,20 +126,10 @@ export default function LoginPage() {
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              Don't have access?{' '}
-              <a 
-                href="mailto:admin@yourdomain.com?subject=Beta Access Request" 
-                className="text-blue-600 hover:text-blue-800 underline"
-              >
-                Request beta access
+              Don't have an account?{' '}
+              <a href="/signup" className="text-blue-600 hover:text-blue-800 underline font-medium">
+                Sign up
               </a>
-            </p>
-          </div>
-
-          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <h3 className="font-semibold text-yellow-800 mb-2">For Testing:</h3>
-            <p className="text-sm text-yellow-700">
-              Use email <strong>demo@example.com</strong> and password <strong>demo123</strong> to log in.
             </p>
           </div>
         </CardContent>
