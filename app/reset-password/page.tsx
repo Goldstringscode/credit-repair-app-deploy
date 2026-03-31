@@ -1,16 +1,18 @@
 "use client"
 
-import { useState, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, Lock, Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react'
+import { Progress } from "@/components/ui/progress"
+import { Loader2, Lock, Eye, EyeOff, CheckCircle, XCircle, X } from 'lucide-react'
 import Link from "next/link"
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const token = searchParams.get('token')
 
   const [password, setPassword] = useState('')
@@ -20,6 +22,44 @@ function ResetPasswordForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
+  const [passwordStrength, setPasswordStrength] = useState(0)
+  const [passwordChecks, setPasswordChecks] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+    special: false,
+  })
+
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => router.push('/login'), 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [success, router])
+
+  const checkPasswordStrength = (value: string) => {
+    const checks = {
+      length: value.length >= 8,
+      uppercase: /[A-Z]/.test(value),
+      lowercase: /[a-z]/.test(value),
+      number: /\d/.test(value),
+      special: /[!@#$%^&*(),.?":{}|<>]/.test(value),
+    }
+    setPasswordChecks(checks)
+    setPasswordStrength((Object.values(checks).filter(Boolean).length / 5) * 100)
+  }
+
+  const getPasswordStrengthText = () => {
+    if (passwordStrength < 40) return 'Weak'
+    if (passwordStrength < 80) return 'Medium'
+    return 'Strong'
+  }
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value)
+    checkPasswordStrength(e.target.value)
+  }
 
   if (!token) {
     return (
@@ -70,12 +110,10 @@ function ResetPasswordForm() {
     return (
       <div className="text-center space-y-4">
         <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
-        <p className="text-green-700 font-medium">
-          Your password has been reset successfully!
+        <p className="text-green-700 font-medium text-lg">
+          Password reset successfully!
         </p>
-        <Link href="/login">
-          <Button className="w-full">Go to Login</Button>
-        </Link>
+        <p className="text-sm text-gray-500">Redirecting you to login...</p>
       </div>
     )
   }
@@ -90,7 +128,7 @@ function ResetPasswordForm() {
             type={showPassword ? "text" : "password"}
             required
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={handlePasswordChange}
             placeholder="Enter new password"
             disabled={isLoading}
           />
@@ -104,7 +142,41 @@ function ResetPasswordForm() {
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </Button>
         </div>
+
+        {password && (
+          <div className="mt-2">
+            <div className="flex justify-between text-sm mb-1">
+              <span>Password strength</span>
+              <span className={`font-medium ${
+                passwordStrength < 40 ? 'text-red-500' :
+                passwordStrength < 80 ? 'text-yellow-500' : 'text-green-500'
+              }`}>
+                {getPasswordStrengthText()}
+              </span>
+            </div>
+            <Progress value={passwordStrength} className="h-2" />
+            <div className="mt-2 space-y-1">
+              {Object.entries(passwordChecks).map(([key, passed]) => (
+                <div key={key} className="flex items-center text-xs">
+                  {passed ? (
+                    <CheckCircle className="h-3 w-3 text-green-500 mr-2" />
+                  ) : (
+                    <X className="h-3 w-3 text-gray-400 mr-2" />
+                  )}
+                  <span className={passed ? 'text-green-600' : 'text-gray-500'}>
+                    {key === 'length' && 'At least 8 characters'}
+                    {key === 'uppercase' && 'One uppercase letter'}
+                    {key === 'lowercase' && 'One lowercase letter'}
+                    {key === 'number' && 'One number'}
+                    {key === 'special' && 'One special character'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+
       <div>
         <Label htmlFor="confirmPassword">Confirm New Password</Label>
         <div className="relative">
@@ -131,7 +203,9 @@ function ResetPasswordForm() {
           <p className="text-sm text-red-500 mt-1">Passwords do not match</p>
         )}
       </div>
+
       {error && <p className="text-sm text-red-500">{error}</p>}
+
       <Button type="submit" className="w-full" disabled={isLoading || !password || !confirmPassword}>
         {isLoading ? (
           <>
@@ -142,6 +216,12 @@ function ResetPasswordForm() {
           'Reset Password'
         )}
       </Button>
+
+      <div className="text-center">
+        <Link href="/login" className="text-sm text-blue-600 hover:underline">
+          Back to login
+        </Link>
+      </div>
     </form>
   )
 }
