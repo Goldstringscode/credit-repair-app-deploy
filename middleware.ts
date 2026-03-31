@@ -5,6 +5,7 @@ import type { NextRequest } from 'next/server'
 const PUBLIC_ROUTES = [
   '/',
   '/login',
+  '/admin/login',
   '/signup',
   '/join',
   '/verify-email',
