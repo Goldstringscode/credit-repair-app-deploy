@@ -120,20 +120,10 @@ export default function LoginPage() {
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              Don't have access?{' '}
-              <a 
-                href="mailto:admin@yourdomain.com?subject=Beta Access Request" 
-                className="text-blue-600 hover:text-blue-800 underline"
-              >
-                Request beta access
+              Don't have an account?{' '}
+              <a href="/signup" className="text-blue-600 hover:text-blue-800 underline font-medium">
+                Sign up
               </a>
-            </p>
-          </div>
-
-          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <h3 className="font-semibold text-yellow-800 mb-2">For Testing:</h3>
-            <p className="text-sm text-yellow-700">
-              Use email <strong>demo@example.com</strong> and password <strong>demo123</strong> to log in.
             </p>
           </div>
         </CardContent>
