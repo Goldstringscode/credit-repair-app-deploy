@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -53,6 +53,36 @@ const adminNavigation = [
     description: "User management and profiles"
   },
   {
+    name: "Staff",
+    href: "/admin/staff",
+    icon: UserCheck,
+    description: "Staff management and roles"
+  },
+  {
+    name: "Analytics",
+    href: "/admin/analytics",
+    icon: BarChart3,
+    description: "Revenue and user analytics"
+  },
+  {
+    name: "Payouts",
+    href: "/admin/payouts",
+    icon: TrendingUp,
+    description: "MLM commissions and payouts"
+  },
+  {
+    name: "Milestones",
+    href: "/admin/milestones",
+    icon: Target,
+    description: "Credit score milestones"
+  },
+  {
+    name: "Realtime Monitoring",
+    href: "/admin/realtime-monitoring",
+    icon: Activity,
+    description: "Live system activity"
+  },
+  {
     name: "Billing",
     href: "/admin/billing",
     icon: CreditCard,
@@ -85,6 +115,23 @@ export default function AdminLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
+  const [adminUser, setAdminUser] = useState<{ name: string; email: string } | null>(null)
+
+  useEffect(() => {
+    try {
+      const token = document.cookie.split('; ').find(cookie => cookie.startsWith('auth-token='))?.split('=')[1]
+      if (token) {
+        const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+        const decoded = JSON.parse(window.atob(base64)) as { name?: string; email?: string; sub?: string }
+        setAdminUser({
+          name: decoded.name ?? decoded.email ?? decoded.sub ?? 'Admin User',
+          email: decoded.email ?? ''
+        })
+      }
+    } catch (err) {
+      console.warn('Failed to decode admin token:', err)
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -205,11 +252,13 @@ export default function AdminLayout({
             {/* Admin profile */}
             <div className="flex items-center space-x-2">
               <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center">
-                <span className="text-sm font-medium text-white">A</span>
+                <span className="text-sm font-medium text-white">
+                  {(adminUser?.name ?? 'A')[0].toUpperCase()}
+                </span>
               </div>
               <div className="hidden md:block">
-                <p className="text-sm font-medium text-gray-900">Admin User</p>
-                <p className="text-xs text-gray-500">Administrator</p>
+                <p className="text-sm font-medium text-gray-900">{adminUser?.name ?? 'Admin User'}</p>
+                <p className="text-xs text-gray-500">{adminUser?.email ?? 'Administrator'}</p>
               </div>
             </div>
           </div>
