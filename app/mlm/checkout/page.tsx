@@ -10,26 +10,35 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Check, CreditCard, Shield, Crown, ArrowLeft, Loader2, ArrowRight } from "lucide-react"
+import { Check, CreditCard, Shield, Crown, ArrowLeft, Loader2, ArrowRight, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { mlmPricingTiers } from "@/lib/mlm-commission-structure"
+import { loadStripe } from "@stripe/stripe-js"
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
 
-export default function MLMCheckoutPage() {
-  const searchParams = useSearchParams()
+const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  : null
+
+// ── Inner form component (must be inside <Elements>) ─────────────────────────
+interface CheckoutFormProps {
+  tierId: string
+  billing: string
+  finalPrice: number
+  isAnnual: boolean
+  selectedTier: (typeof mlmPricingTiers)[number]
+}
+
+function CheckoutForm({ tierId, billing, finalPrice, isAnnual, selectedTier }: CheckoutFormProps) {
+  const stripe = useStripe()
+  const elements = useElements()
   const router = useRouter()
+
   const [loading, setLoading] = useState(false)
+  const [paymentError, setPaymentError] = useState<string | null>(null)
   const [sponsorVerified, setSponsorVerified] = useState<boolean | null>(null)
-  const [sponsorInfo, setSponsorInfo] = useState<any>(null)
-
-  const tierId = searchParams.get("tier") || "professional"
-  const billing = searchParams.get("billing") || "monthly"
-
-  const selectedTier = mlmPricingTiers.find((tier) => tier.id === tierId) || mlmPricingTiers[1]
-  const isAnnual = billing === "annual"
-  const monthlyPrice = selectedTier.price
-  const annualPrice = Math.round(monthlyPrice * 10) // 2 months free
-  const finalPrice = isAnnual ? annualPrice : monthlyPrice
+  const [sponsorInfo, setSponsorInfo] = useState<{ name: string; rank: string; email: string } | null>(null)
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -37,13 +46,6 @@ export default function MLMCheckoutPage() {
     email: "",
     phone: "",
     sponsorCode: "",
-    cardNumber: "",
-    expiryDate: "",
-    cvv: "",
-    billingAddress: "",
-    city: "",
-    state: "",
-    zipCode: "",
   })
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,7 +76,7 @@ export default function MLMCheckoutPage() {
         setSponsorVerified(false)
         setSponsorInfo(null)
       }
-    } catch (error) {
+    } catch {
       setSponsorVerified(false)
       setSponsorInfo(null)
     }
@@ -92,17 +94,43 @@ export default function MLMCheckoutPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!stripe || !elements) return
+
     setLoading(true)
+    setPaymentError(null)
 
     try {
+      // Confirm payment with Stripe Elements
+      const { error, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}/mlm/checkout/success`,
+        },
+        redirect: "if_required",
+      })
+
+      if (error) {
+        setPaymentError(error.message ?? "Payment failed. Please try again.")
+        return
+      }
+
+      if (!paymentIntent || paymentIntent.status !== "succeeded") {
+        setPaymentError("Payment was not completed. Please try again.")
+        return
+      }
+
+      // Payment succeeded — complete MLM checkout
       const response = await fetch("/api/mlm/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...formData,
+          paymentIntentId: paymentIntent.id,
           tierId,
           billing,
-          amount: finalPrice,
+          sponsorCode: formData.sponsorCode,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phone: formData.phone,
         }),
       })
 
@@ -111,14 +139,198 @@ export default function MLMCheckoutPage() {
       if (data.success) {
         router.push(`/mlm/checkout/success?user=${data.mlmUser.id}`)
       } else {
-        alert("Payment failed. Please try again.")
+        setPaymentError(data.error ?? "Registration failed. Please contact support.")
       }
-    } catch (error) {
-      alert("An error occurred. Please try again.")
+    } catch {
+      setPaymentError("An unexpected error occurred. Please try again.")
     } finally {
       setLoading(false)
     }
   }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Personal Information */}
+      <div className="space-y-4">
+        <h3 className="font-semibold text-lg">Personal Information</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="firstName">First Name *</Label>
+            <Input
+              id="firstName"
+              name="firstName"
+              value={formData.firstName}
+              onChange={handleInputChange}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="lastName">Last Name *</Label>
+            <Input
+              id="lastName"
+              name="lastName"
+              value={formData.lastName}
+              onChange={handleInputChange}
+              required
+            />
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="email">Email Address *</Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            value={formData.email}
+            onChange={handleInputChange}
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="phone">Phone Number *</Label>
+          <Input
+            id="phone"
+            name="phone"
+            type="tel"
+            value={formData.phone}
+            onChange={handleInputChange}
+            required
+          />
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Sponsor Information */}
+      <div className="space-y-4">
+        <h3 className="font-semibold text-lg">Sponsor Information</h3>
+        <div>
+          <Label htmlFor="sponsorCode">Sponsor Code (Optional)</Label>
+          <Input
+            id="sponsorCode"
+            name="sponsorCode"
+            value={formData.sponsorCode}
+            onChange={handleInputChange}
+            placeholder="Enter your sponsor's code"
+          />
+          {sponsorVerified === true && sponsorInfo && (
+            <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <Check className="h-4 w-4 text-green-600" />
+                <span className="text-green-800 font-semibold">Sponsor Verified!</span>
+              </div>
+              <div className="text-sm text-green-700 mt-1">
+                {sponsorInfo.name} - {sponsorInfo.rank} ({sponsorInfo.email})
+              </div>
+            </div>
+          )}
+          {sponsorVerified === false && (
+            <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="text-red-800 text-sm">
+                Sponsor code not found. You can still proceed without a sponsor.
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Payment Information — Stripe Elements */}
+      <div className="space-y-4">
+        <h3 className="font-semibold text-lg flex items-center">
+          <CreditCard className="h-5 w-5 mr-2" />
+          Payment Information
+        </h3>
+        <div className="p-4 border rounded-lg bg-white">
+          <PaymentElement />
+        </div>
+      </div>
+
+      {/* Payment error */}
+      {paymentError && (
+        <div className="flex items-start space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+          <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          <span>{paymentError}</span>
+        </div>
+      )}
+
+      {/* Submit Button */}
+      <Button
+        type="submit"
+        className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-3 text-lg"
+        disabled={loading || !stripe || !elements}
+      >
+        {loading ? (
+          <>
+            <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+            Processing Payment...
+          </>
+        ) : (
+          <>
+            Complete Registration - ${finalPrice}
+            <ArrowRight className="h-5 w-5 ml-2" />
+          </>
+        )}
+      </Button>
+
+      <div className="text-center text-sm text-gray-600">
+        By completing this registration, you agree to our Terms of Service and Privacy Policy. You will be charged $
+        {finalPrice} {isAnnual ? "annually" : "monthly"}.
+      </div>
+    </form>
+  )
+}
+
+// ── Page skeleton while fetching clientSecret ─────────────────────────────────
+function PaymentSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      <div className="h-4 bg-gray-200 rounded w-1/3" />
+      <div className="h-10 bg-gray-200 rounded" />
+      <div className="h-4 bg-gray-200 rounded w-1/4" />
+      <div className="h-10 bg-gray-200 rounded" />
+    </div>
+  )
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+export default function MLMCheckoutPage() {
+  const searchParams = useSearchParams()
+
+  const tierId = searchParams.get("tier") || "professional"
+  const billing = searchParams.get("billing") || "monthly"
+
+  const selectedTier = mlmPricingTiers.find((tier) => tier.id === tierId) || mlmPricingTiers[1]
+  const isAnnual = billing === "annual"
+  const monthlyPrice = selectedTier.price
+  const annualPrice = Math.round(monthlyPrice * 10) // 2 months free
+  const finalPrice = isAnnual ? annualPrice : monthlyPrice
+
+  const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [intentError, setIntentError] = useState<string | null>(() =>
+    !process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+      ? "Stripe is not configured. Please contact support."
+      : null
+  )
+
+  useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) return
+    fetch("/api/mlm/create-payment-intent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tierId, billing }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.clientSecret) {
+          setClientSecret(data.clientSecret)
+        } else {
+          setIntentError(data.error ?? "Could not initialize payment. Please try again.")
+        }
+      })
+      .catch(() => setIntentError("Could not initialize payment. Please try again."))
+  }, [tierId, billing])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
@@ -206,7 +418,7 @@ export default function MLMCheckoutPage() {
 
                   {/* Features List */}
                   <div className="space-y-2">
-                    <h4 className="font-semibold">What's Included:</h4>
+                    <h4 className="font-semibold">What&apos;s Included:</h4>
                     <ul className="space-y-1">
                       {selectedTier.features.slice(0, 6).map((feature, index) => (
                         <li key={index} className="flex items-start space-x-2 text-sm">
@@ -240,197 +452,33 @@ export default function MLMCheckoutPage() {
                   <CardTitle>Complete Your Registration</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Personal Information */}
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-lg">Personal Information</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="firstName">First Name *</Label>
-                          <Input
-                            id="firstName"
-                            name="firstName"
-                            value={formData.firstName}
-                            onChange={handleInputChange}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="lastName">Last Name *</Label>
-                          <Input
-                            id="lastName"
-                            name="lastName"
-                            value={formData.lastName}
-                            onChange={handleInputChange}
-                            required
-                          />
-                        </div>
-                      </div>
+                  {intentError ? (
+                    <div className="flex items-start space-x-2 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+                      <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
                       <div>
-                        <Label htmlFor="email">Email Address *</Label>
-                        <Input
-                          id="email"
-                          name="email"
-                          type="email"
-                          value={formData.email}
-                          onChange={handleInputChange}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="phone">Phone Number *</Label>
-                        <Input
-                          id="phone"
-                          name="phone"
-                          type="tel"
-                          value={formData.phone}
-                          onChange={handleInputChange}
-                          required
-                        />
+                        <p className="font-semibold">Payment initialization failed</p>
+                        <p className="text-sm mt-1">{intentError}</p>
                       </div>
                     </div>
-
-                    <Separator />
-
-                    {/* Sponsor Information */}
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-lg">Sponsor Information</h3>
-                      <div>
-                        <Label htmlFor="sponsorCode">Sponsor Code (Optional)</Label>
-                        <Input
-                          id="sponsorCode"
-                          name="sponsorCode"
-                          value={formData.sponsorCode}
-                          onChange={handleInputChange}
-                          placeholder="Enter your sponsor's code"
-                        />
-                        {sponsorVerified === true && sponsorInfo && (
-                          <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                            <div className="flex items-center space-x-2">
-                              <Check className="h-4 w-4 text-green-600" />
-                              <span className="text-green-800 font-semibold">Sponsor Verified!</span>
-                            </div>
-                            <div className="text-sm text-green-700 mt-1">
-                              {sponsorInfo.name} - {sponsorInfo.rank} ({sponsorInfo.email})
-                            </div>
-                          </div>
-                        )}
-                        {sponsorVerified === false && (
-                          <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                            <div className="text-red-800 text-sm">
-                              Sponsor code not found. You can still proceed without a sponsor.
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    {/* Payment Information */}
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-lg flex items-center">
-                        <CreditCard className="h-5 w-5 mr-2" />
-                        Payment Information
-                      </h3>
-                      <div>
-                        <Label htmlFor="cardNumber">Card Number *</Label>
-                        <Input
-                          id="cardNumber"
-                          name="cardNumber"
-                          value={formData.cardNumber}
-                          onChange={handleInputChange}
-                          placeholder="1234 5678 9012 3456"
-                          required
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="expiryDate">Expiry Date *</Label>
-                          <Input
-                            id="expiryDate"
-                            name="expiryDate"
-                            value={formData.expiryDate}
-                            onChange={handleInputChange}
-                            placeholder="MM/YY"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="cvv">CVV *</Label>
-                          <Input
-                            id="cvv"
-                            name="cvv"
-                            value={formData.cvv}
-                            onChange={handleInputChange}
-                            placeholder="123"
-                            required
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    {/* Billing Address */}
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-lg">Billing Address</h3>
-                      <div>
-                        <Label htmlFor="billingAddress">Street Address *</Label>
-                        <Input
-                          id="billingAddress"
-                          name="billingAddress"
-                          value={formData.billingAddress}
-                          onChange={handleInputChange}
-                          required
-                        />
-                      </div>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <Label htmlFor="city">City *</Label>
-                          <Input id="city" name="city" value={formData.city} onChange={handleInputChange} required />
-                        </div>
-                        <div>
-                          <Label htmlFor="state">State *</Label>
-                          <Input id="state" name="state" value={formData.state} onChange={handleInputChange} required />
-                        </div>
-                        <div>
-                          <Label htmlFor="zipCode">ZIP Code *</Label>
-                          <Input
-                            id="zipCode"
-                            name="zipCode"
-                            value={formData.zipCode}
-                            onChange={handleInputChange}
-                            required
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Submit Button */}
-                    <Button
-                      type="submit"
-                      className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-3 text-lg"
-                      disabled={loading}
+                  ) : !clientSecret ? (
+                    <PaymentSkeleton />
+                  ) : (
+                    <Elements
+                      stripe={stripePromise}
+                      options={{
+                        clientSecret,
+                        appearance: { theme: "stripe" },
+                      }}
                     >
-                      {loading ? (
-                        <>
-                          <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                          Processing Payment...
-                        </>
-                      ) : (
-                        <>
-                          Complete Registration - ${finalPrice}
-                          <ArrowRight className="h-5 w-5 ml-2" />
-                        </>
-                      )}
-                    </Button>
-
-                    <div className="text-center text-sm text-gray-600">
-                      By completing this registration, you agree to our Terms of Service and Privacy Policy. You will be
-                      charged ${finalPrice} {isAnnual ? "annually" : "monthly"}.
-                    </div>
-                  </form>
+                      <CheckoutForm
+                        tierId={tierId}
+                        billing={billing}
+                        finalPrice={finalPrice}
+                        isAnnual={isAnnual}
+                        selectedTier={selectedTier}
+                      />
+                    </Elements>
+                  )}
                 </CardContent>
               </Card>
             </div>

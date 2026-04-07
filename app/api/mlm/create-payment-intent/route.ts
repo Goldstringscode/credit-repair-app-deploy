@@ -1,105 +1,159 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getStripeClient } from "@/lib/stripe-client"
+import Stripe from "stripe"
+import { getCurrentUser } from "@/lib/auth"
 import { getSupabaseClient } from "@/lib/supabase-client"
-import jwt from "jsonwebtoken"
 
-// MLM Plan pricing in cents
-const MLM_PLAN_PRICES = {
-  mlm_starter: 4999, // $49.99
-  mlm_professional: 9999, // $99.99
-  mlm_enterprise: 19999, // $199.99
+function getStripe(): Stripe {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error("STRIPE_SECRET_KEY environment variable is required")
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" })
+}
+
+// MLM tier pricing in cents (monthly and annual)
+const MLM_TIER_PRICES: Record<string, { monthly: number; annual: number }> = {
+  starter: { monthly: 9700, annual: 97000 },
+  professional: { monthly: 19700, annual: 197000 },
+  enterprise: { monthly: 39700, annual: 397000 },
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Get user from JWT token
-    const authToken = request.cookies.get("auth-token")?.value
-
-    if (!authToken) {
+    const authResult = await getCurrentUser(request)
+    if (!authResult.isAuthenticated || !authResult.user) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     }
 
-    let userId: string
-    try {
-      const decoded = jwt.verify(authToken, process.env.JWT_SECRET!) as any
-      userId = decoded.userId
-    } catch (error) {
-      return NextResponse.json({ error: "Invalid authentication token" }, { status: 401 })
+    const user = authResult.user
+    const { tierId, billing } = await request.json()
+
+    const tierPrices = MLM_TIER_PRICES[tierId]
+    if (!tierPrices) {
+      return NextResponse.json({ error: "Invalid tier ID" }, { status: 400 })
     }
 
-    const { planType, mlmCode, sponsorId } = await request.json()
+    const amount = billing === "annual" ? tierPrices.annual : tierPrices.monthly
 
-    if (!planType || !MLM_PLAN_PRICES[planType as keyof typeof MLM_PLAN_PRICES]) {
-      return NextResponse.json({ error: "Invalid MLM plan type" }, { status: 400 })
-    }
-
-    // Get user details
+    // Get user details from Supabase (need stripe_customer_id)
     const supabase = getSupabaseClient()
-    const { data: user, error: userError } = await supabase.from("users").select("*").eq("id", userId).single()
+    const { data: dbUser, error: dbError } = await supabase
+      .from("users")
+      .select("id, email, first_name, last_name, stripe_customer_id")
+      .eq("id", user.id)
+      .maybeSingle()
 
-    if (userError || !user) {
+    if (dbError || !dbUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Check if user is already in MLM system
-    const { data: existingMLMUser } = await supabase
-      .from("mlm_users")
-      .select("*")
-      .eq("user_id", userId)
-      .single()
+    const stripe = getStripe()
 
-    if (existingMLMUser) {
-      return NextResponse.json({ error: "User already has an MLM subscription" }, { status: 400 })
-    }
-
-    const amount = MLM_PLAN_PRICES[planType as keyof typeof MLM_PLAN_PRICES]
-
-    // Create or get Stripe customer
-    let customerId = user.stripe_customer_id
+    // Create or retrieve Stripe customer
+    let customerId = dbUser.stripe_customer_id as string | null
 
     if (!customerId) {
-      const stripe = getStripeClient()
       const customer = await stripe.customers.create({
-        email: user.email,
-        name: `${user.first_name} ${user.last_name}`,
-        metadata: {
-          userId: user.id,
-          userType: 'mlm',
-        },
+        email: dbUser.email,
+        name: [dbUser.first_name, dbUser.last_name].filter(Boolean).join(" ") || dbUser.email,
+        metadata: { userId: dbUser.id },
       })
-
       customerId = customer.id
-
-      // Update user with Stripe customer ID
-      await supabase.from("users").update({ stripe_customer_id: customerId }).eq("id", userId)
+      await supabase.from("users").update({ stripe_customer_id: customerId }).eq("id", dbUser.id)
     }
 
-    // Create payment intent
-    const stripe = getStripeClient()
+    // Create Payment Intent
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency: "usd",
       customer: customerId,
       metadata: {
-        userId: user.id,
-        planType,
-        userEmail: user.email,
-        userType: 'mlm',
-        mlmCode: mlmCode || null,
-        sponsorId: sponsorId || null,
+        userId: dbUser.id,
+        tierId,
+        billing,
       },
-      automatic_payment_methods: {
-        enabled: true,
-      },
+      automatic_payment_methods: { enabled: true },
     })
 
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
+      customerId,
       amount,
-      planType,
     })
   } catch (error) {
-    console.error("MLM Payment intent creation error:", error)
+    console.error("MLM create-payment-intent error:", error)
+    return NextResponse.json({ error: "Failed to create payment intent" }, { status: 500 })
+  }
+}
+
+// MLM tier pricing in cents (monthly and annual)
+const MLM_TIER_PRICES: Record<string, { monthly: number; annual: number }> = {
+  starter: { monthly: 9700, annual: 97000 },
+  professional: { monthly: 19700, annual: 197000 },
+  enterprise: { monthly: 39700, annual: 397000 },
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const authResult = await getCurrentUser(request)
+    if (!authResult.isAuthenticated || !authResult.user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    }
+
+    const user = authResult.user
+    const { tierId, billing } = await request.json()
+
+    const tierPrices = MLM_TIER_PRICES[tierId]
+    if (!tierPrices) {
+      return NextResponse.json({ error: "Invalid tier ID" }, { status: 400 })
+    }
+
+    const amount = billing === "annual" ? tierPrices.annual : tierPrices.monthly
+
+    // Get user details from Supabase (need stripe_customer_id)
+    const supabase = getSupabaseClient()
+    const { data: dbUser, error: dbError } = await supabase
+      .from("users")
+      .select("id, email, first_name, last_name, stripe_customer_id")
+      .eq("id", user.id)
+      .maybeSingle()
+
+    if (dbError || !dbUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    // Create or retrieve Stripe customer
+    let customerId = dbUser.stripe_customer_id as string | null
+
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: dbUser.email,
+        name: [dbUser.first_name, dbUser.last_name].filter(Boolean).join(" ") || dbUser.email,
+        metadata: { userId: dbUser.id },
+      })
+      customerId = customer.id
+      await supabase.from("users").update({ stripe_customer_id: customerId }).eq("id", dbUser.id)
+    }
+
+    // Create Payment Intent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency: "usd",
+      customer: customerId,
+      metadata: {
+        userId: dbUser.id,
+        tierId,
+        billing,
+      },
+      automatic_payment_methods: { enabled: true },
+    })
+
+    return NextResponse.json({
+      clientSecret: paymentIntent.client_secret,
+      customerId,
+      amount,
+    })
+  } catch (error) {
+    console.error("MLM create-payment-intent error:", error)
     return NextResponse.json({ error: "Failed to create payment intent" }, { status: 500 })
   }
 }

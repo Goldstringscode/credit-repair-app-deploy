@@ -1,41 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-
-// Mock sponsor database
-const sponsors = [
-  {
-    code: "SPONSOR001",
-    name: "Sarah Johnson",
-    rank: "Diamond Director",
-    successRate: 89,
-    teamMembers: 247,
-    totalEarnings: 125000,
-    joinDate: "2020-03-15",
-    specialties: ["Credit Repair", "Team Building", "Social Media Marketing"],
-    avatar: "/placeholder.svg?height=64&width=64&text=SJ",
-  },
-  {
-    code: "MENTOR123",
-    name: "Michael Chen",
-    rank: "Executive Director",
-    successRate: 92,
-    teamMembers: 189,
-    totalEarnings: 98000,
-    joinDate: "2019-08-22",
-    specialties: ["Sales Training", "Lead Generation", "Business Development"],
-    avatar: "/placeholder.svg?height=64&width=64&text=MC",
-  },
-  {
-    code: "LEADER456",
-    name: "Jennifer Martinez",
-    rank: "Regional Manager",
-    successRate: 85,
-    teamMembers: 156,
-    totalEarnings: 87500,
-    joinDate: "2021-01-10",
-    specialties: ["Online Marketing", "Content Creation", "Team Leadership"],
-    avatar: "/placeholder.svg?height=64&width=64&text=JM",
-  },
-]
+import { getSupabaseClient } from "@/lib/supabase-client"
 
 export async function GET(request: NextRequest) {
   try {
@@ -46,49 +10,69 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Sponsor code is required" }, { status: 400 })
     }
 
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    const sponsor = sponsors.find((s) => s.code.toLowerCase() === code.toLowerCase())
-
-    if (!sponsor) {
-      return NextResponse.json({ success: false, error: "Invalid sponsor code" }, { status: 404 })
-    }
-
-    // Track sponsor verification attempt
-    await trackAnalyticsEvent({
-      event: "sponsor_verification_success",
-      sponsorCode: code,
-      sponsorName: sponsor.name,
-      timestamp: new Date().toISOString(),
-    })
-
-    return NextResponse.json({
-      success: true,
-      sponsor: {
-        name: sponsor.name,
-        rank: sponsor.rank,
-        successRate: sponsor.successRate,
-        teamMembers: sponsor.teamMembers,
-        specialties: sponsor.specialties,
-        avatar: sponsor.avatar,
-      },
-    })
+    return await lookupSponsor(code)
   } catch (error) {
     console.error("Sponsor verification error:", error)
-
-    // Track failed verification
-    await trackAnalyticsEvent({
-      event: "sponsor_verification_error",
-      error: error instanceof Error ? error.message : "Unknown error",
-      timestamp: new Date().toISOString(),
-    })
-
     return NextResponse.json({ success: false, error: "Verification failed" }, { status: 500 })
   }
 }
 
-async function trackAnalyticsEvent(event: any) {
-  // In a real app, this would send to your analytics service
-  console.log("Analytics Event:", event)
+export async function POST(request: NextRequest) {
+  try {
+    const { sponsorCode } = await request.json()
+
+    if (!sponsorCode) {
+      return NextResponse.json({ success: false, error: "Sponsor code is required" }, { status: 400 })
+    }
+
+    return await lookupSponsor(sponsorCode)
+  } catch (error) {
+    console.error("Sponsor verification error:", error)
+    return NextResponse.json({ success: false, error: "Verification failed" }, { status: 500 })
+  }
+}
+
+async function lookupSponsor(code: string): Promise<NextResponse> {
+  try {
+    const supabase = getSupabaseClient()
+
+    const { data: member, error } = await supabase
+      .from("mlm_members")
+      .select("user_id, tier_id, status, referral_code")
+      .eq("referral_code", code.toUpperCase())
+      .eq("status", "active")
+      .maybeSingle()
+
+    if (error) {
+      console.error("Supabase sponsor lookup error:", error)
+      return NextResponse.json({ success: false, error: "Verification failed" }, { status: 500 })
+    }
+
+    if (!member) {
+      return NextResponse.json({ success: false, error: "Invalid sponsor code" }, { status: 404 })
+    }
+
+    // Get user details
+    const { data: sponsorUser } = await supabase
+      .from("users")
+      .select("email, first_name, last_name")
+      .eq("id", member.user_id)
+      .maybeSingle()
+
+    const name = sponsorUser
+      ? [sponsorUser.first_name, sponsorUser.last_name].filter(Boolean).join(" ") || sponsorUser.email
+      : "Unknown"
+
+    return NextResponse.json({
+      success: true,
+      sponsor: {
+        name,
+        rank: member.tier_id ? member.tier_id.charAt(0).toUpperCase() + member.tier_id.slice(1) : "Member",
+        email: sponsorUser?.email ?? "",
+      },
+    })
+  } catch (error) {
+    console.error("Sponsor lookup error:", error)
+    return NextResponse.json({ success: false, error: "Verification failed" }, { status: 500 })
+  }
 }
