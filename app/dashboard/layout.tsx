@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { NotificationProvider } from "@/lib/notification-context"
 import { NotificationBellIntegrated } from "@/components/notification-bell-integrated"
 import { DashboardNotificationIntegration } from "@/components/dashboard-notification-integration"
+import { useCurrentUser } from "@/hooks/useCurrentUser"
 import {
   LayoutDashboard,
   FileText,
@@ -49,6 +50,11 @@ export default function DashboardLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
+  const { user, isLoading, initials } = useCurrentUser()
+
+  const displayName = isLoading ? "Loading…" : (user?.name ?? "")
+  const displayPlan = isLoading ? "" : (user?.subscriptionId ? "Active Plan" : "Free Plan")
+  const avatarInitials = isLoading ? "…" : (initials || "?")
 
   return (
     <NotificationProvider>
@@ -119,11 +125,11 @@ export default function DashboardLayout({
           <div className="border-t p-4">
             <div className="flex items-center space-x-3 mb-4">
               <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-medium">JD</span>
+                <span className="text-white text-sm font-medium">{avatarInitials}</span>
               </div>
               <div>
-                <p className="text-sm font-medium">John Doe</p>
-                <p className="text-xs text-gray-500">Professional Plan</p>
+                <p className="text-sm font-medium">{displayName}</p>
+                <p className="text-xs text-gray-500">{displayPlan}</p>
               </div>
             </div>
             <Button variant="outline" className="w-full bg-transparent">
@@ -145,11 +151,11 @@ export default function DashboardLayout({
             <NotificationBellIntegrated />
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-medium">JD</span>
+                <span className="text-white text-sm font-medium">{avatarInitials}</span>
               </div>
               <div className="hidden md:block">
-                <p className="text-sm font-medium text-gray-900">John Doe</p>
-                <p className="text-xs text-gray-500">Professional Plan</p>
+                <p className="text-sm font-medium text-gray-900">{displayName}</p>
+                <p className="text-xs text-gray-500">{displayPlan}</p>
               </div>
             </div>
           </div>

@@ -22,6 +22,7 @@ import {
   Crown,
   Bell,
 } from "lucide-react"
+import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { MLMNotificationProvider } from "@/lib/mlm-notification-context"
 import { MLMNotificationBadge } from "@/components/mlm-notification-badge"
 import { MLMNotificationBell } from "@/components/mlm-notification-bell"
@@ -127,6 +128,10 @@ const navigation: NavigationItem[] = [
 export default function MLMLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
+  const { user, isLoading, initials } = useCurrentUser()
+
+  const displayName = isLoading ? "Loading…" : (user?.name ?? "")
+  const avatarInitials = isLoading ? "…" : (initials || "?")
 
   const isActive = (href: string) => {
     return pathname === href || (href !== "/mlm/dashboard" && pathname.startsWith(href))
@@ -224,10 +229,10 @@ export default function MLMLayout({ children }: { children: React.ReactNode }) {
           <div className="border-t p-4">
             <div className="flex items-center space-x-3 mb-4">
               <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-medium">JD</span>
+                <span className="text-white text-sm font-medium">{avatarInitials}</span>
               </div>
               <div>
-                <p className="text-sm font-medium">John Doe</p>
+                <p className="text-sm font-medium">{displayName}</p>
                 <div className="flex items-center space-x-1">
                   <Crown className="h-3 w-3 text-yellow-500" />
                   <p className="text-xs text-gray-500">Director Rank</p>
@@ -254,10 +259,10 @@ export default function MLMLayout({ children }: { children: React.ReactNode }) {
             <MLMNotificationBell />
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-medium">JD</span>
+                <span className="text-white text-sm font-medium">{avatarInitials}</span>
               </div>
               <div className="text-sm">
-                <p className="font-medium">John Doe</p>
+                <p className="font-medium">{displayName}</p>
                 <p className="text-gray-500">Director Rank</p>
               </div>
             </div>
