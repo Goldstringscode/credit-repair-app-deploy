@@ -36,7 +36,7 @@ export function getAuthenticatedUser(request: NextRequest): AuthUser | null {
     const secret = process.env.JWT_SECRET
     if (!secret) return null
 
-    const decoded = jwt.verify(token, secret) as JwtPayload
+    const decoded = jwt.verify(token, secret, { issuer: 'credit-repair-app', audience: 'credit-repair-users' }) as JwtPayload
 
     const userId = decoded.userId ?? decoded.sub ?? decoded.id
     if (!userId) return null

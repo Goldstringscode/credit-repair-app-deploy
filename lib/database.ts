@@ -345,10 +345,21 @@ class MockDatabaseService implements DatabaseService {
   }
 }
 
-// Export singleton instance
-export const database = new MockDatabaseService()
+// Export singleton — switches to PostgreSQL when USE_PRODUCTION_DB=true or DB_TYPE=postgres
+function createDatabaseService(): DatabaseService {
+  const useProductionDB = process.env.USE_PRODUCTION_DB === 'true'
+  const dbType = process.env.DB_TYPE || 'mock'
+  if (useProductionDB || dbType === 'postgres') {
+    try {
+      // Dynamically require to avoid loading pg in environments without it
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { postgresDatabase } = require('./database-postgres') as { postgresDatabase: { instance: DatabaseService } }
+      return postgresDatabase.instance
+    } catch (err) {
+      console.warn('⚠️  PostgreSQL service unavailable, falling back to MockDatabaseService:', err)
+    }
+  }
+  return new MockDatabaseService()
+}
 
-// In production, you would replace this with:
-// export const database = new PostgreSQLDatabaseService()
-// export const database = new MongoDBDatabaseService()
-// etc.
+export const database = createDatabaseService()

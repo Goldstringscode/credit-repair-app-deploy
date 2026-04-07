@@ -84,21 +84,6 @@ class DatabaseService {
   private initializeMockData() {
     if (this.initialized) return
 
-    // Try to load from localStorage first
-    const savedUsers = localStorage.getItem('mockUsers')
-    const savedSubscriptions = localStorage.getItem('mockSubscriptions')
-    const savedNegativeItems = localStorage.getItem('mockNegativeItems')
-    const savedCreditScores = localStorage.getItem('mockCreditScores')
-
-    if (savedUsers && savedSubscriptions) {
-      this.mockUsers = JSON.parse(savedUsers)
-      this.mockSubscriptions = JSON.parse(savedSubscriptions)
-      this.mockNegativeItems = savedNegativeItems ? JSON.parse(savedNegativeItems) : []
-      this.mockCreditScores = savedCreditScores ? JSON.parse(savedCreditScores) : []
-      this.initialized = true
-      return
-    }
-
     // Default mock data if no saved data
     this.mockUsers = [
       {
@@ -322,16 +307,10 @@ class DatabaseService {
     this.saveToLocalStorage()
   }
 
-  // Save data to localStorage
+  // Save data to in-memory state (no-op; data lives in class instance Map)
   private saveToLocalStorage() {
-    try {
-      localStorage.setItem('mockUsers', JSON.stringify(this.mockUsers))
-      localStorage.setItem('mockSubscriptions', JSON.stringify(this.mockSubscriptions))
-      localStorage.setItem('mockNegativeItems', JSON.stringify(this.mockNegativeItems))
-      localStorage.setItem('mockCreditScores', JSON.stringify(this.mockCreditScores))
-    } catch (error) {
-      console.error('Failed to save to localStorage:', error)
-    }
+    // TODO: Persist mock data via Supabase when needed.
+    // localStorage was removed because this file runs server-side.
   }
 
   // User Management
