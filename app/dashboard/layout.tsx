@@ -56,6 +56,15 @@ export default function DashboardLayout({
   const displayPlan = isLoading ? "" : (user?.subscriptionId ? "Active Plan" : "Free Plan")
   const avatarInitials = isLoading ? "…" : (initials || "?")
 
+  const handleSignOut = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+    window.location.href = '/login'
+  }
+
   return (
     <NotificationProvider>
       <div className="min-h-screen bg-gray-50">
@@ -89,7 +98,7 @@ export default function DashboardLayout({
             })}
           </nav>
           <div className="border-t p-4">
-            <Button variant="outline" className="w-full bg-transparent">
+            <Button variant="outline" className="w-full bg-transparent" onClick={handleSignOut}>
               <LogOut className="mr-2 h-4 w-4" />
               Sign Out
             </Button>
@@ -132,7 +141,7 @@ export default function DashboardLayout({
                 <p className="text-xs text-gray-500">{displayPlan}</p>
               </div>
             </div>
-            <Button variant="outline" className="w-full bg-transparent">
+            <Button variant="outline" className="w-full bg-transparent" onClick={handleSignOut}>
               <LogOut className="mr-2 h-4 w-4" />
               Sign Out
             </Button>

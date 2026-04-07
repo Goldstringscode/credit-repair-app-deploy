@@ -89,8 +89,8 @@ const testJWTAuth = async () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: 'demo@example.com',
-        password: 'demo123'
+        email: process.env.TEST_EMAIL || 'admin@creditrepair.com',
+        password: process.env.TEST_PASSWORD || ''
       })
     });
 

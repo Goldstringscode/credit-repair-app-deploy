@@ -103,12 +103,13 @@ export const currentAttorney: AttorneyUser = {
   autoReplyMessage: "Thank you for your message. I'll respond within 24 hours during business days.",
 }
 
-// Mock client data
+// Mock client data — placeholder data for the attorney-side view.
+// The real implementation would query actual clients from Supabase.
 export const mockClients: { [clientId: string]: ClientInfo } = {
   "client-123": {
     id: "client-123",
-    name: "John Doe",
-    email: "john.doe@email.com",
+    name: "Sample Client",
+    email: "client@example.com",
     phone: "(555) 123-4567",
     avatar: "/placeholder.svg?height=40&width=40&text=JD",
     joinDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),

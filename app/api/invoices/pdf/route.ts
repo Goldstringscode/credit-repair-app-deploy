@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { invoiceGenerator } from '@/lib/invoice-generator'
 import { withRateLimit } from '@/lib/rate-limiter'
+import { getCurrentUser } from '@/lib/auth'
 
 export const GET = withRateLimit(
   async (request: NextRequest) => {
@@ -15,25 +16,35 @@ export const GET = withRateLimit(
         }, { status: 400 })
       }
 
+      // Authenticate the request
+      const { user, isAuthenticated } = await getCurrentUser(request)
+      if (!isAuthenticated || !user) {
+        return NextResponse.json({
+          success: false,
+          error: 'Authentication required'
+        }, { status: 401 })
+      }
+
       console.log('📄 Generating PDF for invoice:', invoiceId)
 
-      // In a real implementation, you would fetch the invoice from the database
-      // For now, we'll create a mock invoice
-      const mockInvoice = {
+      // Build the invoice using the authenticated user's real data.
+      // Full invoice DB integration can be added here when the invoices table is ready.
+      const invoice = {
         id: invoiceId,
-        number: 'INV-202401-0001',
-        date: '2024-01-15',
-        dueDate: '2024-02-14',
+        number: `INV-${invoiceId}`,
+        date: new Date().toISOString().split('T')[0],
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         status: 'sent' as const,
         customer: {
-          name: 'John Doe',
-          email: 'john@example.com',
+          name: user.name,
+          email: user.email,
+          // Address fields can be populated from user profile when address data is available
           address: {
-            line1: '123 Main St',
+            line1: '',
             line2: '',
-            city: 'Anytown',
-            state: 'CA',
-            postalCode: '12345',
+            city: '',
+            state: '',
+            postalCode: '',
             country: 'US'
           }
         },
@@ -67,21 +78,22 @@ export const GET = withRateLimit(
         paymentTerms: 'Net 30'
       }
 
-      const pdfBuffer = await invoiceGenerator.generatePDF(mockInvoice)
+      const pdfBuffer = await invoiceGenerator.generatePDF(invoice)
 
       return new NextResponse(new Uint8Array(pdfBuffer), {
         headers: {
           'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="invoice-${mockInvoice.number}.pdf"`
+          'Content-Disposition': `attachment; filename="invoice-${invoice.number}.pdf"`
         }
       })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
       console.error('❌ PDF generation failed:', error)
       return NextResponse.json({
         success: false,
         error: 'Failed to generate PDF',
-        message: error.message
+        message
       }, { status: 500 })
     }
   }

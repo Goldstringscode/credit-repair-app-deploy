@@ -92,7 +92,7 @@ export function PaymentMethods({
       expMonth: method.card.expMonth.toString().padStart(2, '0'),
       expYear: method.card.expYear.toString(),
       cvc: '***',
-      cardholderName: 'John Doe', // In real app, this would come from the method
+      cardholderName: '', // Cardholder name should be entered by the user
       isDefault: method.isDefault
     })
     setShowEditDialog(true)
