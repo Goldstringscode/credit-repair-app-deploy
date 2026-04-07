@@ -57,7 +57,11 @@ export default function DashboardLayout({
   const avatarInitials = isLoading ? "…" : (initials || "?")
 
   const handleSignOut = async () => {
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
     window.location.href = '/login'
   }
 

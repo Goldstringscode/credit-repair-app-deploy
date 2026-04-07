@@ -38,6 +38,7 @@ export const GET = withRateLimit(
         customer: {
           name: user.name,
           email: user.email,
+          // Address fields can be populated from user profile when address data is available
           address: {
             line1: '',
             line2: '',
