@@ -113,7 +113,7 @@ export function TaskManagement() {
         {
           id: "manual_2",
           title: "Follow up with Experian",
-          description: "Call Experian to check on dispute status for client John Doe",
+          description: "Call Experian to check on dispute status for client [Client Name]",
           type: "follow_up",
           priority: "medium",
           status: "in_progress",

@@ -133,6 +133,11 @@ export default function MLMLayout({ children }: { children: React.ReactNode }) {
   const displayName = isLoading ? "Loading…" : (user?.name ?? "")
   const avatarInitials = isLoading ? "…" : (initials || "?")
 
+  const handleSignOut = async () => {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+    window.location.href = '/login'
+  }
+
   const isActive = (href: string) => {
     return pathname === href || (href !== "/mlm/dashboard" && pathname.startsWith(href))
   }
@@ -239,7 +244,7 @@ export default function MLMLayout({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
             </div>
-            <Button variant="outline" className="w-full bg-transparent">
+            <Button variant="outline" className="w-full bg-transparent" onClick={handleSignOut}>
               <LogOut className="mr-2 h-4 w-4" />
               Sign Out
             </Button>

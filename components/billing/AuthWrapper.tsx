@@ -16,7 +16,7 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [showLogin, setShowLogin] = useState(false)
-  const [loginData, setLoginData] = useState({ email: 'demo@example.com', password: 'demo123' })
+  const [loginData, setLoginData] = useState({ email: '', password: '' })
   const [loginError, setLoginError] = useState('')
 
   useEffect(() => {
@@ -25,33 +25,8 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
 
   const checkAuthStatus = async () => {
     try {
-      // Check if we're in the browser
-      if (typeof window === 'undefined') {
-        setIsAuthenticated(false)
-        setIsLoading(false)
-        return
-      }
-
-      // First check if we have a token in localStorage
-      const token = localStorage.getItem('accessToken')
-      if (token) {
-        // Try to access a protected endpoint to check if we're authenticated
-        const response = await fetch(`${window.location.origin}/api/billing/user/subscription`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
-        
-        if (response.ok) {
-          setIsAuthenticated(true)
-        } else {
-          localStorage.removeItem('accessToken')
-          setIsAuthenticated(false)
-        }
-      } else {
-        setIsAuthenticated(false)
-      }
+      const response = await fetch('/api/auth/me', { credentials: 'include' })
+      setIsAuthenticated(response.ok)
     } catch (error) {
       console.error('Auth check error:', error)
       setIsAuthenticated(false)
@@ -66,20 +41,14 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
     setIsLoading(true)
 
     try {
-      const response = await fetch(`${window.location.origin}/api/auth/login`, {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(loginData)
       })
       
       if (response.ok) {
-        const data = await response.json()
-        
-        // Store the token in localStorage
-        if (data.token) {
-          localStorage.setItem('accessToken', data.token)
-        }
-        
         setIsAuthenticated(true)
         setShowLogin(false)
       } else {
@@ -92,11 +61,6 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const handleDemoLogin = () => {
-    setLoginData({ email: 'demo@example.com', password: 'demo123' })
-    handleLogin(new Event('submit') as any)
   }
 
   // Debug logging removed for production
@@ -130,14 +94,9 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
                 <p className="text-sm text-gray-600">
                   You need to be logged in to view your billing information.
                 </p>
-                <div className="space-y-2">
-                  <Button onClick={() => setShowLogin(true)} className="w-full">
-                    Login
-                  </Button>
-                  <Button onClick={handleDemoLogin} variant="outline" className="w-full">
-                    Use Demo Account
-                  </Button>
-                </div>
+                <Button onClick={() => setShowLogin(true)} className="w-full">
+                  Login
+                </Button>
               </div>
             ) : (
               <form onSubmit={handleLogin} className="space-y-4">

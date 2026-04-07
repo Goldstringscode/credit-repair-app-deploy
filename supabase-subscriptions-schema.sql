@@ -78,7 +78,7 @@ INSERT INTO subscriptions (
     payment_method, billing_cycle, is_executive_account, notes
 ) VALUES 
 (
-    'cus_001', 'John Doe', 'john@example.com', 'premium', 'Premium Plan',
+    'cus_001', 'Sample Customer 1', 'sample1@example.com', 'premium', 'Premium Plan',
     'active', '2024-01-15', '2024-02-15', 59.99,
     'Visa ****4242', 'month', false, 'Regular customer'
 ),

@@ -38,24 +38,25 @@ export interface Conversation {
   priority: "low" | "medium" | "high" | "urgent"
 }
 
-// Mock current user (in real app, this would come from auth)
+// Current user placeholder — in real usage, pass the authenticated user from useCurrentUser()
+// to MessagingService methods rather than relying on this static export.
 export const currentUser = {
-  id: "client-123",
-  name: "John Doe",
+  id: "current-user",
+  name: "Current User",
   type: "client" as const,
-  avatar: "/placeholder.svg?height=40&width=40&text=JD",
+  avatar: "/placeholder.svg?height=40&width=40&text=CU",
 }
 
 // Mock conversations data
 export const mockConversations: Conversation[] = [
   {
     id: "conv-001",
-    clientId: "client-123",
+    clientId: "current-user",
     attorneyId: "sarah-johnson",
     attorneyName: "Sarah Johnson",
     attorneyAvatar: "/placeholder.svg?height=40&width=40&text=SJ",
-    clientName: "John Doe",
-    clientAvatar: "/placeholder.svg?height=40&width=40&text=JD",
+    clientName: "Current User",
+    clientAvatar: "/placeholder.svg?height=40&width=40&text=CU",
     subject: "Credit Report Dispute - Experian",
     status: "active",
     unreadCount: 2,
@@ -79,12 +80,12 @@ export const mockConversations: Conversation[] = [
   },
   {
     id: "conv-002",
-    clientId: "client-123",
+    clientId: "current-user",
     attorneyId: "michael-chen",
     attorneyName: "Michael Chen",
     attorneyAvatar: "/placeholder.svg?height=40&width=40&text=MC",
-    clientName: "John Doe",
-    clientAvatar: "/placeholder.svg?height=40&width=40&text=JD",
+    clientName: "Current User",
+    clientAvatar: "/placeholder.svg?height=40&width=40&text=CU",
     subject: "Identity Theft Recovery",
     status: "active",
     unreadCount: 0,
@@ -95,10 +96,10 @@ export const mockConversations: Conversation[] = [
     lastMessage: {
       id: "msg-010",
       conversationId: "conv-002",
-      senderId: "client-123",
+      senderId: "current-user",
       senderType: "client",
-      senderName: "John Doe",
-      senderAvatar: "/placeholder.svg?height=40&width=40&text=JD",
+      senderName: "Current User",
+      senderAvatar: "/placeholder.svg?height=40&width=40&text=CU",
       content: "Thank you for your help with the identity theft case. The fraudulent accounts have been removed.",
       timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
       read: true,
@@ -113,10 +114,10 @@ export const mockMessages: { [conversationId: string]: Message[] } = {
     {
       id: "msg-001",
       conversationId: "conv-001",
-      senderId: "client-123",
+      senderId: "current-user",
       senderType: "client",
-      senderName: "John Doe",
-      senderAvatar: "/placeholder.svg?height=40&width=40&text=JD",
+      senderName: "Current User",
+      senderAvatar: "/placeholder.svg?height=40&width=40&text=CU",
       content:
         "Hi Sarah, I need help with disputing some incorrect items on my Experian credit report. There are 3 accounts that don't belong to me.",
       timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
@@ -139,10 +140,10 @@ export const mockMessages: { [conversationId: string]: Message[] } = {
     {
       id: "msg-003",
       conversationId: "conv-001",
-      senderId: "client-123",
+      senderId: "current-user",
       senderType: "client",
-      senderName: "John Doe",
-      senderAvatar: "/placeholder.svg?height=40&width=40&text=JD",
+      senderName: "Current User",
+      senderAvatar: "/placeholder.svg?height=40&width=40&text=CU",
       content: "I've attached my credit report and the police report I filed for identity theft.",
       timestamp: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
       read: true,
@@ -195,10 +196,10 @@ export const mockMessages: { [conversationId: string]: Message[] } = {
     {
       id: "msg-006",
       conversationId: "conv-002",
-      senderId: "client-123",
+      senderId: "current-user",
       senderType: "client",
-      senderName: "John Doe",
-      senderAvatar: "/placeholder.svg?height=40&width=40&text=JD",
+      senderName: "Current User",
+      senderAvatar: "/placeholder.svg?height=40&width=40&text=CU",
       content:
         "Michael, I discovered several fraudulent accounts on my credit report. I need urgent help to get these removed.",
       timestamp: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
@@ -247,10 +248,10 @@ export const mockMessages: { [conversationId: string]: Message[] } = {
     {
       id: "msg-010",
       conversationId: "conv-002",
-      senderId: "client-123",
+      senderId: "current-user",
       senderType: "client",
-      senderName: "John Doe",
-      senderAvatar: "/placeholder.svg?height=40&width=40&text=JD",
+      senderName: "Current User",
+      senderAvatar: "/placeholder.svg?height=40&width=40&text=CU",
       content: "Thank you for your help with the identity theft case. The fraudulent accounts have been removed.",
       timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
       read: true,

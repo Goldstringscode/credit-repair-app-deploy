@@ -66,8 +66,8 @@ async function testAuthDebug() {
     const loginResponse = await makeRequest('/api/auth/login', {
       method: 'POST',
       body: {
-        email: 'demo@example.com',
-        password: 'demo123'
+        email: process.env.TEST_EMAIL || 'admin@creditrepair.com',
+        password: process.env.TEST_PASSWORD || ''
       }
     })
 
