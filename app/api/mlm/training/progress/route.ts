@@ -8,6 +8,10 @@ if (!JWT_SECRET) {
 }
 
 function extractUserId(request: NextRequest): string | null {
+  // Prefer x-user-id header set by middleware (avoids re-decoding the JWT)
+  const headerUserId = request.headers.get("x-user-id")
+  if (headerUserId) return headerUserId
+
   try {
     if (!JWT_SECRET) return null
 
@@ -83,6 +87,10 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (error) {
+      // Table does not exist yet — treat as a no-op rather than crashing
+      if ((error as any).code === "42P01") {
+        return NextResponse.json({ success: true, data: null })
+      }
       console.error("Failed to save training progress:", error)
       return NextResponse.json(
         { success: false, error: "Failed to save progress" },
@@ -128,6 +136,10 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query
 
     if (error) {
+      // Table does not exist yet — return empty progress gracefully
+      if ((error as any).code === "42P01") {
+        return NextResponse.json({ success: true, data: [] })
+      }
       console.error("Failed to fetch training progress:", error)
       return NextResponse.json(
         { success: false, error: "Failed to fetch progress" },

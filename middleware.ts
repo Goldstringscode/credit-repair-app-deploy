@@ -214,9 +214,16 @@ export function middleware(request: NextRequest) {
     }
 
     // Forward request with user identity headers derived from JWT payload
-    const response = NextResponse.next()
     const userId = (payload.userId ?? payload.sub ?? payload.id) as string | undefined
     const userRole = (payload.role) as string | undefined
+
+    // Build modified request headers so route handlers can read them
+    const requestHeaders = new Headers(request.headers)
+    if (userId) requestHeaders.set('x-user-id', String(userId))
+    if (userRole) requestHeaders.set('x-user-role', String(userRole))
+
+    const response = NextResponse.next({ request: { headers: requestHeaders } })
+    // Also set on the response so the browser/client can see them if needed
     if (userId) response.headers.set('x-user-id', String(userId))
     if (userRole) response.headers.set('x-user-role', String(userRole))
     return response

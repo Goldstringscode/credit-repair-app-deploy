@@ -30,6 +30,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { progressTrackingService } from "@/lib/progress-tracking"
+import { progressSyncManager } from "@/lib/progress-sync"
 
 interface ModuleContent {
   id: string
@@ -113,13 +114,13 @@ export default function ModuleContentPage() {
     const moduleContent = getModuleContent(moduleId)
     const currentLesson = moduleContent.lessons[currentLessonIndex]
     
-    progressTrackingService.updateLessonProgress(
-      lessonId, 
-      currentTime, 
-      completed, 
-      moduleId, 
-      currentLesson?.title || `Lesson ${currentLessonIndex + 1}`, 
-      currentLesson?.duration || 600
+    progressSyncManager.updateLessonProgress(
+      lessonId,
+      currentTime,
+      completed,
+      moduleId,
+      currentLesson?.title || `Lesson ${currentLessonIndex + 1}`,
+      currentLesson?.duration || 600,
     )
     refreshProgress()
   }
@@ -154,11 +155,17 @@ export default function ModuleContentPage() {
     })
   }
 
-  // Initialize progress tracking
+  // Initialize progress tracking and restore from server
   useEffect(() => {
     setMounted(true)
     refreshProgress()
-  }, [])
+
+    // Fetch persisted progress from the server and merge with localStorage
+    const moduleId = params.moduleId as string
+    progressSyncManager.loadFromServer(moduleId).then(() => {
+      refreshProgress()
+    })
+  }, [params.moduleId])
 
   // Listen for completion changes
   useEffect(() => {
