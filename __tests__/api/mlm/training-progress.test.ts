@@ -118,7 +118,7 @@ describe('GET /api/mlm/training/progress', () => {
     expect(Array.isArray(body.data)).toBe(true)
   })
 
-  it('returns 401 when not authenticated', async () => {
+  it('returns 401 when token is invalid', async () => {
     const { GET } = await import('../../../app/api/mlm/training/progress/route')
 
     const req = new NextRequest('http://localhost/api/mlm/training/progress', {
