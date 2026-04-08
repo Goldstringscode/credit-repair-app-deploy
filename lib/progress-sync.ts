@@ -108,9 +108,7 @@ export class ProgressSyncManager {
       }
 
       // Notify subscribers so UI re-renders with merged state
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('lessonCompletionChanged'))
-      }
+      window.dispatchEvent(new CustomEvent('lessonCompletionChanged'))
     } catch {
       // Silently ignore — server unavailable or user unauthenticated
     }

@@ -165,8 +165,7 @@ export default function ModuleContentPage() {
     progressSyncManager.loadFromServer(moduleId).then(() => {
       refreshProgress()
     })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [params.moduleId])
 
   // Listen for completion changes
   useEffect(() => {
