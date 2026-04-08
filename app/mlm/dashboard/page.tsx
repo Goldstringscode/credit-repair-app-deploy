@@ -30,6 +30,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth-simple"
 import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 
 interface MLMUser {
@@ -76,6 +77,7 @@ interface Commission {
 export default function MLMDashboard() {
   const { user, isLoading: authLoading } = useAuth()
   const { toast } = useToast()
+  const router = useRouter()
   
   const [mlmUser, setMlmUser] = useState<MLMUser | null>(null)
   const [teamStats, setTeamStats] = useState<TeamStats | null>(null)
@@ -91,10 +93,13 @@ export default function MLMDashboard() {
   const [isInviting, setIsInviting] = useState(false)
 
   useEffect(() => {
-    if (user && !authLoading) {
-      fetchMLMData()
+    if (authLoading) return
+    if (!user) {
+      router.push('/login')
+      return
     }
-  }, [user, authLoading])
+    fetchMLMData()
+  }, [user, authLoading, router])
 
   const fetchMLMData = async () => {
     try {
