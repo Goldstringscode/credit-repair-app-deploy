@@ -10,7 +10,7 @@ on:
 
 jobs:
   ci:
-    name: Lint, Type Check & Build
+    name: Lint, Type Check, Test & Build
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -26,7 +26,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
       - name: Lint
         run: npm run lint
@@ -48,10 +48,22 @@ jobs:
       - name: TypeScript type check
         run: npx tsc --noEmit
 
+      - name: Test
+        run: npm run test:run
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-dummy-jwt-secret-at-least-32-chars-long
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          STRIPE_SECRET_KEY: sk_test_placeholder
+          STRIPE_WEBHOOK_SECRET: whsec_placeholder
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_placeholder
+
       - name: Build
         run: npm run build
         env:
-          # Dummy values so env-validation doesn't throw during the build
           NODE_ENV: production
           JWT_SECRET: ci-dummy-jwt-secret-at-least-32-chars-long
           ENCRYPTION_MASTER_KEY: ci-dummy-encryption-key-at-least-32-chars

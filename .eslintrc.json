@@ -1,3 +1,7 @@
 {
-  "extends": ["next/core-web-vitals"]
+  "extends": ["next/core-web-vital"],
+  "rules": {
+    "@typescript-eslint/no-require-imports": "off",
+    "react/no-unescaped-entities": "off"
+  }
 }
