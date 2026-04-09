@@ -137,12 +137,24 @@ export const GET = withRateLimit(
 
 // Helper functions
 async function getEligibleUsersForPayout(): Promise<any[]> {
-  // This would query the database for users with pending commissions
-  // For now, return mock data
-  return [
-    { id: 'user_123', email: 'demo@example.com', pendingAmount: 250.00 },
-    { id: 'user_456', email: 'user2@example.com', pendingAmount: 150.00 }
-  ]
+  try {
+    const minPayoutAmount = 50
+    const pendingCommissions = await mlmDatabaseService.getAllPendingCommissions()
+    // Filter per-commission (matching processUserPayout which requires each commission to be >= threshold)
+    const eligible = pendingCommissions.filter(c => c.amount >= minPayoutAmount)
+
+    // Group by userId and sum pending amounts
+    const userMap = new Map<string, number>()
+    for (const commission of eligible) {
+      const current = userMap.get(commission.userId) ?? 0
+      userMap.set(commission.userId, current + commission.amount)
+    }
+
+    return Array.from(userMap.entries()).map(([id, pendingAmount]) => ({ id, pendingAmount }))
+  } catch (error) {
+    console.error('Error fetching eligible users for payout:', error)
+    return []
+  }
 }
 
 async function processUserPayout(userId: string): Promise<any> {
