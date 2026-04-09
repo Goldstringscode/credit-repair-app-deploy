@@ -67,9 +67,10 @@ app.prepare().then(() => {
         // Handle different message types
         switch (message.type) {
           case 'send_message':
-            // Broadcast new message to all clients
+            // Broadcast new message only to clients subscribed to the same channel
             wss.clients.forEach((client) => {
-              if (client.readyState === 1) {
+              if (client.readyState === 1 &&
+                  (client.currentChannel === message.data.channelId || client === ws)) {
                 client.send(JSON.stringify({
                   type: 'new_message',
                   data: {
