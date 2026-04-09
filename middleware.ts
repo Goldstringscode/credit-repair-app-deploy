@@ -16,6 +16,7 @@ const PUBLIC_ROUTES = [
   '/terms',
   '/support',
   '/pricing',
+  '/test-communication',
   '/_next',
   '/favicon.ico',
   '/api/auth',
@@ -67,9 +68,32 @@ const PROTECTED_API_ROUTES = [
   '/api/training',
 ]
 
-// Debug/test route prefixes to block
+// Debug/test route prefixes to block (specific routes, not blanket /test-)
 const DEBUG_ROUTE_PREFIXES = [
-  '/test-',
+  '/test-security',
+  '/test-advanced-analysis',
+  '/test-advanced-billing',
+  '/test-ai-letters',
+  '/test-auth',
+  '/test-billing-summary',
+  '/test-compliance',
+  '/test-deployment',
+  '/test-documentation',
+  '/test-emails',
+  '/test-env',
+  '/test-integration',
+  '/test-notifications',
+  '/test-openai-status',
+  '/test-openai',
+  '/test-payment-simple',
+  '/test-pdf-processing',
+  '/test-recent-improvements',
+  '/test-score-extraction',
+  '/test-setup',
+  '/test-simple',
+  '/test-stripe',
+  '/test-system',
+  '/test-ultimate-analysis',
   '/debug-',
   '/simple-test',
   '/api/test',
@@ -88,15 +112,15 @@ const DEBUG_ROUTE_PREFIXES = [
  */
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
-    const parts = token.split('.')
-    if (parts.length !== 3) return null
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
     // base64url → base64 → decode
-    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=')
-    const decoded = atob(padded)
-    return JSON.parse(decoded)
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const decoded = atob(padded);
+    return JSON.parse(decoded);
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -106,131 +130,131 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
  */
 function getValidToken(request: NextRequest): Record<string, unknown> | null {
   try {
-    let token: string | undefined
+    let token: string | undefined;
 
     // Primary: check the app's own auth-token cookie (set by /api/auth routes)
-    token = request.cookies.get('auth-token')?.value
+    token = request.cookies.get('auth-token')?.value;
 
     // Fallback: app's accessToken cookie (legacy name used by createTokenCookies)
     if (!token) {
-      token = request.cookies.get('accessToken')?.value
+      token = request.cookies.get('accessToken')?.value;
     }
 
     // Fallback: Supabase sb-access-token cookie
     if (!token) {
-      token = request.cookies.get('sb-access-token')?.value
+      token = request.cookies.get('sb-access-token')?.value;
     }
 
     // Fallback: Supabase default session cookie pattern (sb-<project>-auth-token)
     if (!token) {
-      const allCookies = request.cookies.getAll()
+      const allCookies = request.cookies.getAll();
       for (const cookie of allCookies) {
         if (cookie.name.startsWith('sb-') && cookie.name.endsWith('-auth-token')) {
           try {
-            const session = JSON.parse(cookie.value)
-            token = session?.access_token
+            const session = JSON.parse(cookie.value);
+            token = session?.access_token;
           } catch {
-            token = cookie.value
+            token = cookie.value;
           }
-          break
+          break;
         }
       }
     }
 
     // Fallback: Authorization header
     if (!token) {
-      const authHeader = request.headers.get('authorization')
+      const authHeader = request.headers.get('authorization');
       if (authHeader?.startsWith('Bearer ')) {
-        token = authHeader.slice(7)
+        token = authHeader.slice(7);
       }
     }
 
-    if (!token) return null
+    if (!token) return null;
 
-    const payload = decodeJwtPayload(token)
-    if (!payload) return null
+    const payload = decodeJwtPayload(token);
+    if (!payload) return null;
 
     // Check expiry
-    const exp = payload.exp as number | undefined
-    if (exp && Date.now() / 1000 > exp) return null
+    const exp = payload.exp as number | undefined;
+    if (exp && Date.now() / 1000 > exp) return null;
 
-    return payload
+    return payload;
   } catch {
-    return null
+    return null;
   }
 }
 
 export function middleware(request: NextRequest) {
   try {
-    const { pathname } = request.nextUrl
+    const { pathname } = request.nextUrl;
 
     // Block debug/test routes immediately with 404
     if (DEBUG_ROUTE_PREFIXES.some(prefix => pathname.startsWith(prefix))) {
       if (pathname.startsWith('/api/')) {
-        return NextResponse.json({ error: 'Not Found' }, { status: 404 })
+        return NextResponse.json({ error: 'Not Found' }, { status: 404 });
       }
-      return NextResponse.rewrite(new URL('/not-found', request.url))
+      return NextResponse.rewrite(new URL('/not-found', request.url));
     }
 
     // Allow public routes
     if (PUBLIC_ROUTES.some(route => pathname === route || (route !== '/' && pathname.startsWith(route)))) {
-      return NextResponse.next()
+      return NextResponse.next();
     }
 
     // Check if this is a protected API route
-    const isProtectedApi = PROTECTED_API_ROUTES.some(route => pathname.startsWith(route))
+    const isProtectedApi = PROTECTED_API_ROUTES.some(route => pathname.startsWith(route));
     // Check if this is a protected page route
-    const isProtectedPage = PROTECTED_PAGE_ROUTES.some(route => pathname.startsWith(route))
+    const isProtectedPage = PROTECTED_PAGE_ROUTES.some(route => pathname.startsWith(route));
 
     if (!isProtectedApi && !isProtectedPage) {
-      return NextResponse.next()
+      return NextResponse.next();
     }
 
     // Validate the JWT token
-    const payload = getValidToken(request)
+    const payload = getValidToken(request);
 
     if (!payload) {
       // Unauthenticated request
       if (isProtectedApi) {
-        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
       }
       // Redirect page requests to login
-      const loginUrl = new URL('/login', request.url)
-      loginUrl.searchParams.set('redirect', encodeURIComponent(pathname))
-      return NextResponse.redirect(loginUrl)
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', encodeURIComponent(pathname));
+      return NextResponse.redirect(loginUrl);
     }
 
     // Admin route extra protection: check for admin role in JWT
-    const isAdminPage = pathname.startsWith('/admin')
-    const isAdminApi = pathname.startsWith('/api/admin')
+    const isAdminPage = pathname.startsWith('/admin');
+    const isAdminApi = pathname.startsWith('/api/admin');
     if (isAdminPage || isAdminApi) {
-      const role = payload.role as string | undefined
+      const role = payload.role as string | undefined;
       if (role !== 'admin') {
         if (isAdminApi) {
-          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
-        return NextResponse.redirect(new URL('/access-denied', request.url))
+        return NextResponse.redirect(new URL('/access-denied', request.url));
       }
     }
 
     // Forward request with user identity headers derived from JWT payload
-    const userId = (payload.userId ?? payload.sub ?? payload.id) as string | undefined
-    const userRole = (payload.role) as string | undefined
+    const userId = (payload.userId ?? payload.sub ?? payload.id) as string | undefined;
+    const userRole = (payload.role) as string | undefined;
 
     // Build modified request headers so route handlers can read them
-    const requestHeaders = new Headers(request.headers)
-    if (userId) requestHeaders.set('x-user-id', String(userId))
-    if (userRole) requestHeaders.set('x-user-role', String(userRole))
+    const requestHeaders = new Headers(request.headers);
+    if (userId) requestHeaders.set('x-user-id', String(userId));
+    if (userRole) requestHeaders.set('x-user-role', String(userRole));
 
-    const response = NextResponse.next({ request: { headers: requestHeaders } })
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
     // Also set on the response so the browser/client can see them if needed
-    if (userId) response.headers.set('x-user-id', String(userId))
-    if (userRole) response.headers.set('x-user-role', String(userRole))
-    return response
+    if (userId) response.headers.set('x-user-id', String(userId));
+    if (userRole) response.headers.set('x-user-role', String(userRole));
+    return response;
   } catch (error) {
     // Safety net: never break the app due to middleware errors
-    console.error('Middleware error:', error)
-    return NextResponse.next()
+    console.error('Middleware error:', error);
+    return NextResponse.next();
   }
 }
 
