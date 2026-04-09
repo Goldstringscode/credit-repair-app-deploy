@@ -54,6 +54,16 @@ export interface UserSearchFilters {
   searchTerm?: string
 }
 
+/** Returns true when the error indicates a missing table (Postgres code 42P01). */
+function isTableMissingError(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as { code: unknown }).code === '42P01'
+  )
+}
+
 export class MLMUserManager {
   private db = mlmDatabaseService
   private commissionEngine = mlmCommissionEngine
@@ -474,7 +484,7 @@ export class MLMUserManager {
             .maybeSingle()
 
           if (userError) {
-            if ((userError as any).code === '42P01') {
+            if (isTableMissingError(userError)) {
               console.warn('users table not found, skipping active/verified check')
             } else {
               console.error('Error checking user record:', userError)
@@ -487,8 +497,8 @@ export class MLMUserManager {
               reasons.push('User account is not verified')
             }
           }
-        } catch (err: any) {
-          if (err?.code !== '42P01') {
+        } catch (err) {
+          if (!isTableMissingError(err)) {
             console.error('Error checking user record:', err)
           }
         }
@@ -503,7 +513,7 @@ export class MLMUserManager {
             .maybeSingle()
 
           if (subError) {
-            if ((subError as any).code === '42P01') {
+            if (isTableMissingError(subError)) {
               console.warn('subscriptions table not found, skipping subscription check')
             } else {
               console.error('Error checking subscription:', subError)
@@ -511,8 +521,8 @@ export class MLMUserManager {
           } else if (!subscription) {
             reasons.push('Active subscription required to join MLM program')
           }
-        } catch (err: any) {
-          if (err?.code !== '42P01') {
+        } catch (err) {
+          if (!isTableMissingError(err)) {
             console.error('Error checking subscription:', err)
           }
         }
@@ -527,7 +537,7 @@ export class MLMUserManager {
             .maybeSingle()
 
           if (agreementError) {
-            if ((agreementError as any).code === '42P01') {
+            if (isTableMissingError(agreementError)) {
               console.warn('user_agreements table not found, skipping compliance check')
             } else {
               console.error('Error checking user agreements:', agreementError)
@@ -535,8 +545,8 @@ export class MLMUserManager {
           } else if (!agreement) {
             reasons.push('MLM program terms have not been accepted')
           }
-        } catch (err: any) {
-          if (err?.code !== '42P01') {
+        } catch (err) {
+          if (!isTableMissingError(err)) {
             console.error('Error checking user agreements:', err)
           }
         }
