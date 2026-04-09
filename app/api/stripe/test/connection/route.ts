@@ -23,9 +23,9 @@ export const GET = withRateLimit(
           warnings: configValidation.warnings,
           config: {
             hasSecretKey: !!process.env.STRIPE_SECRET_KEY,
-            hasPublishableKey: !!process.env.STRIPE_PUBLISHABLE_KEY,
+            hasPublishableKey: !!process.env.STRIPE_PUBLISHABLE_KEY || !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
             hasWebhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
-            usingDemoKeys: stripeConfig.secretKey === 'sk_test_demo_key_for_testing'
+            usingDemoKeys: false
           }
         }, { status: 400 })
       }

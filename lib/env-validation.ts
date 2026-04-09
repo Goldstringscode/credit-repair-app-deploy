@@ -376,7 +376,7 @@ STRIPE_WEBHOOK_SECRET=whsec_your-webhook-secret
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # Security Configuration (Optional)
-ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
+ALLOWED_ORIGINS=http://localhost:3000,https://your-domain.com
 BLOCKED_IPS=192.168.1.100,10.0.0.50
 API_KEYS=your-api-key-1,your-api-key-2
 

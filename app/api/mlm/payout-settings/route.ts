@@ -1,61 +1,58 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { getSupabaseClient } from "@/lib/supabase-client"
 import jwt from "jsonwebtoken"
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co', 
-  process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder_key'
-)
+function getVerifiedUserId(request: NextRequest): string {
+  const authToken = request.cookies.get("auth-token")?.value
+  if (!authToken) {
+    throw { message: "Authentication required", status: 401 }
+  }
+  const jwtSecret = process.env.JWT_SECRET
+  if (!jwtSecret) {
+    throw { message: "Server configuration error", status: 500 }
+  }
+  const decoded = jwt.verify(authToken, jwtSecret) as any
+  if (!decoded.userId) {
+    throw { message: "Invalid token payload", status: 401 }
+  }
+  return decoded.userId as string
+}
+
+const DEFAULT_PAYOUT_SETTINGS = {
+  minimumPayoutAmount: 50.00,
+  payoutSchedule: 'monthly',
+  payoutDay: 1,
+  payoutMethod: 'card',
+  payoutMethodId: '',
+  taxId: '',
+  taxIdType: 'ssn',
+  businessName: '',
+  address: {
+    street: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    country: 'US'
+  },
+  notifications: {
+    payoutProcessed: true,
+    payoutFailed: true,
+    lowBalance: true,
+    taxDocuments: true
+  }
+}
 
 // GET - Fetch user's payout settings
 export async function GET(request: NextRequest) {
   try {
-    // Check if Supabase is configured
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://placeholder.supabase.co') {
-      return NextResponse.json({ 
-        payoutSettings: {
-          minimumPayoutAmount: 50.00,
-          payoutSchedule: 'monthly',
-          payoutDay: 1,
-          payoutMethod: 'card',
-          payoutMethodId: '',
-          taxId: '',
-          taxIdType: 'ssn',
-          businessName: '',
-          address: {
-            street: '',
-            city: '',
-            state: '',
-            zipCode: '',
-            country: 'US'
-          },
-          notifications: {
-            payoutProcessed: true,
-            payoutFailed: true,
-            lowBalance: true,
-            taxDocuments: true
-          }
-        }
-      })
-    }
-
-    // Get user from JWT token
-    const authToken = request.cookies.get("auth-token")?.value
-
-    if (!authToken) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
-    }
-
     let userId: string
     try {
-      const jwtSecret = process.env.JWT_SECRET || 'demo-secret-key'
-      const decoded = jwt.verify(authToken, jwtSecret) as any
-      userId = decoded.userId || 'demo-user'
-    } catch (error) {
-      return NextResponse.json({ error: "Invalid authentication token" }, { status: 401 })
+      userId = getVerifiedUserId(request)
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.status ?? 401 })
     }
 
-    // Get payout settings from database
+    const supabase = getSupabaseClient()
     const { data: payoutSettings, error: settingsError } = await supabase
       .from("mlm_payout_settings")
       .select("*")
@@ -64,42 +61,14 @@ export async function GET(request: NextRequest) {
 
     if (settingsError && settingsError.code !== 'PGRST116') {
       console.error("Error fetching payout settings:", settingsError)
-      // If table doesn't exist, return default settings instead of error
       if (settingsError.code === '42P01') {
-        console.log("mlm_payout_settings table doesn't exist, returning defaults")
-      } else {
-        return NextResponse.json({ error: "Failed to fetch payout settings" }, { status: 500 })
+        // Table doesn't exist yet — return defaults so UI renders correctly
+        return NextResponse.json({ payoutSettings: DEFAULT_PAYOUT_SETTINGS })
       }
+      return NextResponse.json({ error: "Failed to fetch payout settings" }, { status: 500 })
     }
 
-    // Return default settings if none exist
-    const defaultSettings = {
-      minimumPayoutAmount: 50.00,
-      payoutSchedule: 'monthly',
-      payoutDay: 1,
-      payoutMethod: 'card',
-      payoutMethodId: '',
-      taxId: '',
-      taxIdType: 'ssn',
-      businessName: '',
-      address: {
-        street: '',
-        city: '',
-        state: '',
-        zipCode: '',
-        country: 'US'
-      },
-      notifications: {
-        payoutProcessed: true,
-        payoutFailed: true,
-        lowBalance: true,
-        taxDocuments: true
-      }
-    }
-
-    return NextResponse.json({ 
-      payoutSettings: payoutSettings || defaultSettings 
-    })
+    return NextResponse.json({ payoutSettings: payoutSettings || DEFAULT_PAYOUT_SETTINGS })
   } catch (error) {
     console.error("Error fetching payout settings:", error)
     return NextResponse.json({ error: "Failed to fetch payout settings" }, { status: 500 })
@@ -109,30 +78,11 @@ export async function GET(request: NextRequest) {
 // POST - Save user's payout settings
 export async function POST(request: NextRequest) {
   try {
-    // Check if Supabase is configured
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://placeholder.supabase.co') {
-      const payoutSettings = await request.json()
-      return NextResponse.json({ 
-        success: true, 
-        message: "Payout settings saved successfully (demo mode)",
-        payoutSettings: payoutSettings
-      })
-    }
-
-    // Get user from JWT token
-    const authToken = request.cookies.get("auth-token")?.value
-
-    if (!authToken) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
-    }
-
     let userId: string
     try {
-      const jwtSecret = process.env.JWT_SECRET || 'demo-secret-key'
-      const decoded = jwt.verify(authToken, jwtSecret) as any
-      userId = decoded.userId || 'demo-user'
-    } catch (error) {
-      return NextResponse.json({ error: "Invalid authentication token" }, { status: 401 })
+      userId = getVerifiedUserId(request)
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.status ?? 401 })
     }
 
     const payoutSettings = await request.json()
@@ -149,6 +99,8 @@ export async function POST(request: NextRequest) {
     if (!payoutSettings.taxId) {
       return NextResponse.json({ error: "Tax ID is required for payouts" }, { status: 400 })
     }
+
+    const supabase = getSupabaseClient()
 
     // Check if payout settings already exist
     const { data: existingSettings } = await supabase
@@ -174,13 +126,11 @@ export async function POST(request: NextRequest) {
 
     let result
     if (existingSettings) {
-      // Update existing settings
       result = await supabase
         .from("mlm_payout_settings")
         .update(settingsData)
         .eq("user_id", userId)
     } else {
-      // Insert new settings
       result = await supabase
         .from("mlm_payout_settings")
         .insert({
@@ -191,9 +141,8 @@ export async function POST(request: NextRequest) {
 
     if (result.error) {
       console.error("Error saving payout settings:", result.error)
-      // If table doesn't exist, return a helpful error message
       if (result.error.code === '42P01') {
-        return NextResponse.json({ 
+        return NextResponse.json({
           error: "Payout settings table not found. Please run the database migration first.",
           code: "TABLE_NOT_FOUND"
         }, { status: 500 })
@@ -201,10 +150,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to save payout settings" }, { status: 500 })
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       message: "Payout settings saved successfully",
-      payoutSettings: payoutSettings
+      payoutSettings
     })
   } catch (error) {
     console.error("Error saving payout settings:", error)
@@ -215,20 +164,11 @@ export async function POST(request: NextRequest) {
 // PUT - Update specific payout settings
 export async function PUT(request: NextRequest) {
   try {
-    // Get user from JWT token
-    const authToken = request.cookies.get("auth-token")?.value
-
-    if (!authToken) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
-    }
-
     let userId: string
     try {
-      const jwtSecret = process.env.JWT_SECRET || 'demo-secret-key'
-      const decoded = jwt.verify(authToken, jwtSecret) as any
-      userId = decoded.userId || 'demo-user'
-    } catch (error) {
-      return NextResponse.json({ error: "Invalid authentication token" }, { status: 401 })
+      userId = getVerifiedUserId(request)
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: err.status ?? 401 })
     }
 
     const { field, value } = await request.json()
@@ -237,15 +177,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Field is required" }, { status: 400 })
     }
 
-    // Update specific field
-    const updateData = {
-      [field]: value,
-      updated_at: new Date().toISOString()
-    }
+    const supabase = getSupabaseClient()
 
     const { error: updateError } = await supabase
       .from("mlm_payout_settings")
-      .update(updateData)
+      .update({ [field]: value, updated_at: new Date().toISOString() })
       .eq("user_id", userId)
 
     if (updateError) {
@@ -253,12 +189,13 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Failed to update payout settings" }, { status: 500 })
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: "Payout settings updated successfully" 
+    return NextResponse.json({
+      success: true,
+      message: "Payout settings updated successfully"
     })
   } catch (error) {
     console.error("Error updating payout settings:", error)
     return NextResponse.json({ error: "Failed to update payout settings" }, { status: 500 })
   }
 }
+

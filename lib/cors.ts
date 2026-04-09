@@ -11,9 +11,31 @@ interface CorsOptions {
   optionsSuccessStatus?: number
 }
 
+/**
+ * Build the allowed-origins list from environment variables.
+ * Reads ALLOWED_ORIGINS (comma-separated) first; falls back to NEXT_PUBLIC_APP_URL.
+ */
+function getAllowedOriginsFromEnv(): string[] {
+  const raw = process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGINS
+  if (raw) {
+    return raw.split(',').map(o => o.trim()).filter(Boolean)
+  }
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  if (appUrl) {
+    // Also allow the www subdomain variant when the URL doesn't already have www
+    const url = appUrl.replace(/\/$/, '')
+    const origins = [url]
+    if (!url.includes('://www.')) {
+      origins.push(url.replace('://', '://www.'))
+    }
+    return origins
+  }
+  return []
+}
+
 const defaultOptions: CorsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://yourdomain.com', 'https://www.yourdomain.com']
+  origin: process.env.NODE_ENV === 'production'
+    ? getAllowedOriginsFromEnv()
     : ['http://localhost:3000', 'http://127.0.0.1:3000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: [
@@ -144,13 +166,13 @@ export const corsConfigs = {
   },
   
   staging: {
-    origin: ['https://staging.yourdomain.com', 'https://staging-api.yourdomain.com'],
+    origin: getAllowedOriginsFromEnv(),
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     credentials: true
   },
   
   production: {
-    origin: ['https://yourdomain.com', 'https://www.yourdomain.com', 'https://api.yourdomain.com'],
+    origin: getAllowedOriginsFromEnv(),
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     credentials: true
   }
