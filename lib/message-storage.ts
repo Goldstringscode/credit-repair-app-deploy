@@ -1,3 +1,8 @@
+/**
+ * @deprecated This module uses the local filesystem for message storage,
+ * which is incompatible with serverless/Vercel deployments.
+ * Use `communicationDatabaseService` from `@/lib/database/communication-service` instead.
+ */
 import fs from 'fs'
 import path from 'path'
 
@@ -14,6 +19,7 @@ const ensureStorageDir = () => {
 
 // Load messages from file
 export const loadMessages = (): { [channelId: string]: any[] } => {
+  console.warn('[DEPRECATED] message-storage.ts uses the local filesystem. Use communicationDatabaseService instead.')
   try {
     ensureStorageDir()
     
