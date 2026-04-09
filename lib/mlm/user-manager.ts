@@ -60,7 +60,7 @@ function isTableMissingError(err: unknown): boolean {
     typeof err === 'object' &&
     err !== null &&
     'code' in err &&
-    (err as { code: unknown }).code === '42P01'
+    (err as { code: string }).code === '42P01'
   )
 }
 
