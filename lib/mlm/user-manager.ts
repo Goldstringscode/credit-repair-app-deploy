@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js'
 import { mlmDatabaseService } from './database-service'
 import { mlmCommissionEngine } from './commission-engine'
 import { mlmNotificationSystem } from './notification-system'
@@ -57,6 +58,15 @@ export class MLMUserManager {
   private db = mlmDatabaseService
   private commissionEngine = mlmCommissionEngine
   private notificationSystem = mlmNotificationSystem
+
+  private supabase = (() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (url && key) {
+      return createClient(url, key)
+    }
+    return null
+  })()
 
   // Register new MLM user
   async registerUser(data: UserRegistrationData): Promise<MLMUser> {
@@ -454,13 +464,83 @@ export class MLMUserManager {
         reasons.push('User already exists in MLM system')
       }
 
-      // Check if user is active in main system
-      // This would query the main users table
-      // For now, assume eligible
-      
-      // Check age requirements (would need birth date)
-      // Check location requirements (would need address)
-      // Check other business rules
+      if (this.supabase) {
+        // Check if user is active and verified in main system
+        try {
+          const { data: userRecord, error: userError } = await this.supabase
+            .from('users')
+            .select('status, is_verified')
+            .eq('id', userId)
+            .maybeSingle()
+
+          if (userError) {
+            if ((userError as any).code === '42P01') {
+              console.warn('users table not found, skipping active/verified check')
+            } else {
+              console.error('Error checking user record:', userError)
+            }
+          } else if (userRecord) {
+            if (userRecord.status !== 'active') {
+              reasons.push('User account is not active')
+            }
+            if (!userRecord.is_verified) {
+              reasons.push('User account is not verified')
+            }
+          }
+        } catch (err: any) {
+          if (err?.code !== '42P01') {
+            console.error('Error checking user record:', err)
+          }
+        }
+
+        // Check for active subscription (non-trial, non-expired)
+        try {
+          const { data: subscription, error: subError } = await this.supabase
+            .from('subscriptions')
+            .select('id, status')
+            .eq('user_id', userId)
+            .eq('status', 'active')
+            .maybeSingle()
+
+          if (subError) {
+            if ((subError as any).code === '42P01') {
+              console.warn('subscriptions table not found, skipping subscription check')
+            } else {
+              console.error('Error checking subscription:', subError)
+            }
+          } else if (!subscription) {
+            reasons.push('Active subscription required to join MLM program')
+          }
+        } catch (err: any) {
+          if (err?.code !== '42P01') {
+            console.error('Error checking subscription:', err)
+          }
+        }
+
+        // Check compliance/terms acceptance
+        try {
+          const { data: agreement, error: agreementError } = await this.supabase
+            .from('user_agreements')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('agreement_type', 'mlm_terms')
+            .maybeSingle()
+
+          if (agreementError) {
+            if ((agreementError as any).code === '42P01') {
+              console.warn('user_agreements table not found, skipping compliance check')
+            } else {
+              console.error('Error checking user agreements:', agreementError)
+            }
+          } else if (!agreement) {
+            reasons.push('MLM program terms have not been accepted')
+          }
+        } catch (err: any) {
+          if (err?.code !== '42P01') {
+            console.error('Error checking user agreements:', err)
+          }
+        }
+      }
 
       return {
         eligible: reasons.length === 0,
