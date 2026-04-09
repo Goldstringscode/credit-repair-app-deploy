@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"
+const JWT_SECRET = process.env.JWT_SECRET
 
 function verifyToken(request: NextRequest) {
   const authHeader = request.headers.get("authorization")

@@ -40,9 +40,9 @@ export async function GET(request: NextRequest) {
 
     let userId: string
     try {
-      const jwtSecret = process.env.JWT_SECRET || 'demo-secret-key'
+      const jwtSecret = process.env.JWT_SECRET
       const decoded = jwt.verify(authToken, jwtSecret) as any
-      userId = decoded.userId || 'demo-user'
+      userId = decoded.userId
     } catch (error) {
       return NextResponse.json({ error: "Invalid authentication token" }, { status: 401 })
     }
@@ -167,9 +167,9 @@ export async function PUT(request: NextRequest) {
 
     let userId: string
     try {
-      const jwtSecret = process.env.JWT_SECRET || 'demo-secret-key'
+      const jwtSecret = process.env.JWT_SECRET
       const decoded = jwt.verify(authToken, jwtSecret) as any
-      userId = decoded.userId || 'demo-user'
+      userId = decoded.userId
     } catch (error) {
       return NextResponse.json({ error: "Invalid authentication token" }, { status: 401 })
     }

@@ -6,7 +6,7 @@ export const PRODUCTION_EMAIL_CONFIG = {
   sendgrid: {
     apiKey: process.env.SENDGRID_API_KEY,
     from: {
-      email: process.env.FROM_EMAIL || 'noreply@yourdomain.com',
+      email: process.env.FROM_EMAIL || 'noreply@creditrepairapp.com',
       name: process.env.FROM_NAME || 'Credit Repair App'
     }
   },
@@ -21,19 +21,20 @@ export const PRODUCTION_EMAIL_CONFIG = {
   },
   
   // Email templates for production
+  // Set these env vars in your Vercel/deployment dashboard once SendGrid templates are created.
   templates: {
     mlmInvitation: {
       subject: (sponsorName: string, teamCode: string) => 
         `Join ${sponsorName}'s MLM Team - Team Code: ${teamCode}`,
-      templateId: 'd-1234567890abcdef' // SendGrid template ID
+      templateId: process.env.SENDGRID_TEMPLATE_MLM_INVITATION
     },
     creditRepairWelcome: {
       subject: (name: string) => `Welcome to Credit Repair Services, ${name}!`,
-      templateId: 'd-1234567890abcdef' // SendGrid template ID
+      templateId: process.env.SENDGRID_TEMPLATE_CREDIT_REPAIR_WELCOME
     },
     adminNotification: {
       subject: (type: string) => `Admin Notification: ${type}`,
-      templateId: 'd-1234567890abcdef' // SendGrid template ID
+      templateId: process.env.SENDGRID_TEMPLATE_ADMIN_NOTIFICATION
     }
   }
 }
@@ -42,7 +43,7 @@ export const PRODUCTION_EMAIL_CONFIG = {
 export const SENDGRID_CONFIG = {
   apiKey: process.env.SENDGRID_API_KEY,
   from: {
-    email: process.env.FROM_EMAIL || 'noreply@yourdomain.com',
+    email: process.env.FROM_EMAIL || 'noreply@creditrepairapp.com',
     name: process.env.FROM_NAME || 'Credit Repair App'
   },
   replyTo: process.env.REPLY_TO_EMAIL || process.env.FROM_EMAIL,

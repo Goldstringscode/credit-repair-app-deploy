@@ -71,11 +71,22 @@ class RealtimeJourneyTracker {
 
   private initializeWebSocket() {
     try {
-      // In production, use your WebSocket server URL
-      const wsUrl =
-        process.env.NODE_ENV === "production"
-          ? "wss://your-domain.com/ws/journey-tracking"
-          : "ws://localhost:3001/ws/journey-tracking"
+      // In production, configure NEXT_PUBLIC_WEBSOCKET_URL to point to your WebSocket server.
+      // Falls back to deriving a wss:// URL from NEXT_PUBLIC_APP_URL if not set.
+      let wsUrl: string
+      if (process.env.NODE_ENV === 'production') {
+        if (process.env.NEXT_PUBLIC_WEBSOCKET_URL) {
+          wsUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL
+        } else if (process.env.NEXT_PUBLIC_APP_URL) {
+          const host = process.env.NEXT_PUBLIC_APP_URL.replace(/^https?:\/\//, '').replace(/\/$/, '')
+          wsUrl = `wss://${host}/ws/journey-tracking`
+        } else {
+          console.warn('NEXT_PUBLIC_WEBSOCKET_URL is not configured. Journey tracking disabled.')
+          return
+        }
+      } else {
+        wsUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:3001/ws/journey-tracking'
+      }
 
       this.ws = new WebSocket(wsUrl)
 

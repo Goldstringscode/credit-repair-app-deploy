@@ -1,26 +1,27 @@
 import Stripe from 'stripe'
 
+const STRIPE_API_VERSION = '2025-08-27.basil' as const
+
 // Stripe configuration
 export const stripeConfig = {
-  // Use test keys in development, live keys in production
-  secretKey: process.env.STRIPE_SECRET_KEY || 'sk_test_demo_key_for_testing',
-  publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_demo_key_for_testing',
-  webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || 'whsec_demo_secret_for_testing',
-  
-  // API version - use latest stable
-  
+  // Read keys from environment — no insecure fallbacks
+  secretKey: process.env.STRIPE_SECRET_KEY,
+  publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLISHABLE_KEY,
+  webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+  apiVersion: STRIPE_API_VERSION,
+
   // App info for Stripe dashboard
   appInfo: {
     name: 'Credit Repair App',
     version: '1.0.0',
-    url: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    url: process.env.NEXT_PUBLIC_APP_URL
   }
 }
 
 // Initialize Stripe instance (only if we have a valid key)
-export const stripe = stripeConfig.secretKey && stripeConfig.secretKey !== 'sk_test_demo_key_for_testing' 
+export const stripe = stripeConfig.secretKey
   ? new Stripe(stripeConfig.secretKey, {
-      apiVersion: stripeConfig.apiVersion,
+      apiVersion: STRIPE_API_VERSION,
       appInfo: stripeConfig.appInfo,
       typescript: true
     })
@@ -39,25 +40,24 @@ export const getStripeClient = () => {
 export const validateStripeConfig = () => {
   const errors: string[] = []
   
-  if (!stripeConfig.secretKey || stripeConfig.secretKey === 'sk_test_demo_key_for_testing') {
-    errors.push('STRIPE_SECRET_KEY is required (using demo key for testing)')
+  if (!stripeConfig.secretKey) {
+    errors.push('STRIPE_SECRET_KEY is not set')
   }
   
-  if (!stripeConfig.publishableKey || stripeConfig.publishableKey === 'pk_test_demo_key_for_testing') {
-    errors.push('STRIPE_PUBLISHABLE_KEY is required (using demo key for testing)')
+  if (!stripeConfig.publishableKey) {
+    errors.push('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY (or STRIPE_PUBLISHABLE_KEY) is not set')
   }
   
-  if (!stripeConfig.webhookSecret || stripeConfig.webhookSecret === 'whsec_demo_secret_for_testing') {
-    errors.push('STRIPE_WEBHOOK_SECRET is required (using demo secret for testing)')
+  if (!stripeConfig.webhookSecret) {
+    errors.push('STRIPE_WEBHOOK_SECRET is not set')
   }
   
-  // For testing, we'll return a warning instead of throwing an error
   if (errors.length > 0) {
     console.warn('Stripe configuration warnings:', errors.join(', '))
     return {
       valid: false,
       warnings: errors,
-      message: 'Using demo keys for testing. Set up real Stripe keys for production.'
+      message: 'Stripe keys are missing. Set STRIPE_SECRET_KEY, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, and STRIPE_WEBHOOK_SECRET.'
     }
   }
   
@@ -67,19 +67,10 @@ export const validateStripeConfig = () => {
 // Test Stripe connection
 export const testStripeConnection = async () => {
   try {
-    // If using demo keys, return a mock response
-    if (stripeConfig.secretKey === 'sk_test_demo_key_for_testing') {
+    if (!stripe) {
       return {
-        success: true,
-        account: {
-          id: 'acct_demo_testing',
-          country: 'US',
-          type: 'standard',
-          charges_enabled: false,
-          payouts_enabled: false
-        },
-        demo: true,
-        message: 'Using demo keys - set up real Stripe keys for actual testing'
+        success: false,
+        error: 'Stripe is not configured. Set STRIPE_SECRET_KEY environment variable.'
       }
     }
 
@@ -101,3 +92,4 @@ export const testStripeConnection = async () => {
     }
   }
 }
+

@@ -50,7 +50,7 @@ class MLMWebSocketServer {
     }
 
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const userId = decoded.userId;
 
       switch (type) {

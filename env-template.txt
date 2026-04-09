@@ -37,7 +37,7 @@ JWT_SECRET=your-jwt-secret-at-least-32-characters-long
 ENCRYPTION_MASTER_KEY=your-encryption-master-key-at-least-32-characters
 
 # Security Configuration
-ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
+ALLOWED_ORIGINS=http://localhost:3000,https://your-domain.com
 BLOCKED_IPS=192.168.1.100,10.0.0.50
 API_KEYS=your-api-key-1,your-api-key-2
 
