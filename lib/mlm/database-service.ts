@@ -1502,6 +1502,62 @@ export class MLMDatabaseService {
     }
   }
 
+  // Bulk query: all active MLM users
+  async getAllActiveMLMUsers(): Promise<MLMUser[]> {
+    if (!this.supabase) {
+      return []
+    }
+    try {
+      const { data, error } = await this.supabase
+        .from('mlm_users')
+        .select('*')
+        .eq('status', 'active')
+      if (error || !data) return []
+      return data.map((row: any) => this.mapMLMUserFromDB(row))
+    } catch (error) {
+      console.error('Error fetching all active MLM users:', error)
+      return []
+    }
+  }
+
+  // Bulk query: all pending commissions (across all users)
+  async getAllPendingCommissions(): Promise<MLMCommission[]> {
+    if (!this.supabase) {
+      return []
+    }
+    try {
+      const { data, error } = await this.supabase
+        .from('mlm_commissions')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+      if (error || !data) return []
+      return data.map((row: any) => this.mapCommissionFromDB(row))
+    } catch (error) {
+      console.error('Error fetching pending commissions:', error)
+      return []
+    }
+  }
+
+  // Bulk query: all pending payouts (across all users)
+  async getAllPendingPayouts(): Promise<MLMPayout[]> {
+    if (!this.supabase) {
+      return []
+    }
+    try {
+      const { data, error } = await this.supabase
+        .from('mlm_payouts')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+      if (error || !data) return []
+      return data.map((row: any) => this.mapPayoutFromDB(row))
+    } catch (error) {
+      console.error('Error fetching pending payouts:', error)
+      return []
+    }
+  }
+
   // Create new MLM user with team assignment
   async createMLMUserWithTeam(userData: any, teamCode?: string): Promise<MLMUser> {
     console.log('🔍 Creating MLM user with team assignment:', { userData, teamCode })

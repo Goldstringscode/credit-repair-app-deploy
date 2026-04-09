@@ -3,7 +3,7 @@ import { mlmCommissionEngine } from './commission-engine'
 import { mlmUserManager } from './user-manager'
 import { mlmNotificationSystem } from './notification-system'
 import { mlmAuditLogger } from './audit-logger'
-import { MLMUser, MLMCommission } from '@/lib/mlm-system'
+import { MLMUser, MLMCommission, calculateRankAdvancement } from '@/lib/mlm-system'
 
 export interface AutomationRule {
   id: string
@@ -586,23 +586,40 @@ export class MLMAutomationSystem {
 
   // Helper methods
   private async getUsersEligibleForRankAdvancement(): Promise<MLMUser[]> {
-    // In a real implementation, this would query the database
-    return []
+    try {
+      const activeUsers = await this.db.getAllActiveMLMUsers()
+      return activeUsers.filter(user => calculateRankAdvancement(user) !== null)
+    } catch (error) {
+      console.error('Error fetching users eligible for rank advancement:', error)
+      return []
+    }
   }
 
   private async getPendingSales(): Promise<any[]> {
-    // In a real implementation, this would query pending sales
-    return []
+    try {
+      return await this.db.getAllPendingCommissions()
+    } catch (error) {
+      console.error('Error fetching pending sales:', error)
+      return []
+    }
   }
 
   private async getPendingPayouts(): Promise<any[]> {
-    // In a real implementation, this would query pending payouts
-    return []
+    try {
+      return await this.db.getAllPendingPayouts()
+    } catch (error) {
+      console.error('Error fetching pending payouts:', error)
+      return []
+    }
   }
 
   private async getAllActiveUsers(): Promise<MLMUser[]> {
-    // In a real implementation, this would query active users
-    return []
+    try {
+      return await this.db.getAllActiveMLMUsers()
+    } catch (error) {
+      console.error('Error fetching all active users:', error)
+      return []
+    }
   }
 
   // Get automation status
