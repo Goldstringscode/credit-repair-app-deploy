@@ -1,246 +1,151 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { getStripeClient } from "@/lib/stripe-client"
-import { getSupabaseClient } from "@/lib/supabase-client"
+import { NextRequest, NextResponse } from 'next/server'
+import Stripe from 'stripe'
+import { createClient } from '@supabase/supabase-js'
 
-function getWebhookSecret() {
-  if (!process.env.STRIPE_WEBHOOK_SECRET) {
-    throw new Error('STRIPE_WEBHOOK_SECRET environment variable is required')
-  }
-  return process.env.STRIPE_WEBHOOK_SECRET
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' })
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+const RANK_COMMISSION_RATES: Record<string, number> = {
+  associate: 0.30, consultant: 0.35, manager: 0.40,
+  director: 0.45, executive: 0.50, presidential: 0.55,
+}
+const UNILEVEL_LEVEL_RATES = [0.10, 0.08, 0.06, 0.05, 0.04, 0.03, 0.02]
+const MAX_UNILEVEL_DEPTH = UNILEVEL_LEVEL_RATES.length
+
+async function isEventAlreadyProcessed(stripeEventId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('mlm_processed_webhook_events')
+    .select('id').eq('stripe_event_id', stripeEventId).maybeSingle()
+  return data !== null
 }
 
-export async function POST(request: NextRequest) {
-    const body = await request.text()
-  const signature = request.headers.get("stripe-signature")!
+async function markEventProcessed(stripeEventId: string, eventType: string, meta: object) {
+  await supabase.from('mlm_processed_webhook_events').insert({
+    stripe_event_id: stripeEventId, event_type: eventType,
+    processed_at: new Date().toISOString(), meta,
+  })
+}
+
+async function processCommissions(stripeEventId: string, userId: string, amountCents: number, commissionType: string) {
+  const amountDollars = amountCents / 100
+  const { data: mlmUser } = await supabase
+    .from('mlm_users').select('id, sponsor_id, rank, subscription_status, created_at')
+    .eq('user_id', userId).maybeSingle()
+  if (!mlmUser) return
+
+  const visited = new Set<string>()
+  let currentSponsorId: string | null = mlmUser.sponsor_id
+  let depth = 0
+
+  while (currentSponsorId && depth < MAX_UNILEVEL_DEPTH) {
+    if (visited.has(currentSponsorId)) {
+      console.error(`[MLM] Cycle detected at sponsor ${currentSponsorId}`)
+      await supabase.from('mlm_audit_log').insert({
+        event_type: 'cycle_detected', user_id: userId,
+        sponsor_id: currentSponsorId, stripe_event_id: stripeEventId,
+        detected_at: new Date().toISOString(),
+      })
+      break
+    }
+    visited.add(currentSponsorId)
+
+    const { data: sponsor } = await supabase
+      .from('mlm_users').select('id, user_id, rank, subscription_status, sponsor_id')
+      .eq('id', currentSponsorId).maybeSingle()
+
+    if (!sponsor || sponsor.subscription_status !== 'active') {
+      currentSponsorId = sponsor?.sponsor_id ?? null
+      depth++
+      continue
+    }
+
+    const rankRate = RANK_COMMISSION_RATES[sponsor.rank] ?? 0.30
+    const levelRate = depth === 0 ? 1.0 : UNILEVEL_LEVEL_RATES[depth] ?? 0
+    const baseRate = depth === 0 ? rankRate : rankRate * levelRate
+    let bonusRate = 0
+    if (commissionType === 'fast_start' && depth === 0) {
+      const { data: jr } = await supabase.from('mlm_users').select('created_at').eq('id', mlmUser.id).maybeSingle()
+      if (jr && (Date.now() - new Date(jr.created_at).getTime()) / 86400000 <= 30) bonusRate = 0.10
+    }
+
+    const commissionAmount = parseFloat((amountDollars * (baseRate + bonusRate)).toFixed(2))
+
+    await supabase.from('mlm_commissions').insert({
+      recipient_user_id: sponsor.user_id, recipient_mlm_id: sponsor.id,
+      source_user_id: userId, stripe_event_id: stripeEventId,
+      commission_type: depth === 0 ? commissionType : 'unilevel',
+      level_depth: depth, sale_amount: amountDollars,
+      rank_rate: rankRate, level_rate: levelRate, bonus_rate: bonusRate,
+      commission_amount: commissionAmount, status: 'pending',
+      payable_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+      created_at: new Date().toISOString(),
+    })
+
+    await supabase.rpc('increment_mlm_pending_earnings', { p_mlm_user_id: sponsor.id, p_amount: commissionAmount })
+    currentSponsorId = sponsor.sponsor_id
+    depth++
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const body = await req.text()
+  const sig = req.headers.get('stripe-signature')
+  if (!sig) return NextResponse.json({ error: 'No signature' }, { status: 400 })
 
   let event: Stripe.Event
-
   try {
-    const stripe = getStripeClient()
-    const webhookSecret = getWebhookSecret()
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
-  } catch (err) {
-    console.error("Webhook signature verification failed:", err)
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
+    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!)
+  } catch (err: any) {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+  }
+
+  // IDEMPOTENCY GATE — skip duplicate events
+  if (await isEventAlreadyProcessed(event.id)) {
+    return NextResponse.json({ received: true, skipped: true })
   }
 
   try {
     switch (event.type) {
-      case "payment_intent.succeeded":
-        await handleMLMPaymentSuccess(event.data.object as Stripe.PaymentIntent)
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice
+        const { data: mlmUser } = await supabase.from('mlm_users')
+          .select('user_id, created_at').eq('stripe_customer_id', invoice.customer as string).maybeSingle()
+        if (mlmUser) {
+          const days = (Date.now() - new Date(mlmUser.created_at).getTime()) / 86400000
+          await processCommissions(event.id, mlmUser.user_id, invoice.amount_paid, days <= 30 ? 'fast_start' : 'direct_referral')
+        }
         break
-      case "payment_intent.payment_failed":
-        await handleMLMPaymentFailed(event.data.object as Stripe.PaymentIntent)
+      }
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice
+        const { data: mlmUser } = await supabase.from('mlm_users')
+          .select('user_id').eq('stripe_customer_id', invoice.customer as string).maybeSingle()
+        if (mlmUser) {
+          await supabase.from('mlm_commissions')
+            .update({ status: 'voided', voided_at: new Date().toISOString() })
+            .eq('source_user_id', mlmUser.user_id).eq('status', 'pending')
+            .gte('created_at', new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString())
+        }
         break
-      case "invoice.payment_succeeded":
-        await handleMLMInvoicePaymentSuccess(event.data.object as Stripe.Invoice)
+      }
+      case 'customer.subscription.deleted': {
+        const sub = event.data.object as Stripe.Subscription
+        await supabase.from('mlm_users').update({ subscription_status: 'cancelled', updated_at: new Date().toISOString() })
+          .eq('stripe_customer_id', sub.customer as string)
         break
-      case "invoice.payment_failed":
-        await handleMLMInvoicePaymentFailed(event.data.object as Stripe.Invoice)
+      }
+      case 'customer.subscription.updated': {
+        const sub = event.data.object as Stripe.Subscription
+        await supabase.from('mlm_users').update({ subscription_status: sub.status, stripe_subscription_id: sub.id, updated_at: new Date().toISOString() })
+          .eq('stripe_customer_id', sub.customer as string)
         break
-      case "customer.subscription.created":
-        await handleMLMSubscriptionCreated(event.data.object as Stripe.Subscription)
-        break
-      case "customer.subscription.updated":
-        await handleMLMSubscriptionUpdated(event.data.object as Stripe.Subscription)
-        break
-      case "customer.subscription.deleted":
-        await handleMLMSubscriptionDeleted(event.data.object as Stripe.Subscription)
-        break
-      default:
-        console.log(`Unhandled event type: ${event.type}`)
+      }
     }
 
+    await markEventProcessed(event.id, event.type, { customer: (event.data.object as any).customer ?? null })
     return NextResponse.json({ received: true })
-  } catch (error) {
-    console.error("Error processing MLM webhook:", error)
-    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 })
+  } catch (err: any) {
+    console.error('[MLM Webhook] Error:', err)
+    return NextResponse.json({ error: 'Processing failed' }, { status: 500 })
   }
-}
-
-async function handleMLMPaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
-  const { userId, planType, userType } = paymentIntent.metadata
-
-  if (userType !== 'mlm') return
-
-  console.log(`MLM Payment succeeded for user ${userId}, plan: ${planType}`)
-
-  // Update MLM user status
-  const supabase = getSupabaseClient()
-  await supabase
-    .from("mlm_users")
-    .update({ 
-      status: 'active',
-      last_activity: new Date().toISOString()
-    })
-    .eq("user_id", userId)
-
-  // Create payment record
-  await supabase
-    .from("mlm_payments")
-    .insert({
-      user_id: userId,
-      stripe_payment_intent_id: paymentIntent.id,
-      amount: paymentIntent.amount,
-      currency: paymentIntent.currency,
-      status: 'completed',
-      plan_type: planType,
-      payment_date: new Date().toISOString(),
-    })
-}
-
-async function handleMLMPaymentFailed(paymentIntent: Stripe.PaymentIntent) {
-  const { userId, planType, userType } = paymentIntent.metadata
-
-  if (userType !== 'mlm') return
-
-  console.log(`MLM Payment failed for user ${userId}, plan: ${planType}`)
-
-  // Update MLM user status
-  const supabase = getSupabaseClient()
-  await supabase
-    .from("mlm_users")
-    .update({ 
-      status: 'inactive',
-      last_activity: new Date().toISOString()
-    })
-    .eq("user_id", userId)
-
-  // Create payment record
-  await supabase
-    .from("mlm_payments")
-    .insert({
-      user_id: userId,
-      stripe_payment_intent_id: paymentIntent.id,
-      amount: paymentIntent.amount,
-      currency: paymentIntent.currency,
-      status: 'failed',
-      plan_type: planType,
-      payment_date: new Date().toISOString(),
-    })
-}
-
-async function handleMLMInvoicePaymentSuccess(invoice: Stripe.Invoice) {
-  const subscription = (invoice as any).subscription as string
-  const metadata = invoice.metadata as any
-  const { userId, planType, userType } = metadata || {}
-
-  if (userType !== 'mlm') return
-
-  console.log(`MLM Invoice payment succeeded for user ${userId}`)
-
-  // Update MLM user status
-  const supabase = getSupabaseClient()
-  await supabase
-    .from("mlm_users")
-    .update({ 
-      status: 'active',
-      last_activity: new Date().toISOString()
-    })
-    .eq("subscription_id", subscription)
-
-  // Create payment record
-  await supabase
-    .from("mlm_payments")
-    .insert({
-      user_id: userId,
-      stripe_invoice_id: invoice.id,
-      amount: invoice.amount_paid,
-      currency: invoice.currency,
-      status: 'completed',
-      plan_type: planType,
-      payment_date: new Date().toISOString(),
-    })
-}
-
-async function handleMLMInvoicePaymentFailed(invoice: Stripe.Invoice) {
-  const subscription = (invoice as any).subscription as string
-  const metadata = invoice.metadata as any
-  const { userId, planType, userType } = metadata || {}
-
-  if (userType !== 'mlm') return
-
-  console.log(`MLM Invoice payment failed for user ${userId}`)
-
-  // Update MLM user status
-  const supabase = getSupabaseClient()
-  await supabase
-    .from("mlm_users")
-    .update({ 
-      status: 'inactive',
-      last_activity: new Date().toISOString()
-    })
-    .eq("subscription_id", subscription)
-
-  // Create payment record
-  await supabase
-    .from("mlm_payments")
-    .insert({
-      user_id: userId,
-      stripe_invoice_id: invoice.id,
-      amount: invoice.amount_due,
-      currency: invoice.currency,
-      status: 'failed',
-      plan_type: planType,
-      payment_date: new Date().toISOString(),
-    })
-}
-
-async function handleMLMSubscriptionCreated(subscription: Stripe.Subscription) {
-  const { userId, planType, userType } = subscription.metadata
-
-  if (userType !== 'mlm') return
-
-  console.log(`MLM Subscription created for user ${userId}`)
-
-  // Update MLM user with subscription details
-  const supabase = getSupabaseClient()
-  await supabase
-    .from("mlm_users")
-    .update({
-      subscription_id: subscription.id,
-      subscription_status: subscription.status,
-      current_period_start: new Date((subscription as any).current_period_start * 1000).toISOString(),
-      current_period_end: new Date((subscription as any).current_period_end * 1000).toISOString(),
-    })
-    .eq("user_id", userId)
-}
-
-async function handleMLMSubscriptionUpdated(subscription: Stripe.Subscription) {
-  const { userId, planType, userType } = subscription.metadata
-
-  if (userType !== 'mlm') return
-
-  console.log(`MLM Subscription updated for user ${userId}`)
-
-  // Update MLM user subscription status
-  const supabase = getSupabaseClient()
-  await supabase
-    .from("mlm_users")
-    .update({
-      subscription_status: subscription.status,
-      current_period_start: new Date((subscription as any).current_period_start * 1000).toISOString(),
-      current_period_end: new Date((subscription as any).current_period_end * 1000).toISOString(),
-      cancel_at_period_end: subscription.cancel_at_period_end,
-    })
-    .eq("subscription_id", subscription.id)
-}
-
-async function handleMLMSubscriptionDeleted(subscription: Stripe.Subscription) {
-  const { userId, planType, userType } = subscription.metadata
-
-  if (userType !== 'mlm') return
-
-  console.log(`MLM Subscription deleted for user ${userId}`)
-
-  // Update MLM user status
-  const supabase = getSupabaseClient()
-  await supabase
-    .from("mlm_users")
-    .update({
-      status: 'inactive',
-      subscription_status: 'cancelled',
-      last_activity: new Date().toISOString(),
-    })
-    .eq("subscription_id", subscription.id)
 }
