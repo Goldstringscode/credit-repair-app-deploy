@@ -23,6 +23,7 @@ const PUBLIC_ROUTES = [
   '/api/webhooks',
   '/api/public',
   '/api/health',
+  '/api/admin/seed',
 ]
 
 // Page routes that require authentication
