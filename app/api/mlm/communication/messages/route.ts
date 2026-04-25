@@ -1,162 +1,84 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { communicationDatabaseService } from '@/lib/database/communication-service';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
-// Debug logging function
-const debugLog = (message: string, data?: any) => {
-  console.log(`[VOICE DEBUG] ${message}`, data ? JSON.stringify(data, null, 2) : '');
-};
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const channelId = searchParams.get('channelId');
-    const userId = searchParams.get('userId');
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = parseInt(searchParams.get('offset') || '0');
-
-    if (!channelId || !userId) {
-      return NextResponse.json({ error: 'Channel ID and User ID are required' }, { status: 400 });
-    }
-
-    console.log(`📨 Fetching messages for channel: ${channelId}`);
-
-    const channelMessages = await communicationDatabaseService.getChannelMessages(channelId, userId, limit, offset);
-    console.log(`📨 Found ${channelMessages.length} messages for channel ${channelId}`);
-
-    return NextResponse.json({ success: true, data: channelMessages });
-  } catch (error) {
-    console.error('Error fetching messages:', error);
-    return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
-  }
+async function getUser(req: NextRequest) {
+  const token = req.headers.get('authorization')?.slice(7)
+  if (!token) return null
+  const { data: { user } } = await supabase.auth.getUser(token)
+  return user
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { channelId, userId, content, messageType, attachments } = body;
+// GET /api/mlm/communication/messages?channel_id=xxx&limit=50&before=iso_timestamp
+export async function GET(req: NextRequest) {
+  const user = await getUser(req)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    debugLog('POST request received', {
-      channelId,
-      userId,
-      content,
-      messageType,
-      attachments: attachments?.map((a: any) => ({
-        id: a.id,
-        name: a.name,
-        type: a.type,
-        size: a.size,
-        url: a.url ? a.url.substring(0, 50) + '...' : 'no url',
-        duration: a.duration,
-      })),
-    });
+  const { searchParams } = new URL(req.url)
+  const channelId = searchParams.get('channel_id')
+  const limit = Math.min(parseInt(searchParams.get('limit') ?? '50'), 100)
+  const before = searchParams.get('before')
 
-    if (!channelId || !userId || !content) {
-      return NextResponse.json({ error: 'Channel ID, User ID, and content are required' }, { status: 400 });
-    }
+  if (!channelId) return NextResponse.json({ error: 'channel_id required' }, { status: 400 })
 
-    // Process attachments — normalise voice message URLs
-    const processedAttachments: any[] = [];
-    if (attachments && attachments.length > 0) {
-      debugLog('Processing attachments', { count: attachments.length });
-      for (let index = 0; index < attachments.length; index++) {
-        const attachment = attachments[index];
-        debugLog(`Processing attachment ${index}:`, {
-          id: attachment.id,
-          name: attachment.name,
-          type: attachment.type,
-          url: attachment.url?.substring(0, 50) + '...',
-          urlType: attachment.url?.startsWith('blob:') ? 'blob' : attachment.url?.startsWith('data:') ? 'data' : 'other',
-        });
+  let query = supabase
+    .from('mlm_messages')
+    .select('id, channel_id, sender_id, sender_name, sender_avatar, content, message_type, attachment_url, attachment_name, created_at')
+    .eq('channel_id', channelId)
+    .eq('is_deleted', false)
+    .order('created_at', { ascending: true })
+    .limit(limit)
 
-        let url = attachment.url || '#';
-        if (attachment.type === 'audio/webm' && url && !url.startsWith('data:') && !url.startsWith('blob:')) {
-          url = `data:${attachment.type};base64,${url}`;
-        }
+  if (before) query = query.lt('created_at', before)
 
-        processedAttachments.push({
-          id: attachment.id || `attachment-${Date.now()}-${index}`,
-          name: attachment.name || 'Unknown file',
-          size: attachment.size || 0,
-          type: attachment.type || 'application/octet-stream',
-          url,
-          duration: attachment.duration || 0,
-        });
-      }
-    }
+  const { data: messages, error } = await query
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    const newMessage = await communicationDatabaseService.createMessage({
-      channel_id: channelId,
-      sender_id: userId,
-      content,
-      message_type: messageType || 'text',
-      attachments: processedAttachments,
-    });
-
-    if (!newMessage) {
-      return NextResponse.json({ error: 'Failed to create message' }, { status: 500 });
-    }
-
-    debugLog('Message created successfully', {
-      messageId: newMessage.id,
-      attachmentCount: processedAttachments.length,
-      hasVoiceMessage: processedAttachments.some((a) => a.type === 'audio/webm'),
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: 'Message sent successfully',
-      data: newMessage,
-    });
-  } catch (error) {
-    console.error('Error creating message:', error);
-    return NextResponse.json({ error: 'Failed to create message' }, { status: 500 });
-  }
+  return NextResponse.json({ messages: messages ?? [] })
 }
 
-// Handle voice message uploads specifically
-export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { channelId, userId, audioData, duration, blobType, blobSize } = body;
+// POST /api/mlm/communication/messages
+export async function POST(req: NextRequest) {
+  const user = await getUser(req)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    if (!channelId || !userId || !audioData) {
-      return NextResponse.json({ error: 'Channel ID, User ID, and audio data are required' }, { status: 400 });
-    }
+  const body = await req.json().catch(() => ({}))
+  const { channel_id, content, message_type = 'text', attachment_url, attachment_name } = body
 
-    console.log(`🎤 Creating voice message for channel: ${channelId}`);
-    console.log(`🎤 Audio data length: ${audioData.length}`);
-    console.log(`🎤 Duration: ${duration}s`);
+  if (!channel_id) return NextResponse.json({ error: 'channel_id required' }, { status: 400 })
+  if (!content?.trim()) return NextResponse.json({ error: 'content required' }, { status: 400 })
 
-    const voiceMessage = await communicationDatabaseService.createMessage({
-      channel_id: channelId,
-      sender_id: userId,
-      content: `🎤 Voice message (${duration || 0}s)`,
-      message_type: 'file',
-      attachments: [
-        {
-          id: `voice-attachment-${Date.now()}`,
-          name: 'voice-message.webm',
-          type: blobType || 'audio/webm',
-          size: blobSize || 0,
-          url: `data:${blobType || 'audio/webm'};base64,${audioData}`,
-          duration: duration || 0,
-        },
-      ],
-    });
+  // Get sender name from users table
+  const { data: userData } = await supabase
+    .from('users')
+    .select('first_name, last_name, email')
+    .eq('id', user.id)
+    .maybeSingle()
 
-    if (!voiceMessage) {
-      return NextResponse.json({ error: 'Failed to create voice message' }, { status: 500 });
-    }
+  const senderName = userData
+    ? [userData.first_name, userData.last_name].filter(Boolean).join(' ') || userData.email
+    : user.email ?? 'Member'
 
-    console.log('✅ Voice message created:', voiceMessage.id);
+  const { data: message, error } = await supabase
+    .from('mlm_messages')
+    .insert({
+      channel_id,
+      sender_id: user.id,
+      sender_name: senderName,
+      content: content.trim(),
+      message_type,
+      attachment_url: attachment_url ?? null,
+      attachment_name: attachment_name ?? null,
+      created_at: new Date().toISOString(),
+    })
+    .select('id, channel_id, sender_id, sender_name, content, message_type, attachment_url, attachment_name, created_at')
+    .single()
 
-    return NextResponse.json({
-      success: true,
-      message: 'Voice message sent successfully',
-      data: voiceMessage,
-    });
-  } catch (error) {
-    console.error('Error creating voice message:', error);
-    return NextResponse.json({ error: 'Failed to create voice message' }, { status: 500 });
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Update member_count on channel
+  await supabase.rpc('increment_channel_member_count', { p_channel_id: channel_id }).catch(() => {})
+
+  return NextResponse.json({ message }, { status: 201 })
 }
