@@ -1,55 +1,45 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { communicationDatabaseService } from '@/lib/database/communication-service';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
-    }
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get('authorization')
+  if (!authHeader?.startsWith('Bearer ')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const token = authHeader.slice(7)
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+  if (authError || !user) return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
 
-    console.log(`📋 Fetching channels for user: ${userId}`);
+  const { data: channels, error } = await supabase
+    .from('mlm_channels')
+    .select('id, name, description, channel_type, member_count')
+    .eq('is_active', true)
+    .order('name')
 
-    const channels = await communicationDatabaseService.getUserChannels(userId);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    return NextResponse.json({ success: true, data: channels });
-  } catch (error) {
-    console.error('Error fetching channels:', error);
-    return NextResponse.json({ error: 'Failed to fetch channels' }, { status: 500 });
-  }
-}
+  const channelsWithUnread = await Promise.all((channels ?? []).map(async ch => {
+    const { data: member } = await supabase
+      .from('mlm_channel_members')
+      .select('last_read_at')
+      .eq('channel_id', ch.id)
+      .eq('user_id', user.id)
+      .maybeSingle()
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { name, description, type, isPrivate, userId, scope } = body;
+    const lastRead = member?.last_read_at ?? '1970-01-01'
+    const { count } = await supabase
+      .from('mlm_messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('channel_id', ch.id)
+      .eq('is_deleted', false)
+      .gt('created_at', lastRead)
+      .neq('sender_id', user.id)
 
-    if (!name || !type || !userId) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
+    await supabase.from('mlm_channel_members')
+      .upsert({ channel_id: ch.id, user_id: user.id }, { onConflict: 'channel_id,user_id', ignoreDuplicates: true })
 
-    const channel = await communicationDatabaseService.createChannel({
-      name,
-      type,
-      description: description || '',
-      scope: scope || 'general',
-      created_by: userId,
-      is_private: isPrivate || false,
-    });
+    return { ...ch, unread_count: count ?? 0 }
+  }))
 
-    if (!channel) {
-      return NextResponse.json({ error: 'Failed to create channel' }, { status: 500 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Channel created successfully',
-      data: channel,
-    });
-  } catch (error) {
-    console.error('Error creating channel:', error);
-    return NextResponse.json({ error: 'Failed to create channel' }, { status: 500 });
-  }
+  return NextResponse.json({ channels: channelsWithUnread })
 }
