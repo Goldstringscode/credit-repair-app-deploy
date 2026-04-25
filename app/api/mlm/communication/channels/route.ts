@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { verifyToken } from '@/lib/jwt'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
+function getUser(req: NextRequest) {
+  const token = req.headers.get('authorization')?.replace('Bearer ', '') ?? ''
+  if (!token) return null
+  return verifyToken(token)
+}
+
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
-  if (!authHeader?.startsWith('Bearer ')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const token = authHeader.slice(7)
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
+  const user = getUser(req)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: channels, error } = await supabase
     .from('mlm_channels')
@@ -23,7 +27,7 @@ export async function GET(req: NextRequest) {
       .from('mlm_channel_members')
       .select('last_read_at')
       .eq('channel_id', ch.id)
-      .eq('user_id', user.id)
+      .eq('user_id', user.userId)
       .maybeSingle()
 
     const lastRead = member?.last_read_at ?? '1970-01-01'
@@ -33,10 +37,10 @@ export async function GET(req: NextRequest) {
       .eq('channel_id', ch.id)
       .eq('is_deleted', false)
       .gt('created_at', lastRead)
-      .neq('sender_id', user.id)
+      .neq('sender_id', user.userId)
 
     await supabase.from('mlm_channel_members')
-      .upsert({ channel_id: ch.id, user_id: user.id }, { onConflict: 'channel_id,user_id', ignoreDuplicates: true })
+      .upsert({ channel_id: ch.id, user_id: user.userId }, { onConflict: 'channel_id,user_id', ignoreDuplicates: true })
 
     return { ...ch, unread_count: count ?? 0 }
   }))
