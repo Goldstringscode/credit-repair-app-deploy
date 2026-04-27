@@ -1,114 +1,53 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { mlmDatabaseService } from "@/lib/mlm/database-service"
-import { getAuthenticatedUser } from "@/lib/auth-helpers"
-import { withRateLimit } from "@/lib/rate-limiter"
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import { getCurrentUser } from '@/lib/auth'
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-export const GET = withRateLimit(async (request: NextRequest) => {
-  try {
-    const authUser = getAuthenticatedUser(request)
-    if (!authUser) {
-      return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 })
-    }
+export async function GET(req: NextRequest) {
+  const { user, isAuthenticated } = await getCurrentUser(req)
+  if (!isAuthenticated || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { searchParams } = new URL(request.url)
-    // Admins can pass ?userId= to view other users' trees; normal users always see their own
-    const targetUserId = authUser.role === 'admin'
-      ? (searchParams.get("userId") ?? authUser.userId)
-      : authUser.userId
-    const depth = Math.min(Number.parseInt(searchParams.get("depth") ?? "5"), 10)
+  const { data: mlmUser } = await supabase.from('mlm_users').select('id,rank,mlm_code').eq('user_id', user.id).maybeSingle()
+  if (!mlmUser) return NextResponse.json({ tree: null, downlines: [] })
 
-      // Get the main user data
-      const mainUser = await mlmDatabaseService.getMLMUser(targetUserId)
-      if (!mainUser) {
-        return NextResponse.json({ 
-          success: false,
-          error: "User not found" 
-        }, { status: 404 })
+  // Get direct downlines with their details
+  const { data: genealogy } = await supabase.from('mlm_genealogy').select('user_id,joined_at').eq('sponsor_mlm_id', mlmUser.id)
+
+  const downlineUserIds = (genealogy||[]).map(g=>g.user_id)
+  
+  let downlines: any[] = []
+  if (downlineUserIds.length > 0) {
+    const { data: downlineUsers } = await supabase.from('mlm_users')
+      .select('user_id,rank,subscription_status,pending_earnings,total_earnings,created_at,mlm_code')
+      .in('user_id', downlineUserIds)
+
+    const { data: userDetails } = await supabase.from('users')
+      .select('id,email,first_name,last_name')
+      .in('id', downlineUserIds)
+
+    downlines = (downlineUsers||[]).map(du => {
+      const ud = (userDetails||[]).find(u=>u.id===du.user_id)
+      const geo = (genealogy||[]).find(g=>g.user_id===du.user_id)
+      return {
+        userId: du.user_id,
+        name: ud ? [ud.first_name, ud.last_name].filter(Boolean).join(' ') || ud.email : 'Member',
+        email: ud?.email,
+        rank: du.rank || 'associate',
+        status: du.subscription_status,
+        earnings: du.total_earnings || 0,
+        joinedAt: geo?.joined_at || du.created_at,
+        mlmCode: du.mlm_code,
       }
-
-      // Get genealogy data from database
-      const genealogy = await mlmDatabaseService.getTeamStructure(targetUserId, depth)
-
-      // Build tree structure
-      const buildTree = async (userId: string, level: number = 0): Promise<any> => {
-        if (level > depth) return null
-
-        const user = await mlmDatabaseService.getMLMUser(userId)
-        if (!user) return null
-
-        // Get direct children
-        const children = genealogy.filter(g => g.sponsorId === userId && g.level === level + 1)
-
-        const childrenData = await Promise.all(
-          children.map(child => buildTree(child.userId, level + 1))
-        )
-
-        // Use displayName/email enriched by getTeamStructure, fall back to userId
-        const enriched = genealogy.find(g => g.userId === userId) as any
-        return {
-          id: user.id,
-          userId: user.userId,
-          name: enriched?.displayName ?? user.userId,
-          email: enriched?.email ?? user.userId,
-          rank: user.rank.name,
-          rankId: user.rank.id,
-          status: user.status,
-          personalVolume: user.personalVolume,
-          teamVolume: user.teamVolume,
-          totalEarnings: user.totalEarnings,
-          joinDate: user.joinDate,
-          level,
-          activeDownlines: user.activeDownlines,
-          children: childrenData.filter(Boolean),
-        }
-      }
-
-      const tree = await buildTree(targetUserId, 0)
-
-      // Calculate stats
-      const allMembers = tree ? [tree, ...getAllChildren(tree)] : []
-      const stats = {
-        totalMembers: genealogy.length,
-        activeMembers: allMembers.filter((m: any) => m.status === 'active').length,
-        totalVolume: allMembers.reduce((sum: number, m: any) => sum + (m.personalVolume ?? 0), 0),
-        totalEarnings: allMembers.reduce((sum: number, m: any) => sum + (m.totalEarnings ?? 0), 0),
-        averageDepth: tree ? calculateAverageDepth(tree) : 0,
-        maxDepth: Math.max(...allMembers.map((m: any) => m.level), 0)
-      }
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        tree,
-        stats,
-        depth,
-      },
     })
-  } catch (error) {
-    console.error("Genealogy fetch error:", error)
-    return NextResponse.json({ 
-      success: false,
-      error: "Failed to fetch genealogy data" 
-    }, { status: 500 })
   }
-}, 'general')
 
-// Helper functions
-function getAllChildren(node: any): any[] {
-  const children = node.children || []
-  const allChildren = [...children]
-  
-  children.forEach((child: any) => {
-    allChildren.push(...getAllChildren(child))
+  return NextResponse.json({
+    tree: {
+      userId: user.id,
+      rank: mlmUser.rank,
+      mlmCode: mlmUser.mlm_code,
+      directDownlines: downlines.length,
+    },
+    downlines
   })
-  
-  return allChildren
-}
-
-function calculateAverageDepth(node: any): number {
-  const allMembers = [node, ...getAllChildren(node)]
-  if (allMembers.length === 0) return 0
-  
-  const totalDepth = allMembers.reduce((sum, m) => sum + m.level, 0)
-  return Math.round((totalDepth / allMembers.length) * 10) / 10
 }
