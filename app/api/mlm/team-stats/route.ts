@@ -5,44 +5,10 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env
 
 export async function GET(req: NextRequest) {
   const { user, isAuthenticated } = await getCurrentUser(req)
-  if (!isAuthenticated || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data: mlmUser } = await supabase.from('mlm_users').select('id,rank,subscription_status,mlm_code,commission_rate,pending_earnings,total_earnings,created_at').eq('user_id', user.id).maybeSingle()
-
-  if (!mlmUser) {
-    return NextResponse.json({ stats: { totalTeamMembers: 0, activeMembers: 0, totalEarnings: 0, pendingEarnings: 0, rank: 'associate', mlmCode: null } })
-  }
-
-  // Direct downlines
-  const { count: directCount } = await supabase.from('mlm_genealogy').select('id',{count:'exact',head:true}).eq('sponsor_mlm_id', mlmUser.id)
-
-  // Active downlines
-  const { data: genealogy } = await supabase.from('mlm_genealogy').select('user_id').eq('sponsor_mlm_id', mlmUser.id)
-  const downlineUserIds = (genealogy||[]).map(g=>g.user_id)
-  
-  let activeCount = 0
-  if (downlineUserIds.length > 0) {
-    const { count } = await supabase.from('mlm_users').select('id',{count:'exact',head:true}).in('user_id', downlineUserIds).eq('subscription_status','active')
-    activeCount = count || 0
-  }
-
-  // Monthly volume
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
-  const { data: pvData } = await supabase.from('mlm_commissions').select('sale_amount').eq('source_user_id', user.id).gte('created_at', monthStart).neq('status','voided')
-  const personalVolume = (pvData||[]).reduce((s,r)=>s+(r.sale_amount||0),0)
-
-  return NextResponse.json({
-    stats: {
-      rank: mlmUser.rank || 'associate',
-      mlmCode: mlmUser.mlm_code,
-      commissionRate: mlmUser.commission_rate,
-      totalTeamMembers: directCount || 0,
-      activeMembers: activeCount,
-      pendingEarnings: mlmUser.pending_earnings || 0,
-      totalEarnings: mlmUser.total_earnings || 0,
-      personalVolumeThisMonth: parseFloat(personalVolume.toFixed(2)),
-      subscriptionStatus: mlmUser.subscription_status,
-      memberSince: mlmUser.created_at,
-    }
-  })
+  if (!isAuthenticated||!user) return NextResponse.json({ error:'Unauthorized' },{ status:401 })
+  const { data: m } = await supabase.from('mlm_users').select('id,rank,status,mlm_code,commission_rate,total_earnings,current_month_earnings,lifetime_earnings,personal_volume,team_volume,active_downlines,total_downlines,join_date').eq('user_id',user.id).maybeSingle()
+  if (!m) return NextResponse.json({ stats:{ totalTeamMembers:0,activeMembers:0,totalEarnings:0,pendingEarnings:0,rank:'associate',mlmCode:null } })
+  const { data: payable } = await supabase.from('mlm_commissions').select('commission_amount').eq('recipient_user_id',user.id).eq('status','payable')
+  const pending=(payable||[]).reduce((s,c)=>s+(c.commission_amount||0),0)
+  return NextResponse.json({ stats:{ rank:m.rank||'associate', mlmCode:m.mlm_code, commissionRate:m.commission_rate, totalTeamMembers:m.total_downlines||0, activeMembers:m.active_downlines||0, pendingEarnings:parseFloat(pending.toFixed(2)), totalEarnings:m.total_earnings||0, currentMonthEarnings:m.current_month_earnings||0, lifetimeEarnings:m.lifetime_earnings||0, personalVolume:m.personal_volume||0, teamVolume:m.team_volume||0, status:m.status, memberSince:m.join_date } })
 }
