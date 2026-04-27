@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -50,7 +50,7 @@ const navigation: NavigationItem[] = [
     name: "Team Genealogy",
     href: "/mlm/genealogy",
     icon: <Users className="h-5 w-5" />,
-    badge: "47 Members",
+    badge: mlmStats ? `${mlmStats.totalTeamMembers} Members` : "Team",
     badgeVariant: "secondary",
   },
   {
@@ -78,28 +78,28 @@ const navigation: NavigationItem[] = [
     name: "Payouts & Earnings",
     href: "/mlm/payouts",
     icon: <DollarSign className="h-5 w-5" />,
-    badge: "$4,250",
+    badge: mlmStats ? `${Number(mlmStats.currentMonthEarnings||0).toFixed(0)}` : "$0",
     badgeVariant: "default",
   },
   {
     name: "Leaderboard",
     href: "/mlm/leaderboard",
     icon: <Trophy className="h-5 w-5" />,
-    badge: "#3 Ranking",
+    badge: mlmStats ? (mlmStats.rank||"associate").charAt(0).toUpperCase()+(mlmStats.rank||"associate").slice(1) : "Rank",
     badgeVariant: "default",
   },
   {
     name: "Rank Progression",
     href: "/mlm/rank-progression",
     icon: <Target className="h-5 w-5" />,
-    badge: "65% Complete",
+    badge: "Progress",
     badgeVariant: "outline",
   },
   {
     name: "Communications",
     href: "/mlm/communications",
     icon: <MessageSquare className="h-5 w-5" />,
-    badge: "5 unread",
+    badge: unreadCount > 0 ? `${unreadCount} unread` : "Chat",
     badgeVariant: "destructive",
   },
   {
@@ -129,6 +129,20 @@ export default function MLMLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
   const { user, isLoading, initials } = useCurrentUser()
+  const [mlmStats, setMlmStats] = useState<any>(null)
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    // Fetch real MLM stats for sidebar
+    fetch('/api/mlm/team-stats').then(r=>r.ok?r.json():null).then(d=>{
+      if(d?.stats) setMlmStats(d.stats)
+    }).catch(()=>{})
+    // Fetch unread message count
+    fetch('/api/mlm/communications/channels').then(r=>r.ok?r.json():null).then(d=>{
+      if(d?.success&&d.data) setUnreadCount(d.data.reduce((s:number,c:any)=>s+(c.unread_count||0),0))
+    }).catch(()=>{})
+  }, [])
+
 
   const displayName = isLoading ? "Loading…" : (user?.name ?? "")
   const avatarInitials = isLoading ? "…" : (initials || "?")
@@ -244,7 +258,7 @@ export default function MLMLayout({ children }: { children: React.ReactNode }) {
                 <p className="text-sm font-medium">{displayName}</p>
                 <div className="flex items-center space-x-1">
                   <Crown className="h-3 w-3 text-yellow-500" />
-                  <p className="text-xs text-gray-500">Director Rank</p>
+                  <p className="text-xs text-gray-500">{mlmStats ? (mlmStats.rank||"associate").charAt(0).toUpperCase()+(mlmStats.rank||"associate").slice(1)+' Rank' : user?.role === "admin" ? "Admin" : "Associate Rank"}</p>
                 </div>
               </div>
             </div>
