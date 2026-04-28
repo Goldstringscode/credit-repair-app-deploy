@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/auth'
+
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest) {
   const { user, isAuthenticated } = await getCurrentUser(req)
   if (!isAuthenticated || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -16,7 +17,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!mlmUser) return NextResponse.json({ error: 'MLM user not found' }, { status: 404 })
 
-  // Get recent commissions
   const { data: commissions } = await supabase
     .from('mlm_commissions')
     .select('id,commission_type,commission_amount,status,created_at')
@@ -24,23 +24,23 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     .order('created_at', { ascending: false })
     .limit(5)
 
-  // Get downlines from genealogy
   const { data: genealogy } = await supabase
     .from('mlm_genealogy')
     .select('user_id,joined_at')
     .eq('sponsor_mlm_id', mlmUser.id)
     .limit(10)
 
-  const downlineUserIds = (genealogy||[]).map(g=>g.user_id)
+  const downlineUserIds = (genealogy || []).map((g: any) => g.user_id)
   let recentMembers: any[] = []
+
   if (downlineUserIds.length > 0) {
     const { data: members } = await supabase.from('users')
       .select('id,email,first_name,last_name').in('id', downlineUserIds)
-    recentMembers = (members||[]).map(m=>({
+    recentMembers = (members || []).map((m: any) => ({
       id: m.id,
-      name: [m.first_name,m.last_name].filter(Boolean).join(' ') || m.email,
+      name: [m.first_name, m.last_name].filter(Boolean).join(' ') || m.email,
       email: m.email,
-      joinedAt: (genealogy||[]).find(g=>g.user_id===m.id)?.joined_at,
+      joinedAt: (genealogy || []).find((g: any) => g.user_id === m.id)?.joined_at,
     }))
   }
 
