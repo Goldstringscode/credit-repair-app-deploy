@@ -223,17 +223,9 @@ export default function MLMDashboard() {
   }
 
   const getNextRank = () => {
-    // Mock next rank - in real implementation, fetch from API
-    const ranks = [
-      { name: 'Bronze', level: 1 },
-      { name: 'Silver', level: 2 },
-      { name: 'Gold', level: 3 },
-      { name: 'Platinum', level: 4 },
-      { name: 'Diamond', level: 5 }
-    ]
-    
-    const currentLevel = mlmUser?.rank?.level || 1
-    return ranks.find(rank => rank.level === currentLevel + 1) || ranks[ranks.length - 1]
+    if (!mlmUser?.rank?.nextRank) return null
+    const nr = mlmUser.rank.nextRank as string
+    return { name: nr.charAt(0).toUpperCase() + nr.slice(1), level: (mlmUser.rank.level || 1) + 1 }
   }
 
   if (authLoading || loading) {
