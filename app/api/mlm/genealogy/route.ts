@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     .select('id,rank,mlm_code,total_downlines,active_downlines')
     .eq('user_id', user.id).maybeSingle()
 
-  if (!mlmUser) return NextResponse.json({ tree: null, downlines: [] })
+  if (!mlmUser) return NextResponse.json({ success: false, tree: null, downlines: [] })
 
   const { data: genealogy } = await supabase.from('mlm_genealogy')
     .select('user_id,joined_at').eq('sponsor_mlm_id', mlmUser.id)
@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
+    success: true,
     tree: { userId:user.id, rank:mlmUser.rank, mlmCode:mlmUser.mlm_code, directDownlines:downlines.length, totalDownlines:mlmUser.total_downlines||0, activeDownlines:mlmUser.active_downlines||0 },
     downlines
   })
