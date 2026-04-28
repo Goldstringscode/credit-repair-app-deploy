@@ -78,6 +78,7 @@ export async function GET(
       status: mlmUser.status,
       commissionRate: mlmUser.commission_rate,
       monthlyEarnings: mlmUser.current_month_earnings || 0,
+      currentMonthEarnings: mlmUser.current_month_earnings || 0,
       totalEarnings: mlmUser.total_earnings || 0,
       lifetimeEarnings: mlmUser.lifetime_earnings || 0,
       personalVolume: mlmUser.personal_volume || 0,
