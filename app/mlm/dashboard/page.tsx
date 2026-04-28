@@ -413,13 +413,13 @@ export default function MLMDashboard() {
                   Rank Progress
                 </CardTitle>
                 <CardDescription>
-                  Current rank: {mlmUser.rank.name} • Next: {nextRank.name}
+                  Current rank: {mlmUser.rank.name} • Next: {nextRank?.name ?? "Max Rank"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex justify-between text-sm">
-                    <span>Progress to {nextRank.name}</span>
+                    <span>Progress to {nextRank?.name}</span>
                     <span>{Math.round(rankProgress)}%</span>
                   </div>
                   <Progress value={rankProgress} className="h-2" />
