@@ -34,6 +34,10 @@ export async function GET(
   const nextKey = rankCfg.nextRank as keyof typeof RANK_CONFIG | null
   const nextCfg = nextKey ? RANK_CONFIG[nextKey] : null
 
+  // Use 1 as minimum to avoid division by zero in getRankProgress
+  const minPV = Math.max(rankCfg.minPersonalVolume, 1)
+  const minTV = Math.max(rankCfg.minTeamVolume, 1)
+
   const { data: commissions } = await supabase
     .from('mlm_commissions')
     .select('id,commission_type,commission_amount,status,created_at')
@@ -60,44 +64,55 @@ export async function GET(
     }))
   }
 
+  const totalDownlines = Number(m.total_downlines) || 0
+
   return NextResponse.json({
     success: true,
     user: {
       id: m.user_id,
       mlmId: m.id,
+      // Field names matching dashboard page exactly
       teamCode: m.mlm_code,
+      sponsorId: null,
       rank: {
-        name: rankKey,
-        label: rankCfg.label,
+        id: rankCfg.level,
+        name: rankCfg.label,
         level: rankCfg.level,
-        requirements: {
-          personalVolume: rankCfg.minPersonalVolume,
-          teamVolume: rankCfg.minTeamVolume,
-        },
         nextRank: rankCfg.nextRank,
+        requirements: {
+          personalVolume: minPV,
+          teamVolume: minTV,
+          directRecruits: 0,
+        },
         nextRankRequirements: nextCfg
-          ? { personalVolume: nextCfg.minPersonalVolume, teamVolume: nextCfg.minTeamVolume }
+          ? { personalVolume: Math.max(nextCfg.minPersonalVolume, 1), teamVolume: Math.max(nextCfg.minTeamVolume, 1) }
           : null,
       },
-      status: m.status,
-      commissionRate: m.commission_rate,
+      status: m.status || 'active',
+      personalVolume: Number(m.personal_volume) || 0,
+      teamVolume: Number(m.team_volume) || 0,
       currentMonthEarnings: Number(m.current_month_earnings) || 0,
       monthlyEarnings: Number(m.current_month_earnings) || 0,
       totalEarnings: Number(m.total_earnings) || 0,
       lifetimeEarnings: Number(m.lifetime_earnings) || 0,
-      personalVolume: Number(m.personal_volume) || 0,
-      teamVolume: Number(m.team_volume) || 0,
-      activeDownlines: Number(m.active_downlines) || 0,
-      totalDownlines: Number(m.total_downlines) || 0,
       joinDate: m.join_date,
+      downlineCount: totalDownlines,
+      activeDownlines: Number(m.active_downlines) || 0,
+      totalDownlines,
+      isTeamLeader: totalDownlines > 0,
+      commissionRate: Number(m.commission_rate) || 0,
     },
     recentCommissions: (commissions || []).map((c: any) => ({
-      ...c,
+      id: c.id,
+      type: c.commission_type,
       amount: Number(c.commission_amount) || 0,
+      description: c.commission_type?.replace(/_/g, ' ')?.replace(/\b\w/g, (l: string) => l.toUpperCase()) || 'Commission',
+      date: c.created_at,
+      status: c.status,
     })),
     recentMembers,
     teamStats: {
-      totalMembers: Number(m.total_downlines) || 0,
+      totalMembers: totalDownlines,
       activeMembers: Number(m.active_downlines) || 0,
       teamVolume: Number(m.team_volume) || 0,
     },
