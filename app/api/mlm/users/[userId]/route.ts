@@ -4,6 +4,16 @@ import { getCurrentUser } from '@/lib/auth'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
+
+const RANK_CONFIG = {
+  associate:    { label:'Associate',    level:1, minPersonalVolume:0,    minTeamVolume:0,      nextRank:'consultant' },
+  consultant:   { label:'Consultant',   level:2, minPersonalVolume:500,  minTeamVolume:1000,   nextRank:'manager' },
+  manager:      { label:'Manager',      level:3, minPersonalVolume:1000, minTeamVolume:5000,   nextRank:'director' },
+  director:     { label:'Director',     level:4, minPersonalVolume:2000, minTeamVolume:15000,  nextRank:'executive' },
+  executive:    { label:'Executive',    level:5, minPersonalVolume:3000, minTeamVolume:50000,  nextRank:'presidential' },
+  presidential: { label:'Presidential', level:6, minPersonalVolume:5000, minTeamVolume:150000, nextRank:null },
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: { userId: string } }
@@ -47,13 +57,24 @@ export async function GET(
     }))
   }
 
-  return NextResponse.json({
+  const rankKey = (mlmUser.rank || 'associate') as keyof typeof RANK_CONFIG
+    const rankCfg = RANK_CONFIG[rankKey] || RANK_CONFIG.associate
+    const nextRankCfg = rankCfg.nextRank ? RANK_CONFIG[rankCfg.nextRank as keyof typeof RANK_CONFIG] : null
+
+    return NextResponse.json({
     success: true,
     user: {
       id: mlmUser.user_id,
       mlmId: mlmUser.id,
       teamCode: mlmUser.mlm_code,
-      rank: mlmUser.rank || 'associate',
+      rank: {
+        name: rankKey,
+        label: rankCfg.label,
+        level: rankCfg.level,
+        requirements: { personalVolume: rankCfg.minPersonalVolume, teamVolume: rankCfg.minTeamVolume },
+        nextRank: rankCfg.nextRank,
+        nextRankRequirements: nextRankCfg ? { personalVolume: nextRankCfg.minPersonalVolume, teamVolume: nextRankCfg.minTeamVolume } : null,
+      },
       status: mlmUser.status,
       commissionRate: mlmUser.commission_rate,
       monthlyEarnings: mlmUser.current_month_earnings || 0,
