@@ -48,6 +48,7 @@ export async function GET(
   }
 
   return NextResponse.json({
+    success: true,
     user: {
       id: mlmUser.user_id,
       mlmId: mlmUser.id,
