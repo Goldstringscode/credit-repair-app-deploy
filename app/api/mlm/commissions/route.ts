@@ -12,5 +12,5 @@ export async function GET(req: NextRequest) {
   const comms=list??[]
   const pending=comms.filter(c=>c.status==='pending'||c.status==='payable').reduce((s,c)=>s+(c.commission_amount||0),0)
   const paid=comms.filter(c=>c.status==='paid').reduce((s,c)=>s+(c.commission_amount||0),0)
-  return NextResponse.json({ commissions:comms, summary:{ pending:parseFloat(pending.toFixed(2)),paid:parseFloat(paid.toFixed(2)),total:parseFloat((pending+paid).toFixed(2)) }, mlmUser:{ rank:m.rank,totalEarnings:m.total_earnings,monthlyEarnings:m.current_month_earnings,lifetimeEarnings:m.lifetime_earnings } })
+  return NextResponse.json({ success: true, commissions:comms, summary:{ pending:parseFloat(pending.toFixed(2)),paid:parseFloat(paid.toFixed(2)),total:parseFloat((pending+paid).toFixed(2)) }, mlmUser:{ rank:m.rank,totalEarnings:m.total_earnings,monthlyEarnings:m.current_month_earnings,lifetimeEarnings:m.lifetime_earnings } })
 }
