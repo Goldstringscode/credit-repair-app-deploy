@@ -5,10 +5,12 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env
 
 export async function GET(req: NextRequest) {
   const { user, isAuthenticated } = await getCurrentUser(req)
-  if (!isAuthenticated||!user) return NextResponse.json({ error:'Unauthorized' },{ status:401 })
-  const { data: m } = await supabase.from('mlm_users').select('id,rank,status,mlm_code,commission_rate,total_earnings,current_month_earnings,lifetime_earnings,personal_volume,team_volume,active_downlines,total_downlines,join_date').eq('user_id',user.id).maybeSingle()
-  if (!m) return NextResponse.json({ success: true, stats:{ totalTeamMembers:0,activeMembers:0,totalEarnings:0,pendingEarnings:0,rank:'associate',mlmCode:null } })
-  const { data: payable } = await supabase.from('mlm_commissions').select('commission_amount').eq('recipient_user_id',user.id).eq('status','payable')
-  const pending=(payable||[]).reduce((s,c)=>s+(c.commission_amount||0),0)
-  return NextResponse.json({ stats:{ rank:m.rank||'associate', mlmCode:m.mlm_code, commissionRate:m.commission_rate, totalTeamMembers:m.total_downlines||0, activeMembers:m.active_downlines||0, pendingEarnings:parseFloat(pending.toFixed(2)), totalEarnings:m.total_earnings||0, currentMonthEarnings:m.current_month_earnings||0, lifetimeEarnings:m.lifetime_earnings||0, personalVolume:m.personal_volume||0, teamVolume:m.team_volume||0, status:m.status, memberSince:m.join_date } })
+  if (!isAuthenticated || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { data: m } = await supabase.from('mlm_users')
+    .select('id,rank,status,mlm_code,commission_rate,total_earnings,current_month_earnings,lifetime_earnings,personal_volume,team_volume,active_downlines,total_downlines,join_date')
+    .eq('user_id', user.id).maybeSingle()
+  if (!m) return NextResponse.json({ success: false, stats: { totalTeamMembers:0,activeMembers:0,totalEarnings:0,pendingEarnings:0,rank:'associate',mlmCode:null } })
+  const { data: payable } = await supabase.from('mlm_commissions').select('commission_amount').eq('recipient_user_id', user.id).eq('status','payable')
+  const pendingEarnings = (payable||[]).reduce((s:number,c:any)=>s+(Number(c.commission_amount)||0),0)
+  return NextResponse.json({ success:true, stats:{ rank:m.rank||'associate', mlmCode:m.mlm_code, commissionRate:Number(m.commission_rate)||0, totalTeamMembers:Number(m.total_downlines)||0, activeMembers:Number(m.active_downlines)||0, pendingEarnings:parseFloat(pendingEarnings.toFixed(2)), totalEarnings:Number(m.total_earnings)||0, currentMonthEarnings:Number(m.current_month_earnings)||0, lifetimeEarnings:Number(m.lifetime_earnings)||0, personalVolume:Number(m.personal_volume)||0, teamVolume:Number(m.team_volume)||0, status:m.status, memberSince:m.join_date } })
 }
