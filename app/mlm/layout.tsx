@@ -50,7 +50,7 @@ const navigation: NavigationItem[] = [
     name: "Team Genealogy",
     href: "/mlm/genealogy",
     icon: <Users className="h-5 w-5" />,
-    badge: mlmStats ? `${mlmStats.totalTeamMembers} Members` : "Team",
+    badge: "Team",
     badgeVariant: "secondary",
   },
   {
@@ -85,7 +85,7 @@ const navigation: NavigationItem[] = [
     name: "Leaderboard",
     href: "/mlm/leaderboard",
     icon: <Trophy className="h-5 w-5" />,
-    badge: mlmStats ? (mlmStats.rank||"associate").charAt(0).toUpperCase()+(mlmStats.rank||"associate").slice(1) : "Rank",
+    badge: "Rank",
     badgeVariant: "default",
   },
   {
@@ -99,7 +99,7 @@ const navigation: NavigationItem[] = [
     name: "Communications",
     href: "/mlm/communications",
     icon: <MessageSquare className="h-5 w-5" />,
-    badge: unreadCount > 0 ? `${unreadCount} unread` : "Chat",
+    badge: "Chat",
     badgeVariant: "destructive",
   },
   {
@@ -142,6 +142,16 @@ export default function MLMLayout({ children }: { children: React.ReactNode }) {
       if(d?.success&&d.data) setUnreadCount(d.data.reduce((s:number,c:any)=>s+(c.unread_count||0),0))
     }).catch(()=>{})
   }, [])
+
+  // Build dynamic nav badges from real data
+  const getNavBadge = (name: string, staticBadge: string | undefined) => {
+    if (!mlmStats) return staticBadge
+    if (name === 'Team Genealogy') return `${mlmStats.totalTeamMembers} Members`
+    if (name === 'Payouts & Earnings') return `${Number(mlmStats.currentMonthEarnings||0).toFixed(0)}`
+    if (name === 'Leaderboard') return (mlmStats.rank||'associate').charAt(0).toUpperCase()+(mlmStats.rank||'associate').slice(1)
+    if (name === 'Communications') return unreadCount > 0 ? `${unreadCount} unread` : 'Chat'
+    return staticBadge
+  }
 
 
   const displayName = isLoading ? "Loading…" : (user?.name ?? "")
@@ -195,10 +205,10 @@ export default function MLMLayout({ children }: { children: React.ReactNode }) {
                     <div className="flex-shrink-0">{item.icon}</div>
                     <span className="ml-3 truncate">{item.name}</span>
                   </div>
-                  {item.badge && (
+                  {getNavBadge(item.name, item.badge) && (
                     typeof item.badge === 'string' ? (
                       <Badge variant={item.badgeVariant} className="text-xs px-1.5 py-0.5">
-                        {item.badge}
+                        {getNavBadge(item.name, item.badge)}
                       </Badge>
                     ) : (
                       item.badge
@@ -238,7 +248,7 @@ export default function MLMLayout({ children }: { children: React.ReactNode }) {
                   {item.badge && (
                     typeof item.badge === 'string' ? (
                       <Badge variant={item.badgeVariant} className="text-xs px-1.5 py-0.5">
-                        {item.badge}
+                        {getNavBadge(item.name, item.badge)}
                       </Badge>
                     ) : (
                       item.badge
