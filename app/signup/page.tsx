@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,6 +12,21 @@ import { Eye, EyeOff, CheckCircle, X } from 'lucide-react'
 import Link from "next/link"
 
 export default function SignupPage() {
+  const searchParams = useSearchParams()
+  const [referralCode, setReferralCode] = useState('')
+  const [sponsor, setSponsor] = useState<{name:string;rank:string}|null>(null)
+
+  useEffect(() => {
+    const ref = searchParams?.get('ref')
+    if (ref) {
+      setReferralCode(ref.toUpperCase())
+      fetch('/api/mlm/verify-code?code=' + ref.toUpperCase())
+        .then(r => r.json())
+        .then(d => { if(d.valid && d.sponsor) setSponsor(d.sponsor) })
+        .catch(() => {})
+    }
+  }, [searchParams])
+
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({
     firstName: '',
@@ -83,6 +99,7 @@ export default function SignupPage() {
           name: `${formData.firstName} ${formData.lastName}`.trim(),
           password: formData.password,
           confirmPassword: formData.confirmPassword,
+          referralCode: referralCode || undefinedconfirmPassword,
         }),
       })
 
@@ -127,7 +144,21 @@ export default function SignupPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="firstName">First Name</Label>
+                
+        {/* Referral Banner */}
+        {referralCode && (
+          <div className="mb-4 p-3 rounded-lg bg-blue-50 border border-blue-200 flex items-center gap-3">
+            <span className="text-2xl">🤝</span>
+            <div>
+              <p className="text-sm font-medium text-blue-900">
+                {sponsor ? 'Invited by ' + sponsor.name : 'Referral code: ' + referralCode}
+              </p>
+              <p className="text-xs text-blue-600">
+                {sponsor ? 'You\'ll join their team as ' + sponsor.rank + ' rank' : 'Verifying referral...'}
+              </p>
+            </div>
+          </div>
+        )}<Label htmlFor="firstName">First Name</Label>
                 <Input
                   id="firstName"
                   name="firstName"
