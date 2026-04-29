@@ -1,51 +1,121 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/auth'
+
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+interface TreeNode {
+  userId: string
+  name: string
+  email: string
+  rank: string
+  status: string
+  totalEarnings: number
+  monthlyEarnings: number
+  joinedAt: string
+  mlmCode: string
+  mlmId: string
+  children: TreeNode[]
+  depth: number
+}
+
+async function buildTree(mlmUserId: string, depth: number = 0, maxDepth: number = 6): Promise<TreeNode[]> {
+  if (depth >= maxDepth) return []
+
+  const { data: genealogy } = await supabase
+    .from('mlm_genealogy')
+    .select('user_id, joined_at')
+    .eq('sponsor_mlm_id', mlmUserId)
+
+  if (!genealogy || genealogy.length === 0) return []
+
+  const userIds = genealogy.map((g: any) => g.user_id)
+
+  const [{ data: mlmUsers }, { data: users }] = await Promise.all([
+    supabase.from('mlm_users').select('id,user_id,rank,status,total_earnings,current_month_earnings,mlm_code').in('user_id', userIds),
+    supabase.from('users').select('id,email,first_name,last_name').in('id', userIds),
+  ])
+
+  const nodes: TreeNode[] = []
+
+  for (const g of genealogy) {
+    const mlm = (mlmUsers || []).find((u: any) => u.user_id === g.user_id)
+    const user = (users || []).find((u: any) => u.id === g.user_id)
+    if (!mlm) continue
+
+    const children = await buildTree(mlm.id, depth + 1, maxDepth)
+
+    nodes.push({
+      userId: g.user_id,
+      mlmId: mlm.id,
+      name: user ? [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email : 'Member',
+      email: user?.email || '',
+      rank: mlm.rank || 'associate',
+      status: mlm.status || 'active',
+      totalEarnings: Number(mlm.total_earnings) || 0,
+      monthlyEarnings: Number(mlm.current_month_earnings) || 0,
+      joinedAt: g.joined_at,
+      mlmCode: mlm.mlm_code || '',
+      children,
+      depth,
+    })
+  }
+
+  return nodes
+}
+
+function countNodes(nodes: TreeNode[]): { total: number; active: number } {
+  let total = 0, active = 0
+  for (const n of nodes) {
+    total++
+    if (n.status === 'active') active++
+    const sub = countNodes(n.children)
+    total += sub.total
+    active += sub.active
+  }
+  return { total, active }
+}
 
 export async function GET(req: NextRequest) {
   const { user, isAuthenticated } = await getCurrentUser(req)
   if (!isAuthenticated || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: mlmUser } = await supabase.from('mlm_users')
-    .select('id,rank,mlm_code,total_downlines,active_downlines')
+    .select('id,user_id,rank,mlm_code,total_downlines,active_downlines')
     .eq('user_id', user.id).maybeSingle()
 
-  if (!mlmUser) return NextResponse.json({ success: false, tree: null, downlines: [] })
+  if (!mlmUser) return NextResponse.json({ success: true, tree: null, downlines: [], stats: { total: 0, active: 0 } })
 
-  const { data: genealogy } = await supabase.from('mlm_genealogy')
-    .select('user_id,joined_at').eq('sponsor_mlm_id', mlmUser.id)
+  const tree = await buildTree(mlmUser.id)
+  const { total, active } = countNodes(tree)
 
-  const downlineUserIds = (genealogy||[]).map(g=>g.user_id)
-  let downlines: any[] = []
-
-  if (downlineUserIds.length > 0) {
-    const { data: downlineUsers } = await supabase.from('mlm_users')
-      .select('user_id,rank,status,total_earnings,current_month_earnings,join_date,mlm_code')
-      .in('user_id', downlineUserIds)
-    const { data: userDetails } = await supabase.from('users')
-      .select('id,email,first_name,last_name').in('id', downlineUserIds)
-
-    downlines = (downlineUsers||[]).map(du => {
-      const ud = (userDetails||[]).find(u=>u.id===du.user_id)
-      const geo = (genealogy||[]).find(g=>g.user_id===du.user_id)
-      return {
-        userId: du.user_id,
-        name: ud ? [ud.first_name,ud.last_name].filter(Boolean).join(' ')||ud.email : 'Member',
-        email: ud?.email,
-        rank: du.rank||'associate',
-        status: du.status,
-        earnings: du.total_earnings||0,
-        monthlyEarnings: du.current_month_earnings||0,
-        joinedAt: geo?.joined_at||du.join_date,
-        mlmCode: du.mlm_code,
-      }
-    })
-  }
+  // Flat list of direct downlines for simple view
+  const downlines = tree.map(n => ({
+    userId: n.userId,
+    name: n.name,
+    email: n.email,
+    rank: n.rank,
+    status: n.status,
+    earnings: n.totalEarnings,
+    monthlyEarnings: n.monthlyEarnings,
+    joinedAt: n.joinedAt,
+    mlmCode: n.mlmCode,
+    teamSize: countNodes(n.children).total,
+  }))
 
   return NextResponse.json({
     success: true,
-    tree: { userId:user.id, rank:mlmUser.rank, mlmCode:mlmUser.mlm_code, directDownlines:downlines.length, totalDownlines:mlmUser.total_downlines||0, activeDownlines:mlmUser.active_downlines||0 },
-    downlines
+    tree: {
+      userId: user.id,
+      mlmId: mlmUser.id,
+      rank: mlmUser.rank,
+      mlmCode: mlmUser.mlm_code,
+      directDownlines: tree.length,
+      totalDownlines: total,
+      activeDownlines: active,
+      children: tree,
+    },
+    downlines,
+    stats: { total, active, direct: tree.length },
   })
 }
