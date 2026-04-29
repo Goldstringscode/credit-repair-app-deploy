@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
     .select('id,user_id,rank,mlm_code,total_downlines,active_downlines')
     .eq('user_id', user.id).maybeSingle()
 
-  if (!mlmUser) return NextResponse.json({ success: true, tree: null, downlines: [], stats: { total: 0, active: 0 } })
+  if (!mlmUser) return NextResponse.json({ success: true, tree: null, downlines: [], stats: { total: 0, active: 0, direct: 0 } })
 
   const tree = await buildTree(mlmUser.id)
   const { total, active } = countNodes(tree)
