@@ -6,10 +6,10 @@ import { generateAccessToken, generateRefreshToken } from '@/lib/jwt'
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({}))
+    const body = await req.json()
     const { email, password, name, confirmPassword, referralCode } = body
 
-    // Basic validation
+    // Validation
     if (!email || !password || !name) {
       return NextResponse.json({ success: false, error: 'Email, password and name are required' }, { status: 400 })
     }
@@ -22,14 +22,14 @@ export async function POST(req: NextRequest) {
 
     const supabase = getSupabaseClient()
 
-    // Check if user already exists
-    const { data: existingUser } = await supabase
+    // Check existing user
+    const existingCheck = await supabase
       .from('users')
       .select('id')
       .eq('email', email.toLowerCase())
       .maybeSingle()
 
-    if (existingUser) {
+    if (existingCheck.data) {
       return NextResponse.json({ success: false, error: 'An account with this email already exists' }, { status: 409 })
     }
 
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     const emailVerificationToken = crypto.randomBytes(32).toString('hex')
 
     // Create user
-    const { data: newUser, error: insertError } = await supabase
+    const userResult = await supabase
       .from('users')
       .insert({
         email: email.toLowerCase(),
@@ -62,86 +62,115 @@ export async function POST(req: NextRequest) {
       .select('id, email, first_name, last_name, subscription_status, subscription_tier')
       .single()
 
-    if (insertError || !newUser) {
-      return NextResponse.json({ success: false, error: insertError?.message ?? 'Registration failed' }, { status: 500 })
+    if (userResult.error || !userResult.data) {
+      return NextResponse.json({ success: false, error: userResult.error?.message ?? 'Registration failed' }, { status: 500 })
     }
+
+    const newUser = userResult.data
 
     // ── MLM REFERRAL INTEGRATION ──
-    // Generate unique MLM code via DB function
-    const { data: codeResult } = await supabase.rpc('generate_mlm_code')
-    const newMlmCode: string = codeResult || ('CR' + newUser.id.replace(/-/g, '').substring(0, 6).toUpperCase())
-
-    // Look up sponsor and their team by referral code
-    let sponsorMlmId: string | null = null
+    let newMlmCode: string = ''
+    let mlmUserId: string | null = null
     let teamId: string | null = null
+    let sponsorMlmId: string | null = null
 
-    if (referralCode) {
-      const { data: sponsor } = await supabase
-        .from('mlm_users')
-        .select('id, team_id, status')
-        .eq('mlm_code', referralCode.toUpperCase())
-        .eq('status', 'active')
-        .maybeSingle()
-      if (sponsor) {
-        sponsorMlmId = sponsor.id
-        teamId = sponsor.team_id
+    try {
+      // Generate unique MLM code via DB function
+      const codeRpc = await supabase.rpc('generate_mlm_code')
+      newMlmCode = (codeRpc.data as string) || ('CR' + newUser.id.replace(/-/g, '').substring(0, 6).toUpperCase())
+
+      // Look up sponsor by referral code
+      if (referralCode) {
+        const sponsorResult = await supabase
+          .from('mlm_users')
+          .select('id, team_id, status')
+          .eq('mlm_code', referralCode.toUpperCase())
+          .eq('status', 'active')
+          .maybeSingle()
+        if (sponsorResult.data) {
+          sponsorMlmId = sponsorResult.data.id
+          teamId = sponsorResult.data.team_id
+        }
       }
-    }
 
-    // If no referral code, assign to the default CREDITPRO team
-    if (!teamId) {
-      const { data: defaultTeam } = await supabase
-        .from('mlm_teams')
-        .select('id')
-        .eq('team_code', 'CREDITPRO')
-        .eq('is_active', true)
-        .maybeSingle()
-      teamId = defaultTeam?.id || null
-    }
+      // Default to CREDITPRO team if no sponsor
+      if (!teamId) {
+        const teamResult = await supabase
+          .from('mlm_teams')
+          .select('id')
+          .eq('team_code', 'CREDITPRO')
+          .eq('is_active', true)
+          .maybeSingle()
+        teamId = teamResult.data?.id || null
+      }
 
-    // Create MLM user record with unique code
-    const { data: mlmUser } = await supabase
-      .from('mlm_users')
-      .insert({
-        user_id: newUser.id,
-        mlm_code: newMlmCode,
-        team_id: teamId,
-        direct_sponsor_id: sponsorMlmId,
-        rank: 'associate',
-        status: 'active',
-        commission_rate: 0.30,
-        total_earnings: 0,
-        current_month_earnings: 0,
-        lifetime_earnings: 0,
-        personal_volume: 0,
-        team_volume: 0,
-        active_downlines: 0,
-        total_downlines: 0,
-        join_date: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select('id, mlm_code, team_id')
-      .single()
+      // Create MLM user record
+      const mlmInsert = await supabase
+        .from('mlm_users')
+        .insert({
+          user_id: newUser.id,
+          mlm_code: newMlmCode,
+          team_id: teamId,
+          direct_sponsor_id: sponsorMlmId,
+          rank: 'associate',
+          status: 'active',
+          commission_rate: 0.30,
+          total_earnings: 0,
+          current_month_earnings: 0,
+          lifetime_earnings: 0,
+          personal_volume: 0,
+          team_volume: 0,
+          active_downlines: 0,
+          total_downlines: 0,
+          join_date: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select('id, mlm_code, team_id')
+        .single()
 
-    // Place in genealogy tree under sponsor
-    if (mlmUser && sponsorMlmId) {
-      // Get sponsor depth to calculate new member depth
-      const { data: sponsorGeo } = await supabase
-        .from('mlm_genealogy')
-        .select('depth')
-        .eq('user_id', (await supabase.from('mlm_users').select('user_id').eq('id', sponsorMlmId).single()).data?.user_id || '')
-        .maybeSingle()
+      if (mlmInsert.data) {
+        mlmUserId = mlmInsert.data.id
 
-      const newDepth = (sponsorGeo?.depth || 0) + 1
+        // Place in genealogy under sponsor
+        if (sponsorMlmId) {
+          const sponsorUserResult = await supabase
+            .from('mlm_users')
+            .select('user_id')
+            .eq('id', sponsorMlmId)
+            .maybeSingle()
 
-      await supabase.from('mlm_genealogy').insert({
-        user_id: newUser.id,
-        sponsor_mlm_id: sponsorMlmId,
-        team_id: teamId,
-        depth: newDepth,
-        joined_at: new Date().toISOString(),
-      }) // Non-fatal
+          let newDepth = 1
+          if (sponsorUserResult.data?.user_id) {
+            const sponsorGenResult = await supabase
+              .from('mlm_genealogy')
+              .select('depth')
+              .eq('user_id', sponsorUserResult.data.user_id)
+              .maybeSingle()
+            newDepth = (sponsorGenResult.data?.depth || 0) + 1
+          }
+
+          await supabase.from('mlm_genealogy').insert({
+            user_id: newUser.id,
+            sponsor_mlm_id: sponsorMlmId,
+            team_id: teamId,
+            depth: newDepth,
+            joined_at: new Date().toISOString(),
+          })
+        } else if (teamId) {
+          // Root level - no sponsor
+          await supabase.from('mlm_genealogy').insert({
+            user_id: newUser.id,
+            sponsor_mlm_id: null,
+            team_id: teamId,
+            depth: 0,
+            joined_at: new Date().toISOString(),
+          })
+        }
+      }
+    } catch (mlmError: any) {
+      console.error('[Register] MLM integration failed (non-fatal):', mlmError?.message)
+      // Don't fail the registration if MLM setup has issues
     }
     // ── END MLM INTEGRATION ──
 
@@ -159,7 +188,6 @@ export async function POST(req: NextRequest) {
     const accessToken  = generateAccessToken(userForToken as any)
     const refreshToken = generateRefreshToken(userForToken as any)
 
-    // Set httpOnly cookies
     const response = NextResponse.json({
       success: true,
       message: 'Registration successful',
@@ -170,22 +198,33 @@ export async function POST(req: NextRequest) {
         subscriptionStatus: newUser.subscription_status,
         subscriptionTier: newUser.subscription_tier,
       },
-      mlmCode: mlmUser?.mlm_code || null,
+      mlmCode: newMlmCode || null,
+      sponsorMlmId,
+      teamId,
     }, { status: 201 })
 
     response.cookies.set('accessToken', accessToken, {
-      httpOnly: true, secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax', maxAge: 15 * 60, path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 15 * 60,
+      path: '/',
     })
     response.cookies.set('refreshToken', refreshToken, {
-      httpOnly: true, secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax', maxAge: 7 * 24 * 60 * 60, path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60,
+      path: '/',
     })
 
     return response
 
   } catch (error: any) {
     console.error('[Register] Error:', error)
-    return NextResponse.json({ success: false, error: error.message ?? 'Registration failed' }, { status: 500 })
+    return NextResponse.json({
+      success: false,
+      error: error?.message ?? 'Registration failed'
+    }, { status: 500 })
   }
 }
