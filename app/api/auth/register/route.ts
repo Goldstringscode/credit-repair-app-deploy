@@ -13,7 +13,7 @@
             .from('mlm_users')
             .select('id, team_id, status')
             .eq('mlm_code', refCode.toUpperCase())
-            .eq('status', 'active')
+            .eq('is_active', true)
             .maybeSingle()
           if (sponsor) {
             sponsorMlmId = sponsor.id
