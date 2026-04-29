@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
         team_id: teamId,
         depth: newDepth,
         joined_at: new Date().toISOString(),
-      }).catch(() => {}) // Non-fatal
+      }) // Non-fatal
     }
     // ── END MLM INTEGRATION ──
 
