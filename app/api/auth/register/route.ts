@@ -1,33 +1,43 @@
 
         // ── MLM REFERRAL INTEGRATION ──
-        // Generate unique MLM code for this new user
-        const generateMLMCode = async (): Promise<string> => {
-          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-          for (let i = 0; i < 10; i++) {
-            let code = 'CR'
-            for (let j = 0; j < 6; j++) code += chars[Math.floor(Math.random() * chars.length)]
-            const { data: existing } = await supabase.from('mlm_users').select('id').eq('mlm_code', code).maybeSingle()
-            if (!existing) return code
-          }
-          return 'CR' + newUser.id.replace(/-/g,'').substring(0,6).toUpperCase()
-        }
+        // Use DB function to generate guaranteed unique MLM code
+        const { data: codeResult } = await supabase.rpc('generate_mlm_code')
+        const newMlmCode = codeResult || ('CR' + newUser.id.replace(/-/g,'').substring(0,6).toUpperCase())
 
-        // Look up sponsor by referral code
+        // Look up sponsor and their team by referral code
         let sponsorMlmId: string | null = null
+        let teamId: string | null = null
         const refCode = validatedData?.body?.referralCode
         if (refCode) {
-          const { data: sponsor } = await supabase.from('mlm_users')
-            .select('id, status').eq('mlm_code', refCode.toUpperCase()).maybeSingle()
-          if (sponsor && sponsor.status === 'active') {
+          const { data: sponsor } = await supabase
+            .from('mlm_users')
+            .select('id, team_id, status')
+            .eq('mlm_code', refCode.toUpperCase())
+            .eq('status', 'active')
+            .maybeSingle()
+          if (sponsor) {
             sponsorMlmId = sponsor.id
+            teamId = sponsor.team_id
           }
         }
 
-        // Create MLM user record with unique code
-        const newMlmCode = await generateMLMCode()
+        // If no referral code, assign to the default team
+        if (!teamId) {
+          const { data: defaultTeam } = await supabase
+            .from('mlm_teams')
+            .select('id')
+            .eq('team_code', 'CREDITPRO')
+            .eq('status', 'active')
+            .maybeSingle()
+          teamId = defaultTeam?.id || null
+        }
+
+        // Create MLM user record
         const { data: mlmUser } = await supabase.from('mlm_users').insert({
           user_id: newUser.id,
           mlm_code: newMlmCode,
+          team_id: teamId,
+          direct_sponsor_id: sponsorMlmId,
           rank: 'associate',
           status: 'active',
           commission_rate: 0.30,
@@ -41,17 +51,38 @@
           join_date: new Date().toISOString(),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        }).select('id, mlm_code').single()
+        }).select('id, mlm_code, team_id').single()
 
         // Place in genealogy tree under sponsor
         if (mlmUser && sponsorMlmId) {
+          // Calculate depth in tree
+          const { data: sponsorGenealogy } = await supabase
+            .from('mlm_genealogy')
+            .select('depth')
+            .eq('user_id', (await supabase.from('mlm_users').select('user_id').eq('id', sponsorMlmId).single()).data?.user_id)
+            .maybeSingle()
+          const newDepth = (sponsorGenealogy?.depth || 0) + 1
+
           await supabase.from('mlm_genealogy').insert({
             user_id: newUser.id,
             sponsor_mlm_id: sponsorMlmId,
+            team_id: teamId,
+            depth: newDepth,
             joined_at: new Date().toISOString(),
           })
+        } else if (mlmUser && teamId) {
+          // No sponsor — root level member of the team (depth 1)
+          await supabase.from('mlm_genealogy').insert({
+            user_id: newUser.id,
+            sponsor_mlm_id: null,
+            team_id: teamId,
+            depth: 0,
+            joined_at: new Date().toISOString(),
+          }).catch(() => {}) // ok if it fails (no sponsor = optional genealogy)
         }
         // ── END MLM INTEGRATION ──
+
+        
 
         import { NextRequest, NextResponse } from 'next/server'
 import { withRateLimit } from '@/lib/rate-limiter'
