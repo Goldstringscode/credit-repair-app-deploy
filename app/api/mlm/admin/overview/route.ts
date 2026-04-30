@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   // User details for all members
   const userIds = (members||[]).map((m:any) => m.user_id)
   const { data: userDetails } = userIds.length > 0
-    ? await supabase.from('users').select('id, email, first_name, last_name, created_at').in('id', userIds)
+    ? await supabase.from('users').select('id, email, first_name, last_name, created_at, subscription_tier, subscription_status').in('id', userIds)
     : { data: [] }
 
   // Build team summaries
@@ -64,6 +64,9 @@ export async function GET(req: NextRequest) {
         totalEarnings: Number(m.total_earnings)||0,
         monthlyEarnings: Number(m.current_month_earnings)||0,
         joinDate: m.join_date,
+        subscriptionTier: ud?.subscription_tier || 'free',
+        subscriptionStatus: ud?.subscription_status || 'inactive',
+        canCreateTeam: ['premium','enterprise'].includes(ud?.subscription_tier||''),
       }
     })
 
@@ -89,6 +92,8 @@ export async function GET(req: NextRequest) {
   const totalMembers = (members||[]).length
   const totalEarnings = (commissions||[]).filter((c:any)=>c.status==='paid').reduce((s:number,c:any)=>s+Number(c.commission_amount),0)
   const rankCounts = (members||[]).reduce((acc:any,m:any)=>{ acc[m.rank]=(acc[m.rank]||0)+1; return acc },{})
+  const tierCounts = (userDetails||[]).reduce((acc:any,u:any)=>{ const t=u.subscription_tier||'free'; acc[t]=(acc[t]||0)+1; return acc },{})
+  const canCreateTeamCount = (userDetails||[]).filter((u:any)=>['premium','enterprise'].includes(u.subscription_tier||'')).length
 
   return NextResponse.json({
     success: true,
@@ -98,6 +103,8 @@ export async function GET(req: NextRequest) {
       activeMembers: (members||[]).filter((m:any)=>m.status==='active').length,
       totalEarningsPaid: parseFloat(totalEarnings.toFixed(2)),
       rankBreakdown: rankCounts,
+      subscriptionBreakdown: tierCounts,
+      canCreateTeamCount,
     },
     teams: teamSummaries,
   })
