@@ -16,6 +16,8 @@ export default function AdminMLMPage() {
   const [teamMessages, setTeamMessages] = useState<any[]>([])
   const [selectedChannel, setSelectedChannel] = useState<string|null>(null)
   const [loading, setLoading] = useState(true)
+  const [allUsers, setAllUsers] = useState<any[]>([])
+  const [userFilter, setUserFilter] = useState('all')
   const [search, setSearch] = useState('')
 
   useEffect(() => {
@@ -27,7 +29,7 @@ export default function AdminMLMPage() {
 
   const loadData = () => {
     fetch('/api/mlm/admin/overview').then(r=>r.json()).then(d => {
-      if(d.success){ setData(d); if(d.teams[0]) setSelectedTeam(d.teams[0]) }
+      if(d.success){ setData(d); if(d.teams[0]) setSelectedTeam(d.teams[0]); setAllUsers(d.allUsers||[]) }
       setLoading(false)
     })
   }
@@ -115,6 +117,56 @@ export default function AdminMLMPage() {
           ))}
         </div>
         <p className="text-xs text-gray-400 mt-3">🏢 = Can create their own team (Premium/Enterprise only)</p>
+      </div>
+
+      
+      {/* All Users Section */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-gray-900">All Users ({allUsers.length})</h2>
+          <div className="flex gap-1">
+            {['all','credit_repair','mlm','both','admin'].map(f=>(
+              <button key={f} onClick={()=>setUserFilter(f)}
+                className={`px-2 py-1 rounded text-xs font-medium capitalize ${userFilter===f?'bg-gray-900 text-white':'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                {f==='credit_repair'?'CR':f==='all'?'All':f==='both'?'Both':f.charAt(0).toUpperCase()+f.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr className="border-b border-gray-100">
+              {['User','Type','Subscription','MLM Code','Team','Rank'].map(h=>(
+                <th key={h} className="text-left pb-2 text-xs text-gray-400 font-medium pr-4">{h}</th>
+              ))}
+            </tr></thead>
+            <tbody className="divide-y divide-gray-50">
+              {allUsers.filter(u=>userFilter==='all'||u.userType===userFilter).map(u=>(
+                <tr key={u.id} className="hover:bg-gray-50">
+                  <td className="py-2 pr-4">
+                    <div className="font-medium text-gray-900 text-xs">{u.name}</div>
+                    <div className="text-gray-400 text-xs">{u.email}</div>
+                  </td>
+                  <td className="py-2 pr-4">
+                    <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                      u.userType==='admin'?'bg-red-100 text-red-700':
+                      u.userType==='both'?'bg-purple-100 text-purple-700':
+                      u.userType==='mlm'?'bg-blue-100 text-blue-700':
+                      'bg-green-100 text-green-700'
+                    }`}>{u.userType==='credit_repair'?'CR':u.userType}</span>
+                  </td>
+                  <td className="py-2 pr-4">
+                    <div className="text-xs capitalize">{u.subscriptionTier}</div>
+                    <div className={`text-xs ${u.subscriptionStatus==='active'?'text-green-600':'text-gray-400'}`}>{u.subscriptionStatus}</div>
+                  </td>
+                  <td className="py-2 pr-4 font-mono text-xs text-gray-600">{u.mlmCode||'—'}</td>
+                  <td className="py-2 pr-4 text-xs text-gray-600">{u.teamName||'—'}</td>
+                  <td className="py-2 text-xs capitalize text-gray-600">{u.rank||'—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
