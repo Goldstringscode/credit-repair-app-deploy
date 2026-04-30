@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' })
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+const getSupabase = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 const MLM_PLANS: Record<string, { priceId: string; name: string; commissionRate: number }> = {
   mlm_starter: { priceId: process.env.STRIPE_MLM_STARTER_PRICE_ID!, name: 'MLM Starter', commissionRate: 0.30 },
@@ -22,7 +22,7 @@ const SubscriptionSchema = z.object({
 async function validateSponsor(sponsorId: string | undefined, mlmCode: string | undefined, requestingUserId: string) {
   if (!sponsorId && !mlmCode) return { valid: true, sponsorMlmId: null }
 
-  let query = supabase.from('mlm_users').select('id, user_id, subscription_status, mlm_code')
+  let query = getSupabase().from('mlm_users').select('id, user_id, subscription_status, mlm_code')
   if (sponsorId && mlmCode) query = query.eq('user_id', sponsorId).eq('mlm_code', mlmCode)
   else if (sponsorId) query = query.eq('user_id', sponsorId)
   else query = query.eq('mlm_code', mlmCode)
@@ -43,7 +43,7 @@ async function wouldCreateCycle(newUserId: string, sponsorMlmId: string | null):
   while (currentId) {
     if (visited.has(currentId) || currentId === newUserId) return true
     visited.add(currentId)
-    const { data } = await supabase.from('mlm_users').select('sponsor_id').eq('id', currentId).maybeSingle()
+    const { data } = await getSupabase().from('mlm_users').select('sponsor_id').eq('id', currentId).maybeSingle()
     currentId = data?.sponsor_id ?? null
   }
   return false
@@ -54,7 +54,7 @@ async function generateUniqueMlmCode(): Promise<string> {
   for (let i = 0; i < 10; i++) {
     let code = 'CR'
     for (let j = 0; j < 6; j++) code += chars[Math.floor(Math.random() * chars.length)]
-    const { data } = await supabase.from('mlm_users').select('id').eq('mlm_code', code).maybeSingle()
+    const { data } = await getSupabase().from('mlm_users').select('id').eq('mlm_code', code).maybeSingle()
     if (!data) return code
   }
   throw new Error('Could not generate unique MLM code')
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
   if (!authHeader?.startsWith('Bearer ')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7))
+  const { data: { user }, error: authError } = await getSupabase().auth.getUser(authHeader.slice(7))
   if (authError || !user) return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
 
   const parsed = SubscriptionSchema.safeParse(await req.json().catch(() => ({})))
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   const { planType, paymentMethodId, mlmCode, sponsorId } = parsed.data
   const plan = MLM_PLANS[planType]
 
-  const { data: existing } = await supabase.from('mlm_users').select('subscription_status').eq('user_id', user.id).maybeSingle()
+  const { data: existing } = await getSupabase().from('mlm_users').select('subscription_status').eq('user_id', user.id).maybeSingle()
   if (existing?.subscription_status === 'active') return NextResponse.json({ error: 'Already have an active MLM subscription' }, { status: 409 })
 
   // SERVER-SIDE SPONSOR VALIDATION — never trust client-supplied IDs
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
 
   try {
     let stripeCustomerId: string
-    const { data: profile } = await supabase.from('mlm_users').select('stripe_customer_id').eq('user_id', user.id).maybeSingle()
+    const { data: profile } = await getSupabase().from('mlm_users').select('stripe_customer_id').eq('user_id', user.id).maybeSingle()
     if (profile?.stripe_customer_id) {
       stripeCustomerId = profile.stripe_customer_id
     } else {
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
 
     const newMlmCode = await generateUniqueMlmCode()
 
-    await supabase.from('mlm_users').upsert({
+    await getSupabase().from('mlm_users').upsert({
       user_id: user.id, stripe_customer_id: stripeCustomerId,
       stripe_subscription_id: subscription.id,
       sponsor_id: sponsorResult.sponsorMlmId,
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
     }, { onConflict: 'user_id' })
 
     if (sponsorResult.sponsorMlmId) {
-      await supabase.from('mlm_genealogy').insert({ user_id: user.id, sponsor_mlm_id: sponsorResult.sponsorMlmId, joined_at: new Date().toISOString() })
+      await getSupabase().from('mlm_genealogy').insert({ user_id: user.id, sponsor_mlm_id: sponsorResult.sponsorMlmId, joined_at: new Date().toISOString() })
     }
 
     const invoice = subscription.latest_invoice as Stripe.Invoice
