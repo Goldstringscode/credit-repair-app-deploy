@@ -61,15 +61,7 @@ interface TeamMemberPerformance {
   monthlyGrowth: number
 }
 
-const performanceData: PerformanceData[] = []manceData: PerformanceData[] = monthlyEarnings.map(m => ({
-  month: m.month ? new Date(m.month+'-01').toLocaleString('default',{month:'short'}) : '',
-  teamSize: stats?.totalMembers || 0,
-  activeMembers: stats?.activeMembers || 0,
-  newJoins: 0,
-  volume: stats?.teamVolume || 0,
-  earnings: m.amount || 0,
-  retention: stats?.activeMembers && stats?.totalMembers ? Math.round((stats.activeMembers/stats.totalMembers)*100) : 0,
-}))
+const performanceData: PerformanceData[] = []
 
 const teamPerformance: TeamMemberPerformance[] = []
 
