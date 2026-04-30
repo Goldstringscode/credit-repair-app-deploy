@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -61,91 +61,58 @@ interface TeamMemberPerformance {
   monthlyGrowth: number
 }
 
-const performanceData: PerformanceData[] = [
-  { month: "Jan", teamSize: 32, activeMembers: 28, newJoins: 5, volume: 85000, earnings: 12500, retention: 87 },
-  { month: "Feb", teamSize: 35, activeMembers: 31, newJoins: 4, volume: 92000, earnings: 14200, retention: 89 },
-  { month: "Mar", teamSize: 38, activeMembers: 34, newJoins: 6, volume: 98000, earnings: 15800, retention: 91 },
-  { month: "Apr", teamSize: 42, activeMembers: 37, newJoins: 7, volume: 105000, earnings: 18200, retention: 88 },
-  { month: "May", teamSize: 45, activeMembers: 40, newJoins: 5, volume: 112000, earnings: 19500, retention: 92 },
-  { month: "Jun", teamSize: 47, activeMembers: 42, newJoins: 3, volume: 125500, earnings: 21800, retention: 94 },
-]
+const performanceData: PerformanceData[] = monthlyEarnings.map(m => ({
+  month: m.month ? new Date(m.month+'-01').toLocaleString('default',{month:'short'}) : '',
+  teamSize: stats?.totalMembers || 0,
+  activeMembers: stats?.activeMembers || 0,
+  newJoins: 0,
+  volume: stats?.teamVolume || 0,
+  earnings: m.amount || 0,
+  retention: stats?.activeMembers && stats?.totalMembers ? Math.round((stats.activeMembers/stats.totalMembers)*100) : 0,
+}))
 
-const teamPerformance: TeamMemberPerformance[] = [
-  {
-    id: "1",
-    name: "Sarah Johnson",
-    rank: "Director",
-    personalVolume: 2500,
-    teamVolume: 12500,
-    recruits: 8,
-    status: "excellent",
-    trend: "up",
-    monthlyGrowth: 18.5,
-  },
-  {
-    id: "2",
-    name: "Mike Rodriguez",
-    rank: "Manager",
-    personalVolume: 1800,
-    teamVolume: 6500,
-    recruits: 5,
-    status: "good",
-    trend: "up",
-    monthlyGrowth: 12.3,
-  },
-  {
-    id: "3",
-    name: "Emily Chen",
-    rank: "Consultant",
-    personalVolume: 1200,
-    teamVolume: 3200,
-    recruits: 3,
-    status: "good",
-    trend: "stable",
-    monthlyGrowth: 5.2,
-  },
-  {
-    id: "4",
-    name: "David Wilson",
-    rank: "Manager",
-    personalVolume: 1600,
-    teamVolume: 8200,
-    recruits: 6,
-    status: "excellent",
-    trend: "up",
-    monthlyGrowth: 22.1,
-  },
-  {
-    id: "5",
-    name: "Lisa Anderson",
-    rank: "Consultant",
-    personalVolume: 950,
-    teamVolume: 2800,
-    recruits: 4,
-    status: "needs_attention",
-    trend: "down",
-    monthlyGrowth: -3.2,
-  },
-]
+const teamPerformance: TeamMemberPerformance[] = []
 
-const rankDistribution = [
-  { name: "Associate", value: 15, color: "#94A3B8" },
-  { name: "Consultant", value: 18, color: "#10B981" },
-  { name: "Manager", value: 10, color: "#3B82F6" },
-  { name: "Director", value: 3, color: "#8B5CF6" },
-  { name: "Executive", value: 1, color: "#F59E0B" },
-]
+const RANK_COLORS_MAP: Record<string,string> = { associate:"#94A3B8", consultant:"#10B981", manager:"#3B82F6", director:"#8B5CF6", executive:"#F59E0B", presidential:"#EAB308" }
+const rankDistribution = rankDist.length > 0 ? rankDist.map(r => ({ name: r.label||r.rank, value: r.count, color: RANK_COLORS_MAP[r.rank]||"#94A3B8" })) : []
 
 export default function TeamPerformancePage() {
   const [selectedPeriod, setSelectedPeriod] = useState("6months")
   const [selectedMetric, setSelectedMetric] = useState("volume")
   const [isLoading, setIsLoading] = useState(false)
+  const [stats, setStats] = useState<any>(null)
+  const [rankDist, setRankDist] = useState<any[]>([])
+  const [monthlyEarnings, setMonthlyEarnings] = useState<any[]>([])
+
+  useEffect(() => {
+    const loadPerf = async () => {
+      setIsLoading(true)
+      try {
+        const r = await fetch('/api/mlm/team-performance')
+        const d = await r.json()
+        if (d.success) {
+          setStats(d.stats)
+          setRankDist(d.rankDistribution || [])
+          setMonthlyEarnings(d.monthlyEarnings || [])
+        }
+      } catch(e) { console.error('team-perf:', e) }
+      finally { setIsLoading(false) }
+    }
+    loadPerf()
+  }, [])
 
   const refreshData = async () => {
     setIsLoading(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setIsLoading(false)
+    try {
+      const r = await fetch('/api/mlm/team-performance')
+      const d = await r.json()
+      if (d.success) {
+        setStats(d.stats)
+        setRankDist(d.rankDistribution || [])
+        setMonthlyEarnings(d.monthlyEarnings || [])
+      }
+    } catch(e) { console.error('refresh:', e) }
+    finally { setIsLoading(false) }
   }
 
   const getStatusColor = (status: string) => {
