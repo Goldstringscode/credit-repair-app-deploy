@@ -21,7 +21,7 @@ import {
   LogOut,
   Crown,
   Bell,
-} from "lucide-react"
+, Shield } from "lucide-react"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { MLMNotificationProvider } from "@/lib/mlm-notification-context"
 import { MLMNotificationBadge } from "@/components/mlm-notification-badge"
@@ -123,6 +123,14 @@ const navigation: NavigationItem[] = [
     badge: "Dev",
     badgeVariant: "outline",
   },
+  {
+    name: "Admin Panel",
+    href: "/mlm/admin",
+    icon: <Shield className="h-5 w-5" />,
+    badge: "Admin",
+    badgeVariant: "destructive" as const,
+    adminOnly: true,
+  },
 ]
 
 export default function MLMLayout({ children }: { children: React.ReactNode }) {
@@ -168,7 +176,7 @@ export default function MLMLayout({ children }: { children: React.ReactNode }) {
             </Button>
           </div>
           <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
-            {navigation.map((item) => (
+            {navigation.filter(item => !item.adminOnly || user?.role === 'admin').map((item) => (
               <Link key={item.name} href={item.href} onClick={() => setSidebarOpen(false)}>
                 <div
                   className={`group flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
