@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -50,6 +50,38 @@ interface TimeFilter {
 export default function LeaderboardPage() {
   const [selectedCategory, setSelectedCategory] = useState("points")
   const [selectedTimeframe, setSelectedTimeframe] = useState("monthly")
+  const [leaderboardApiData, setLeaderboardApiData] = useState<LeaderboardEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+
+  useEffect(() => {
+    const period = selectedTimeframe === 'alltime' ? 'all' : 'month'
+    fetch('/api/mlm/leaderboard?period=' + period)
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.leaderboard) {
+          const mapped: LeaderboardEntry[] = d.leaderboard.map((m: any) => ({
+            id: m.userId,
+            rank: m.rank,
+            previousRank: m.rank,
+            name: m.name,
+            avatar: m.name?.charAt(0)?.toUpperCase() || '?',
+            title: m.mlmRank?.charAt(0)?.toUpperCase() + m.mlmRank?.slice(1) || 'Associate',
+            points: Math.round(m.monthlyEarnings * 10),
+            earnings: m.monthlyEarnings,
+            teamSize: m.teamSize,
+            salesCount: 0,
+            region: 'Team',
+            joinDate: new Date().toISOString(),
+            isCurrentUser: m.isCurrentUser,
+          }))
+          setLeaderboardApiData(mapped)
+          setCurrentUser(d.currentUser)
+        }
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [selectedTimeframe])
 
   const timeFilters: TimeFilter[] = [
     { label: "This Week", value: "weekly", active: false },
@@ -58,137 +90,7 @@ export default function LeaderboardPage() {
     { label: "All Time", value: "alltime", active: false },
   ]
 
-  const leaderboardData: LeaderboardEntry[] = [
-    {
-      id: "1",
-      rank: 1,
-      previousRank: 1,
-      name: "Sarah Johnson",
-      avatar: "/placeholder.svg?height=50&width=50&text=SJ",
-      title: "Executive Director",
-      points: 15420,
-      earnings: 28500,
-      teamSize: 127,
-      salesCount: 89,
-      region: "North America",
-      joinDate: "2023-01-15",
-      badges: ["Top Performer", "Team Builder", "Sales Master"],
-      trend: "same",
-    },
-    {
-      id: "2",
-      rank: 2,
-      previousRank: 3,
-      name: "Michael Chen",
-      avatar: "/placeholder.svg?height=50&width=50&text=MC",
-      title: "Senior Director",
-      points: 14890,
-      earnings: 26200,
-      teamSize: 98,
-      salesCount: 76,
-      region: "Asia Pacific",
-      joinDate: "2023-02-20",
-      badges: ["Rising Star", "Mentor"],
-      trend: "up",
-    },
-    {
-      id: "3",
-      rank: 3,
-      previousRank: 2,
-      name: "Jennifer Adams",
-      avatar: "/placeholder.svg?height=50&width=50&text=JA",
-      title: "Senior Director",
-      points: 14250,
-      earnings: 25800,
-      teamSize: 112,
-      salesCount: 71,
-      region: "Europe",
-      joinDate: "2022-11-10",
-      badges: ["Veteran", "Team Builder"],
-      trend: "down",
-    },
-    {
-      id: "4",
-      rank: 4,
-      previousRank: 5,
-      name: "David Rodriguez",
-      avatar: "/placeholder.svg?height=50&width=50&text=DR",
-      title: "Director",
-      points: 12680,
-      earnings: 22100,
-      teamSize: 84,
-      salesCount: 65,
-      region: "Latin America",
-      joinDate: "2023-03-05",
-      badges: ["Fast Climber"],
-      trend: "up",
-    },
-    {
-      id: "5",
-      rank: 5,
-      previousRank: 4,
-      name: "Lisa Thompson",
-      avatar: "/placeholder.svg?height=50&width=50&text=LT",
-      title: "Director",
-      points: 11950,
-      earnings: 21400,
-      teamSize: 76,
-      salesCount: 58,
-      region: "North America",
-      joinDate: "2023-01-28",
-      badges: ["Consistent Performer"],
-      trend: "down",
-    },
-    {
-      id: "6",
-      rank: 6,
-      previousRank: 7,
-      name: "John Doe",
-      avatar: "/placeholder.svg?height=50&width=50&text=JD",
-      title: "Director",
-      points: 10850,
-      earnings: 19200,
-      teamSize: 47,
-      salesCount: 52,
-      region: "North America",
-      joinDate: "2023-04-12",
-      isCurrentUser: true,
-      badges: ["Team Builder"],
-      trend: "up",
-    },
-    {
-      id: "7",
-      rank: 7,
-      previousRank: 6,
-      name: "Amanda Wilson",
-      avatar: "/placeholder.svg?height=50&width=50&text=AW",
-      title: "Manager",
-      points: 9720,
-      earnings: 17800,
-      teamSize: 39,
-      salesCount: 48,
-      region: "North America",
-      joinDate: "2023-05-20",
-      badges: ["New Talent"],
-      trend: "down",
-    },
-    {
-      id: "8",
-      rank: 8,
-      previousRank: 9,
-      name: "Robert Kim",
-      avatar: "/placeholder.svg?height=50&width=50&text=RK",
-      title: "Manager",
-      points: 8940,
-      earnings: 16500,
-      teamSize: 32,
-      salesCount: 44,
-      region: "Asia Pacific",
-      joinDate: "2023-06-15",
-      badges: ["Rising Star"],
-      trend: "up",
-    },
-  ]
+  const leaderboardData: LeaderboardEntry[] = leaderboardApiData
 
   const topThree = leaderboardData.slice(0, 3)
   const restOfLeaderboard = leaderboardData.slice(3)
