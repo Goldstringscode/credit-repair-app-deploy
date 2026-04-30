@@ -1,620 +1,232 @@
 'use client'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
-import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import CreateUserModal from '@/components/user-create-modal'
-import UserDetailsModal from '@/components/user-details-modal'
-import UserEditModal from '@/components/user-edit-modal'
-import UserEmailModal from '@/components/user-email-modal'
-import { databaseService } from '@/lib/database-service'
-import {
-  Search,
-  Download,
-  UserPlus,
-  Eye,
-  Edit,
-  Mail,
-  Trash2,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Clock,
-  RefreshCw,
-  Users,
-  UserCheck,
-  UserX,
-  Crown
-} from 'lucide-react'
+const TYPE_CONFIG = {
+  admin:         { label: 'Admin',          color: 'bg-red-100 text-red-800',     dot: 'bg-red-500' },
+  both:          { label: 'CR + MLM',       color: 'bg-purple-100 text-purple-800', dot: 'bg-purple-500' },
+  mlm:           { label: 'MLM Only',       color: 'bg-blue-100 text-blue-800',   dot: 'bg-blue-500' },
+  credit_repair: { label: 'Credit Repair',  color: 'bg-green-100 text-green-700', dot: 'bg-green-500' },
+}
 
-// Simple User interface
-interface User {
-  id: string
-  name: string
-  email: string
-  role: string
-  status: string
-  joinDate: string
-  lastLogin: string
-  subscription: string
-  creditScore: number
-  phone: string
-  createdAt: string
-  isVerified: boolean
-  totalSpent: number
-  lastActivity: string
+const SUB_CONFIG: Record<string,string> = {
+  premium: 'bg-yellow-100 text-yellow-800',
+  enterprise: 'bg-green-100 text-green-700',
+  professional: 'bg-purple-100 text-purple-700',
+  basic: 'bg-blue-100 text-blue-700',
+  free: 'bg-gray-100 text-gray-500',
 }
 
 export default function AdminUsersPage() {
+  const router = useRouter()
+  const [users, setUsers] = useState<any[]>([])
+  const [stats, setStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [users, setUsers] = useState<User[]>([])
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([])
-  const [statusCounts, setStatusCounts] = useState({
-    all: 0,
-    active: 0,
-    inactive: 0,
-    suspended: 0,
-    pending: 0
-  })
-  const [filters, setFilters] = useState({
-    status: 'all',
-    role: 'all',
-    search: ''
-  })
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  // Mock data for development
-
-  const loadUsers = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      console.log('Loading users...', new Date().toISOString())
-      
-      // Use unified database service
-      const response = await databaseService.getUsers()
-      
-      if (response.success && response.data) {
-        console.log('Database response:', response)
-        console.log('Users data:', response.data.users)
-        console.log('Users count:', response.data.users.length)
-        setUsers(response.data.users)
-        setFilteredUsers(response.data.users)
-        setStatusCounts(response.data.statusCounts)
-        console.log('Users loaded from database:', response.data.users.length)
-      } else {
-        console.log('Database failed:', response.error)
-        setError(response.error || 'Failed to load users')
-      }
-    } catch (error) {
-      console.error('Error loading users:', error)
-      setError(error instanceof Error ? error.message : 'Unknown error occurred')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const [filter, setFilter] = useState<string>('all')
+  const [search, setSearch] = useState('')
+  const [selected, setSelected] = useState<any>(null)
 
   useEffect(() => {
-    loadUsers()
-  }, [])
-
-  // Refresh data when page becomes visible (user navigates back to this page)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        loadUsers()
-      }
-    }
-
-    const handleFocus = () => {
+    fetch('/api/auth/me').then(r=>r.ok?r.json():null).then(d => {
+      if(!d?.user || d.user.role !== 'admin') { router.push('/'); return }
       loadUsers()
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleFocus)
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleFocus)
-    }
+    })
   }, [])
 
-  // Apply filters
-  useEffect(() => {
-    let filtered = [...users]
-
-    if (filters.search) {
-      filtered = filtered.filter(user =>
-        user.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        user.email.toLowerCase().includes(filters.search.toLowerCase())
-      )
-    }
-
-    if (filters.status !== 'all') {
-      filtered = filtered.filter(user => user.status === filters.status)
-    }
-
-    if (filters.role !== 'all') {
-      filtered = filtered.filter(user => user.role === filters.role)
-    }
-
-    setFilteredUsers(filtered)
-  }, [users, filters])
-
-  const handleCreateUser = () => {
-    console.log('Opening create user modal...')
-    setIsCreateModalOpen(true)
+  const loadUsers = () => {
+    setLoading(true)
+    fetch('/api/admin/users').then(r=>r.json()).then(d => {
+      if(d.success) { setUsers(d.users); setStats(d.stats) }
+      setLoading(false)
+    })
   }
 
-  const handleUserCreated = async (newUser: User) => {
-    console.log('New user created:', newUser)
-    try {
-      // Call unified database service
-      const response = await databaseService.createUser(newUser)
-      
-      if (response.success && response.data) {
-        const createdUser = response.data.user
-        setUsers(prev => [...prev, createdUser])
-        setFilteredUsers(prev => [...prev, createdUser])
-        setStatusCounts(prev => ({
-          ...prev,
-          all: prev.all + 1,
-          [createdUser.status]: prev[createdUser.status as keyof typeof prev] + 1
-        }))
-        setIsCreateModalOpen(false)
-        if (response.data.subscription) {
-          alert('User and subscription created successfully!')
-        } else {
-          alert('User created successfully!')
-        }
-      } else {
-        console.error('Failed to create user:', response.error)
-        alert(`Failed to create user: ${response.error}`)
-      }
-    } catch (error) {
-      console.error('Error creating user:', error)
-      alert('An error occurred while creating the user. Please try again.')
-    }
-  }
+  const filtered = users.filter(u => {
+    const matchType = filter === 'all' || u.userType === filter
+    const matchSearch = !search || 
+      u.name.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase()) ||
+      u.mlm?.mlmCode?.toLowerCase().includes(search.toLowerCase())
+    return matchType && matchSearch
+  })
 
-  const handleViewUser = (user: User) => {
-    console.log('Viewing user:', user.id)
-    setSelectedUser(user)
-    setIsDetailsModalOpen(true)
-  }
-
-  const handleEditUser = (user: User) => {
-    console.log('Editing user:', user.id)
-    setSelectedUser(user)
-    setIsEditModalOpen(true)
-  }
-
-  const handleEmailUser = (user: User) => {
-    console.log('Emailing user:', user.id)
-    setSelectedUser(user)
-    setIsEmailModalOpen(true)
-  }
-
-  const handleDeleteUser = (user: User) => {
-    console.log('Deleting user:', user.id)
-    setSelectedUser(user)
-    setIsDeleteModalOpen(true)
-  }
-
-  const handleDeleteUserConfirm = async () => {
-    if (selectedUser) {
-      console.log('Confirming delete for user:', selectedUser.id)
-      try {
-        // Call unified database service
-        const response = await databaseService.deleteUser(selectedUser.id)
-        
-        if (response.success) {
-          // Remove from local state
-          setUsers(prev => prev.filter(u => u.id !== selectedUser.id))
-          setFilteredUsers(prev => prev.filter(u => u.id !== selectedUser.id))
-          setStatusCounts(prev => ({
-            ...prev,
-            all: prev.all - 1,
-            [selectedUser.status]: prev[selectedUser.status as keyof typeof prev] - 1
-          }))
-          setIsDeleteModalOpen(false)
-          setSelectedUser(null)
-          alert('User deleted successfully!')
-        } else {
-          console.error('Failed to delete user:', response.error)
-          alert(`Failed to delete user: ${response.error}`)
-        }
-      } catch (error) {
-        console.error('Error deleting user:', error)
-        alert('An error occurred while deleting the user. Please try again.')
-      }
-    }
-  }
-
-  const handleUserUpdated = async (updatedUser: User) => {
-    console.log('User updated:', updatedUser)
-    try {
-      // Call unified database service
-      const response = await databaseService.updateUser(updatedUser.id, updatedUser)
-      
-      if (response.success && response.data) {
-        const updatedUserData = response.data.user
-        setUsers(prev => prev.map(u => u.id === updatedUserData.id ? updatedUserData : u))
-        setFilteredUsers(prev => prev.map(u => u.id === updatedUserData.id ? updatedUserData : u))
-        setIsEditModalOpen(false)
-        setSelectedUser(null)
-        alert('User updated successfully!')
-      } else {
-        console.error('Failed to update user:', response.error)
-        alert(`Failed to update user: ${response.error}`)
-      }
-    } catch (error) {
-      console.error('Error updating user:', error)
-      alert('An error occurred while updating the user. Please try again.')
-    }
-  }
-
-  const handleExportUsers = () => {
-    console.log('Exporting users...')
-    // Create CSV export
-    const csvContent = [
-      ['ID', 'Name', 'Email', 'Role', 'Status', 'Subscription', 'Join Date', 'Last Login'].join(','),
-      ...filteredUsers.map(user => [
-        user.id,
-        user.name,
-        user.email,
-        user.role,
-        user.status,
-        user.subscription,
-        user.joinDate,
-        user.lastLogin
-      ].join(','))
-    ].join('\n')
-
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `users-${new Date().toISOString().split('T')[0]}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    window.URL.revokeObjectURL(url)
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'active': return <CheckCircle className="h-4 w-4 text-green-500" />
-      case 'inactive': return <XCircle className="h-4 w-4 text-gray-500" />
-      case 'suspended': return <AlertTriangle className="h-4 w-4 text-red-500" />
-      case 'pending': return <Clock className="h-4 w-4 text-yellow-500" />
-      default: return <Clock className="h-4 w-4 text-gray-500" />
-    }
-  }
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active': return <Badge className="bg-green-100 text-green-800">Active</Badge>
-      case 'inactive': return <Badge className="bg-gray-100 text-gray-800">Inactive</Badge>
-      case 'suspended': return <Badge className="bg-red-100 text-red-800">Suspended</Badge>
-      case 'pending': return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
-      default: return <Badge className="bg-gray-100 text-gray-800">{status}</Badge>
-    }
-  }
-
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'admin': return <Crown className="h-4 w-4 text-purple-500" />
-      case 'premium': return <UserCheck className="h-4 w-4 text-blue-500" />
-      case 'user': return <Users className="h-4 w-4 text-gray-500" />
-      case 'trial': return <Clock className="h-4 w-4 text-yellow-500" />
-      default: return <Users className="h-4 w-4 text-gray-500" />
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p>Loading users...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-4" />
-          <p className="text-red-600 font-medium">Error loading users</p>
-          <p className="text-sm text-gray-500 mt-2">{error}</p>
-          <Button onClick={loadUsers} className="mt-4">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Try Again
-          </Button>
-        </div>
-      </div>
-    )
-  }
+  if(loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"/>
+    </div>
+  )
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">User Management</h1>
-          <p className="text-gray-600">Manage user accounts, roles, and permissions</p>
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">All Users</h1>
+        <p className="text-gray-500 text-sm mt-1">Single source of truth — every registered user</p>
+      </div>
+
+      {/* Stats */}
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+          {[
+            { label: 'Total', value: stats.total, color: 'border-gray-200' },
+            { label: 'Credit Repair', value: stats.creditRepairOnly, color: 'border-green-300' },
+            { label: 'MLM Only', value: stats.mlmOnly, color: 'border-blue-300' },
+            { label: 'CR + MLM', value: stats.both, color: 'border-purple-300' },
+            { label: 'Active Subs', value: stats.activeSubscriptions, color: 'border-yellow-300' },
+          ].map(s => (
+            <div key={s.label} className={`bg-white rounded-xl border-2 ${s.color} p-4 text-center`}>
+              <div className="text-2xl font-bold text-gray-900">{s.value}</div>
+              <div className="text-xs text-gray-500 mt-1">{s.label}</div>
+            </div>
+          ))}
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={loadUsers}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-          <Button variant="outline" onClick={handleExportUsers}>
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Button onClick={handleCreateUser}>
-            <UserPlus className="h-4 w-4 mr-2" />
-            Add User
-          </Button>
+      )}
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <input
+          value={search} onChange={e=>setSearch(e.target.value)}
+          placeholder="Search name, email or MLM code..."
+          className="flex-1 min-w-48 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+        />
+        <div className="flex gap-1">
+          {['all','credit_repair','mlm','both','admin'].map(f => (
+            <button key={f} onClick={()=>setFilter(f)}
+              className={`px-3 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${filter===f?'bg-gray-900 text-white':'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+              {f==='all'?'All':f==='credit_repair'?'Credit Repair':f==='both'?'CR + MLM':f}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Users</p>
-                <p className="text-2xl font-bold">{statusCounts.all}</p>
-              </div>
-              <Users className="h-8 w-8 text-blue-500" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Active</p>
-                <p className="text-2xl font-bold text-green-600">{statusCounts.active}</p>
-              </div>
-              <UserCheck className="h-8 w-8 text-green-500" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Inactive</p>
-                <p className="text-2xl font-bold text-gray-600">{statusCounts.inactive}</p>
-              </div>
-              <UserX className="h-8 w-8 text-gray-500" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Suspended</p>
-                <p className="text-2xl font-bold text-red-600">{statusCounts.suspended}</p>
-              </div>
-              <AlertTriangle className="h-8 w-8 text-red-500" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-yellow-600">{statusCounts.pending}</p>
-              </div>
-              <Clock className="h-8 w-8 text-yellow-500" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters and Search */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Search users..."
-                  value={filters.search}
-                  onChange={(e) => setFilters({...filters, search: e.target.value})}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <select
-                className="px-3 py-2 border rounded-md"
-                value={filters.status}
-                onChange={(e) => setFilters({...filters, status: e.target.value})}
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="suspended">Suspended</option>
-                <option value="pending">Pending</option>
-              </select>
-              <select
-                className="px-3 py-2 border rounded-md"
-                value={filters.role}
-                onChange={(e) => setFilters({...filters, role: e.target.value})}
-              >
-                <option value="all">All Roles</option>
-                <option value="admin">Admin</option>
-                <option value="premium">Premium</option>
-                <option value="user">User</option>
-                <option value="trial">Trial</option>
-              </select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Users Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Users ({filteredUsers.length})</CardTitle>
-          <CardDescription>
-            Manage user accounts and permissions
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-3">User</th>
-                  <th className="text-left p-3">Role</th>
-                  <th className="text-left p-3">Status</th>
-                  <th className="text-left p-3">Subscription</th>
-                  <th className="text-left p-3">Join Date</th>
-                  <th className="text-left p-3">Last Login</th>
-                  <th className="text-left p-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                          {user.name.charAt(0).toUpperCase()}
+      {/* Table */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                {['User','Type','Subscription','MLM','Team','Joined'].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filtered.length === 0 ? (
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-sm">No users found</td></tr>
+              ) : filtered.map(u => {
+                const tc = TYPE_CONFIG[u.userType as keyof typeof TYPE_CONFIG] || TYPE_CONFIG.credit_repair
+                return (
+                  <tr key={u.id} onClick={()=>setSelected(u===selected?null:u)}
+                    className="hover:bg-gray-50 cursor-pointer transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                          {u.name?.charAt(0)?.toUpperCase()||'?'}
                         </div>
                         <div>
-                          <p className="font-medium">{user.name}</p>
-                          <p className="text-sm text-gray-500">{user.email}</p>
+                          <div className="font-medium text-sm text-gray-900">{u.name}</div>
+                          <div className="text-xs text-gray-400">{u.email}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="p-3">
-                      <div className="flex items-center space-x-2">
-                        {getRoleIcon(user.role)}
-                        <span className="capitalize">{user.role}</span>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${tc.color}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${tc.dot}`}/>
+                        {tc.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-1">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${SUB_CONFIG[u.subscriptionTier]||'bg-gray-100 text-gray-500'}`}>
+                          {u.subscriptionTier}
+                        </span>
+                        <span className={`text-xs ${u.subscriptionStatus==='active'?'text-green-600':'text-gray-400'}`}>
+                          {u.subscriptionStatus}
+                        </span>
                       </div>
                     </td>
-                    <td className="p-3">
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(user.status)}
-                        {getStatusBadge(user.status)}
-                      </div>
+                    <td className="px-4 py-3">
+                      {u.mlm ? (
+                        <div>
+                          <div className="text-xs font-mono text-gray-700">{u.mlm.mlmCode}</div>
+                          <div className="text-xs text-gray-400 capitalize">{u.mlm.rank}</div>
+                        </div>
+                      ) : <span className="text-xs text-gray-300">—</span>}
                     </td>
-                    <td className="p-3">
-                      <span className="text-sm">{user.subscription}</span>
+                    <td className="px-4 py-3">
+                      {u.mlm?.teamName
+                        ? <div>
+                            <div className="text-xs font-medium text-gray-700">{u.mlm.teamName}</div>
+                            <div className="text-xs text-gray-400">{u.mlm.teamCode}</div>
+                          </div>
+                        : <span className="text-xs text-gray-300">—</span>}
                     </td>
-                    <td className="p-3">
-                      <span className="text-sm">{user.joinDate}</span>
-                    </td>
-                    <td className="p-3">
-                      <span className="text-sm">{user.lastLogin}</span>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleViewUser(user)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditUser(user)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEmailUser(user)}
-                        >
-                          <Mail className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteUser(user)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                    <td className="px-4 py-3 text-xs text-gray-400">
+                      {new Date(u.createdAt).toLocaleDateString()}
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-      {/* Modals */}
-      <CreateUserModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onUserCreated={handleUserCreated}
-      />
+      {/* Detail Panel */}
+      {selected && (
+        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-4" onClick={()=>setSelected(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6" onClick={e=>e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+                  {selected.name?.charAt(0)?.toUpperCase()||'?'}
+                </div>
+                <div>
+                  <h2 className="font-bold text-gray-900">{selected.name}</h2>
+                  <p className="text-sm text-gray-500">{selected.email}</p>
+                </div>
+              </div>
+              <button onClick={()=>setSelected(null)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+            </div>
 
-      <UserDetailsModal
-        isOpen={isDetailsModalOpen}
-        onClose={() => setIsDetailsModalOpen(false)}
-        user={selectedUser}
-        onEdit={handleEditUser}
-        onEmail={handleEmailUser}
-        onDelete={handleDeleteUser}
-      />
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-500 mb-1">User Type</div>
+                  <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_CONFIG[selected.userType as keyof typeof TYPE_CONFIG]?.color||''}`}>
+                    {TYPE_CONFIG[selected.userType as keyof typeof TYPE_CONFIG]?.label||selected.userType}
+                  </div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-500 mb-1">Role</div>
+                  <div className="text-sm font-medium capitalize">{selected.role}</div>
+                </div>
+              </div>
 
-      <UserEditModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        user={selectedUser}
-        onUserUpdated={handleUserUpdated}
-      />
+              <div className="bg-gray-50 rounded-lg p-3">
+                <div className="text-xs text-gray-500 mb-2">Credit Repair Subscription</div>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${SUB_CONFIG[selected.subscriptionTier]||'bg-gray-100 text-gray-500'}`}>{selected.subscriptionTier}</span>
+                  <span className={`text-xs ${selected.subscriptionStatus==='active'?'text-green-600 font-medium':'text-gray-400'}`}>{selected.subscriptionStatus}</span>
+                </div>
+              </div>
 
-      <UserEmailModal
-        isOpen={isEmailModalOpen}
-        onClose={() => setIsEmailModalOpen(false)}
-        user={selectedUser}
-      />
+              {selected.mlm && (
+                <div className="bg-blue-50 rounded-lg p-3">
+                  <div className="text-xs text-blue-600 font-semibold mb-2">MLM Account</div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div><span className="text-gray-500 text-xs">Code: </span><span className="font-mono font-medium">{selected.mlm.mlmCode}</span></div>
+                    <div><span className="text-gray-500 text-xs">Rank: </span><span className="capitalize">{selected.mlm.rank}</span></div>
+                    <div><span className="text-gray-500 text-xs">Team: </span><span>{selected.mlm.teamName||'—'}</span></div>
+                    <div><span className="text-gray-500 text-xs">Status: </span><span className="capitalize">{selected.mlm.status}</span></div>
+                    <div><span className="text-gray-500 text-xs">Monthly: </span><span className="font-medium">${selected.mlm.monthlyEarnings.toLocaleString()}</span></div>
+                    <div><span className="text-gray-500 text-xs">Lifetime: </span><span className="font-medium">${selected.mlm.totalEarnings.toLocaleString()}</span></div>
+                  </div>
+                </div>
+              )}
 
-      {/* Delete Confirmation Modal */}
-      {isDeleteModalOpen && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Delete User</h2>
-            <p className="mb-4">
-              Are you sure you want to delete <strong>{selectedUser.name}</strong>?
-              This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button variant="destructive" onClick={handleDeleteUserConfirm}>
-                Delete
-              </Button>
+              <div className="text-xs text-gray-400 text-right">
+                Joined {new Date(selected.createdAt).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}
+              </div>
             </div>
           </div>
         </div>
