@@ -2,9 +2,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
-interface Member { id:string; userId:string; email:string; name:string; rank:string; status:string; totalEarnings:number; monthlyEarnings:number; joinDate:string }
+interface Member { id:string; userId:string; email:string; name:string; rank:string; status:string; totalEarnings:number; monthlyEarnings:number; joinDate:string; subscriptionTier?:string; subscriptionStatus?:string; canCreateTeam?:boolean }
 interface Team { id:string; name:string; teamCode:string; status:string; plan:string; createdAt:string; memberCount:number; activeMembers:number; channelCount:number; messageCount:number; totalPaid:number; totalPending:number; members:Member[]; channels:{id:string;name:string}[] }
-interface Global { totalTeams:number; totalMembers:number; activeMembers:number; totalEarningsPaid:number; rankBreakdown:Record<string,number> }
+interface Global { totalTeams:number; totalMembers:number; activeMembers:number; totalEarningsPaid:number; rankBreakdown:Record<string,number>; subscriptionBreakdown?:Record<string,number>; canCreateTeamCount?:number }
 
 const RANK_COLORS:Record<string,string> = { associate:'bg-gray-100 text-gray-700', consultant:'bg-blue-100 text-blue-700', manager:'bg-green-100 text-green-700', director:'bg-purple-100 text-purple-700', executive:'bg-orange-100 text-orange-700', presidential:'bg-yellow-100 text-yellow-800' }
 
@@ -91,6 +91,30 @@ export default function AdminMLMPage() {
             </div>
           ))}
         </div>
+      </div>
+      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-gray-900">Subscription Breakdown</h2>
+          <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+            {data.global.canCreateTeamCount||0} can create teams
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(data.global.subscriptionBreakdown||{}).sort((a:any,b:any)=>b[1]-a[1]).map(([tier,count])=>(
+            <div key={tier} className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 ${
+              tier==='premium'?'bg-yellow-100 text-yellow-800':
+              tier==='enterprise'?'bg-green-100 text-green-700':
+              tier==='professional'?'bg-purple-100 text-purple-700':
+              tier==='basic'?'bg-blue-100 text-blue-700':
+              'bg-gray-100 text-gray-500'
+            }`}>
+              <span className="capitalize">{tier}</span>
+              <span className="font-bold">{count as number}</span>
+              {(tier==='premium'||tier==='enterprise')&&<span title="Can create teams">🏢</span>}
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-gray-400 mt-3">🏢 = Can create their own team (Premium/Enterprise only)</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -181,6 +205,13 @@ export default function AdminMLMPage() {
                                 <div className="text-xs text-gray-400">lifetime</div>
                               </div>
                               <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${RANK_COLORS[m.rank]||'bg-gray-100 text-gray-700'}`}>{m.rank}</span>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                m.subscriptionTier==='premium'?'bg-yellow-100 text-yellow-800':
+                                m.subscriptionTier==='enterprise'?'bg-green-100 text-green-700':
+                                m.subscriptionTier==='professional'?'bg-purple-100 text-purple-700':
+                                m.subscriptionTier==='basic'?'bg-blue-100 text-blue-700':
+                                'bg-gray-100 text-gray-400'
+                              }`}>{m.subscriptionTier||'free'}{m.canCreateTeam?' 🏢':''}</span>
                               <span className={`px-2 py-1 rounded-full text-xs ${m.status==='active'?'bg-green-100 text-green-700':'bg-gray-100 text-gray-500'}`}>{m.status}</span>
                             </div>
                           </div>
