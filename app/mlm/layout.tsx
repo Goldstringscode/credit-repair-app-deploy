@@ -21,7 +21,8 @@ import {
   LogOut,
   Crown,
   Bell,
-, Shield } from "lucide-react"
+  Shield
+} from "lucide-react"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { MLMNotificationProvider } from "@/lib/mlm-notification-context"
 import { MLMNotificationBadge } from "@/components/mlm-notification-badge"
