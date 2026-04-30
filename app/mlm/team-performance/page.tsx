@@ -66,7 +66,7 @@ const performanceData: PerformanceData[] = []
 const teamPerformance: TeamMemberPerformance[] = []
 
 const RANK_COLORS_MAP: Record<string,string> = { associate:"#94A3B8", consultant:"#10B981", manager:"#3B82F6", director:"#8B5CF6", executive:"#F59E0B", presidential:"#EAB308" }
-const rankDistribution = rankDist.length > 0 ? rankDist.map(r => ({ name: r.label||r.rank, value: r.count, color: RANK_COLORS_MAP[r.rank]||"#94A3B8" })) : []
+const rankDistribution: {name:string;value:number;color:string}[] = []
 
 export default function TeamPerformancePage() {
   const [selectedPeriod, setSelectedPeriod] = useState("6months")
@@ -151,6 +151,10 @@ export default function TeamPerformancePage() {
   const currentData = displayPerformanceData[displayPerformanceData.length - 1]
   const previousData = displayPerformanceData[displayPerformanceData.length - 2]
 
+  // Compute rank distribution from real API data
+  const rankDistribution = rankDist.length > 0
+    ? rankDist.map((r: any) => ({ name: r.label||r.rank, value: r.count, color: RANK_COLORS_MAP[r.rank]||"#94A3B8" }))
+    : []
   // Computed from real API data
   const computedPerformanceData: PerformanceData[] = monthlyEarnings.map((m: any) => ({
     month: m.month ? new Date(m.month+'-01').toLocaleString('default',{month:'short'}) : '',
