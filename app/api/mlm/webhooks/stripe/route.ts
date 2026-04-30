@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' })
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' })
+const getSupabase = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 const RANK_COMMISSION_RATES: Record<string, number> = {
   associate: 0.30, consultant: 0.35, manager: 0.40,
@@ -20,7 +20,7 @@ async function isEventAlreadyProcessed(stripeEventId: string): Promise<boolean> 
 }
 
 async function markEventProcessed(stripeEventId: string, eventType: string, meta: object) {
-  await supabase.from('mlm_processed_webhook_events').insert({
+  await getSupabase().from('mlm_processed_webhook_events').insert({
     stripe_event_id: stripeEventId, event_type: eventType,
     processed_at: new Date().toISOString(), meta,
   })
@@ -40,7 +40,7 @@ async function processCommissions(stripeEventId: string, userId: string, amountC
   while (currentSponsorId && depth < MAX_UNILEVEL_DEPTH) {
     if (visited.has(currentSponsorId)) {
       console.error(`[MLM] Cycle detected at sponsor ${currentSponsorId}`)
-      await supabase.from('mlm_audit_log').insert({
+      await getSupabase().from('mlm_audit_log').insert({
         event_type: 'cycle_detected', user_id: userId,
         sponsor_id: currentSponsorId, stripe_event_id: stripeEventId,
         detected_at: new Date().toISOString(),
@@ -64,13 +64,13 @@ async function processCommissions(stripeEventId: string, userId: string, amountC
     const baseRate = depth === 0 ? rankRate : rankRate * levelRate
     let bonusRate = 0
     if (commissionType === 'fast_start' && depth === 0) {
-      const { data: jr } = await supabase.from('mlm_users').select('created_at').eq('id', mlmUser.id).maybeSingle()
+      const { data: jr } = await getSupabase().from('mlm_users').select('created_at').eq('id', mlmUser.id).maybeSingle()
       if (jr && (Date.now() - new Date(jr.created_at).getTime()) / 86400000 <= 30) bonusRate = 0.10
     }
 
     const commissionAmount = parseFloat((amountDollars * (baseRate + bonusRate)).toFixed(2))
 
-    await supabase.from('mlm_commissions').insert({
+    await getSupabase().from('mlm_commissions').insert({
       recipient_user_id: sponsor.user_id, recipient_mlm_id: sponsor.id,
       source_user_id: userId, stripe_event_id: stripeEventId,
       commission_type: depth === 0 ? commissionType : 'unilevel',
@@ -81,7 +81,7 @@ async function processCommissions(stripeEventId: string, userId: string, amountC
       created_at: new Date().toISOString(),
     })
 
-    await supabase.rpc('increment_mlm_pending_earnings', { p_mlm_user_id: sponsor.id, p_amount: commissionAmount })
+    await getSupabase().rpc('increment_mlm_pending_earnings', { p_mlm_user_id: sponsor.id, p_amount: commissionAmount })
     currentSponsorId = sponsor.sponsor_id
     depth++
   }
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
 
   let event: Stripe.Event
   try {
-    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!)
+    event = getStripe().webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!)
   } catch (err: any) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice
-        const { data: mlmUser } = await supabase.from('mlm_users')
+        const { data: mlmUser } = await getSupabase().from('mlm_users')
           .select('user_id, created_at').eq('stripe_customer_id', invoice.customer as string).maybeSingle()
         if (mlmUser) {
           const days = (Date.now() - new Date(mlmUser.created_at).getTime()) / 86400000
@@ -118,10 +118,10 @@ export async function POST(req: NextRequest) {
       }
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice
-        const { data: mlmUser } = await supabase.from('mlm_users')
+        const { data: mlmUser } = await getSupabase().from('mlm_users')
           .select('user_id').eq('stripe_customer_id', invoice.customer as string).maybeSingle()
         if (mlmUser) {
-          await supabase.from('mlm_commissions')
+          await getSupabase().from('mlm_commissions')
             .update({ status: 'voided', voided_at: new Date().toISOString() })
             .eq('source_user_id', mlmUser.user_id).eq('status', 'pending')
             .gte('created_at', new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString())
@@ -130,13 +130,13 @@ export async function POST(req: NextRequest) {
       }
       case 'customer.subscription.deleted': {
         const sub = event.data.object as Stripe.Subscription
-        await supabase.from('mlm_users').update({ subscription_status: 'cancelled', updated_at: new Date().toISOString() })
+        await getSupabase().from('mlm_users').update({ subscription_status: 'cancelled', updated_at: new Date().toISOString() })
           .eq('stripe_customer_id', sub.customer as string)
         break
       }
       case 'customer.subscription.updated': {
         const sub = event.data.object as Stripe.Subscription
-        await supabase.from('mlm_users').update({ subscription_status: sub.status, stripe_subscription_id: sub.id, updated_at: new Date().toISOString() })
+        await getSupabase().from('mlm_users').update({ subscription_status: sub.status, stripe_subscription_id: sub.id, updated_at: new Date().toISOString() })
           .eq('stripe_customer_id', sub.customer as string)
         break
       }
