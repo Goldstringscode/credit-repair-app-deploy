@@ -61,7 +61,7 @@ interface TeamMemberPerformance {
   monthlyGrowth: number
 }
 
-const performanceData: PerformanceData[] = monthlyEarnings.map(m => ({
+const performanceData: PerformanceData[] = []manceData: PerformanceData[] = monthlyEarnings.map(m => ({
   month: m.month ? new Date(m.month+'-01').toLocaleString('default',{month:'short'}) : '',
   teamSize: stats?.totalMembers || 0,
   activeMembers: stats?.activeMembers || 0,
@@ -156,8 +156,21 @@ export default function TeamPerformancePage() {
     }
   }
 
-  const currentData = performanceData[performanceData.length - 1]
-  const previousData = performanceData[performanceData.length - 2]
+  const currentData = displayPerformanceData[displayPerformanceData.length - 1]
+  const previousData = displayPerformanceData[displayPerformanceData.length - 2]
+
+  // Computed from real API data
+  const computedPerformanceData: PerformanceData[] = monthlyEarnings.map((m: any) => ({
+    month: m.month ? new Date(m.month+'-01').toLocaleString('default',{month:'short'}) : '',
+    teamSize: stats?.totalMembers || 0,
+    activeMembers: stats?.activeMembers || 0,
+    newJoins: 0,
+    volume: stats?.teamVolume || 0,
+    earnings: m.amount || 0,
+    retention: stats?.activeMembers && stats?.totalMembers
+      ? Math.round((stats.activeMembers/stats.totalMembers)*100) : 0,
+  }))
+  const displayPerformanceData = computedPerformanceData.length > 0 ? computedPerformanceData : displayPerformanceData
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -275,7 +288,7 @@ export default function TeamPerformancePage() {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={performanceData}>
+                  <AreaChart data={displayPerformanceData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis />
@@ -343,7 +356,7 @@ export default function TeamPerformancePage() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={performanceData}>
+                <BarChart data={displayPerformanceData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
                   <YAxis yAxisId="left" />
@@ -460,7 +473,7 @@ export default function TeamPerformancePage() {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={performanceData}>
+                  <LineChart data={displayPerformanceData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis domain={[80, 100]} />
@@ -478,7 +491,7 @@ export default function TeamPerformancePage() {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={performanceData}>
+                  <BarChart data={displayPerformanceData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis />
