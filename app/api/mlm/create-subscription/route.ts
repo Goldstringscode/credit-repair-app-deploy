@@ -3,7 +3,7 @@ import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' })
+const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' })
 const getSupabase = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 const MLM_PLANS: Record<string, { priceId: string; name: string; commissionRate: number }> = {
@@ -91,14 +91,14 @@ export async function POST(req: NextRequest) {
     if (profile?.stripe_customer_id) {
       stripeCustomerId = profile.stripe_customer_id
     } else {
-      const customer = await stripe.customers.create({ email: user.email, metadata: { supabase_user_id: user.id } })
+      const customer = await getStripe().customers.create({ email: user.email, metadata: { supabase_user_id: user.id } })
       stripeCustomerId = customer.id
     }
 
-    await stripe.paymentMethods.attach(paymentMethodId, { customer: stripeCustomerId })
-    await stripe.customers.update(stripeCustomerId, { invoice_settings: { default_payment_method: paymentMethodId } })
+    await getStripe().paymentMethods.attach(paymentMethodId, { customer: stripeCustomerId })
+    await getStripe().customers.update(stripeCustomerId, { invoice_settings: { default_payment_method: paymentMethodId } })
 
-    const subscription = await stripe.subscriptions.create({
+    const subscription = await getStripe().subscriptions.create({
       customer: stripeCustomerId,
       items: [{ price: plan.priceId }],
       payment_settings: { payment_method_types: ['card'], save_default_payment_method: 'on_subscription' },
