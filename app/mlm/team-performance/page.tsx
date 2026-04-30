@@ -151,10 +151,6 @@ export default function TeamPerformancePage() {
   const currentData = displayPerformanceData[displayPerformanceData.length - 1]
   const previousData = displayPerformanceData[displayPerformanceData.length - 2]
 
-  // Compute rank distribution from real API data
-  const rankDistribution = rankDist.length > 0
-    ? rankDist.map((r: any) => ({ name: r.label||r.rank, value: r.count, color: RANK_COLORS_MAP[r.rank]||"#94A3B8" }))
-    : []
   // Computed from real API data
   const computedPerformanceData: PerformanceData[] = monthlyEarnings.map((m: any) => ({
     month: m.month ? new Date(m.month+'-01').toLocaleString('default',{month:'short'}) : '',
