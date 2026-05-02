@@ -1,29 +1,25 @@
-"use client"
+import { useState, useEffect, useCallback } from 'react'
 
-import { useState, useEffect, useCallback, useRef } from "react"
-import { useAuth } from "./use-auth-simple"
-
-export interface TeamMember {
+interface GenealogyMember {
   id: string
+  userId: string
   name: string
   email: string
-  phone: string
-  location: string
   rank: string
-  level: number
-  sponsor: string
+  status: string
+  mlmCode: string
   joinDate: string
-  status: "active" | "inactive" | "suspended"
+  depth: number
+  totalEarnings: number
+  monthlyEarnings: number
   personalVolume: number
   teamVolume: number
-  directReferrals: number
-  totalDownlines: number
-  monthlyEarnings: number
-  lifetimeEarnings: number
-  children?: TeamMember[]
+  children?: GenealogyMember[]
+  directDownlines?: number
+  totalDownlines?: number
 }
 
-export interface GenealogyStats {
+interface GenealogyStats {
   totalMembers: number
   activeMembers: number
   newThisWeek: number
@@ -33,313 +29,159 @@ export interface GenealogyStats {
   averageDepth: number
 }
 
-export interface GenealogyFilters {
+interface GenealogyFilters {
   searchTerm: string
   filterRank: string
   filterStatus: string
-  depth: number
 }
 
+// Flatten a nested tree into a flat array for list view
+function flattenTree(node: any, depth = 0): GenealogyMember[] {
+  if (!node) return []
+  const member: GenealogyMember = {
+    id: node.mlmId || node.id,
+    userId: node.userId,
+    name: node.name || node.email || 'Unknown',
+    email: node.email || '',
+    rank: node.rank || 'associate',
+    status: node.status || 'active',
+    mlmCode: node.mlmCode || '',
+    joinDate: node.joinDate || node.join_date || '',
+    depth,
+    totalEarnings: Number(node.totalEarnings || node.total_earnings) || 0,
+    monthlyEarnings: Number(node.monthlyEarnings || node.current_month_earnings) || 0,
+    personalVolume: Number(node.personalVolume || node.personal_volume) || 0,
+    teamVolume: Number(node.teamVolume || node.team_volume) || 0,
+    children: node.children || [],
+    directDownlines: node.directDownlines || node.children?.length || 0,
+    totalDownlines: node.totalDownlines || 0,
+  }
+  const result = [member]
+  if (node.children?.length) {
+    for (const child of node.children) {
+      result.push(...flattenTree(child, depth + 1))
+    }
+  }
+  return result
+}
+
+export type { GenealogyMember as TeamMember }
 export function useGenealogy() {
-  const { user } = useAuth()
-  const [teamData, setTeamData] = useState<TeamMember[]>([])
-  const [stats, setStats] = useState<GenealogyStats>({
-    totalMembers: 0,
-    activeMembers: 0,
-    newThisWeek: 0,
-    totalVolume: 0,
-    averageMonthlyEarnings: 0,
-    maxDepth: 0,
-    averageDepth: 0
-  })
+  const [rawData, setRawData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<GenealogyFilters>({
-    searchTerm: "",
-    filterRank: "all",
-    filterStatus: "all",
-    depth: 5
+    searchTerm: '',
+    filterRank: 'all',
+    filterStatus: 'all',
   })
-  const fetchingRef = useRef(false)
 
-  // Fetch team genealogy data
-  const fetchGenealogy = useCallback(async (userId?: string, depth?: number) => {
-    if (fetchingRef.current) {
-      console.log('fetchGenealogy: Already fetching, skipping...')
-      return
-    }
-
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    setError(null)
     try {
-      fetchingRef.current = true
-      setLoading(true)
-      setError(null)
-
-      const targetUserId = userId || user?.id || 'demo-user-123'
-      if (!targetUserId) {
-        throw new Error("User ID is required")
-      }
-
-      console.log('fetchGenealogy: Fetching data for user:', targetUserId)
-
-      const response = await fetch(
-        `/api/mlm/genealogy?userId=${targetUserId}&depth=${depth || 5}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      )
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch genealogy: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      
-      if (!data.success) {
-        throw new Error(data.error || "Failed to fetch genealogy data")
-      }
-
-      // Transform API data to component format
-      const transformedData = transformApiDataToTeamMembers(data.data.tree)
-      setTeamData(transformedData)
-      
-      // Update stats
-      setStats({
-        totalMembers: data.data.stats.totalMembers,
-        activeMembers: data.data.stats.activeMembers,
-        newThisWeek: 0, // Would need separate API call
-        totalVolume: data.data.stats.totalVolume,
-        averageMonthlyEarnings: data.data.stats.totalEarnings / Math.max(data.data.stats.totalMembers, 1),
-        maxDepth: data.data.stats.maxDepth,
-        averageDepth: data.data.stats.averageDepth
-      })
-    } catch (err) {
-      console.error("Error fetching genealogy:", err)
-      setError(err instanceof Error ? err.message : "Failed to fetch team data")
+      const res = await fetch('/api/mlm/genealogy')
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to load genealogy')
+      setRawData(data)
+    } catch (e: any) {
+      setError(e.message || 'Failed to load team data')
     } finally {
       setLoading(false)
-      fetchingRef.current = false
     }
-  }, [user?.id])
+  }, [])
 
-  // Transform API data to TeamMember format
-  const transformApiDataToTeamMembers = (apiData: any): TeamMember[] => {
-    if (!apiData || !apiData.children) return []
+  useEffect(() => { fetchData() }, [fetchData])
 
-    return apiData.children.map((child: any) => ({
-      id: child.id,
-      name: child.name || "Unknown User",
-      email: child.email || "",
-      phone: "", // Would need to fetch from user profile
-      location: "", // Would need to fetch from user profile
-      rank: child.rank || "Associate",
-      level: child.level || 1,
-      sponsor: "You", // Would need to get actual sponsor name
-      joinDate: child.joinDate || new Date().toISOString(),
-      status: child.status || "active",
-      personalVolume: child.volume || 0,
-      teamVolume: 0, // Would need to calculate from children
-      directReferrals: 0, // Would need to count direct children
-      totalDownlines: 0, // Would need to count all descendants
-      monthlyEarnings: child.earnings || 0,
-      lifetimeEarnings: 0, // Would need to fetch from user data
-      children: child.children ? transformApiDataToTeamMembers({ children: child.children }) : []
-    }))
+  // Flatten tree into member list
+  const allMembers: GenealogyMember[] = rawData?.tree ? flattenTree(rawData.tree) : []
+
+  // Apply filters
+  const teamData = allMembers.filter(m => {
+    const search = filters.searchTerm.toLowerCase()
+    const matchSearch = !search ||
+      m.name.toLowerCase().includes(search) ||
+      m.email.toLowerCase().includes(search) ||
+      m.mlmCode.toLowerCase().includes(search) ||
+      m.rank.toLowerCase().includes(search)
+    const matchRank = filters.filterRank === 'all' || m.rank === filters.filterRank
+    const matchStatus = filters.filterStatus === 'all' || m.status === filters.filterStatus
+    return matchSearch && matchRank && matchStatus
+  })
+
+  // Compute stats from raw data
+  const apiStats = rawData?.stats || {}
+  const depths = allMembers.map(m => m.depth)
+  const stats: GenealogyStats = {
+    totalMembers: apiStats.total ?? allMembers.length,
+    activeMembers: apiStats.active ?? allMembers.filter(m => m.status === 'active').length,
+    newThisWeek: allMembers.filter(m => {
+      if (!m.joinDate) return false
+      const joined = new Date(m.joinDate)
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+      return joined >= weekAgo
+    }).length,
+    totalVolume: allMembers.reduce((s, m) => s + m.personalVolume, 0),
+    averageMonthlyEarnings: allMembers.length
+      ? Math.round(allMembers.reduce((s, m) => s + m.monthlyEarnings, 0) / allMembers.length)
+      : 0,
+    maxDepth: depths.length ? Math.max(...depths) : 0,
+    averageDepth: depths.length ? Math.round(depths.reduce((a, b) => a + b, 0) / depths.length) : 0,
   }
 
-  // Apply filters to team data
-  const filteredTeamData = teamData.filter((member) => {
-    const matchesSearch =
-      member.name.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
-      member.email.toLowerCase().includes(filters.searchTerm.toLowerCase())
-    const matchesRank = filters.filterRank === "all" || member.rank.toLowerCase() === filters.filterRank.toLowerCase()
-    const matchesStatus = filters.filterStatus === "all" || member.status === filters.filterStatus
-    return matchesSearch && matchesRank && matchesStatus
-  })
-
-  // Update filters
-  const updateFilters = useCallback((newFilters: Partial<GenealogyFilters>) => {
+  const updateFilters = (newFilters: Partial<GenealogyFilters>) => {
     setFilters(prev => ({ ...prev, ...newFilters }))
-  }, [])
+  }
 
-  // Refresh data
-  const refreshData = useCallback(() => {
-    if (user?.id) {
-      fetchGenealogy(user.id, 5) // Use default depth
-    }
-  }, [user?.id])
+  const refreshData = () => fetchData()
 
-  // Search team members
-  const searchMembers = useCallback(async (searchTerm: string) => {
+  const searchMembers = (term: string) => {
+    setFilters(prev => ({ ...prev, searchTerm: term }))
+    return teamData.filter(m =>
+      m.name.toLowerCase().includes(term.toLowerCase()) ||
+      m.email.toLowerCase().includes(term.toLowerCase())
+    )
+  }
+
+  const exportTeamData = () => {
+    const csv = [
+      ['Name', 'Email', 'MLM Code', 'Rank', 'Status', 'Depth', 'Monthly Earnings', 'Total Earnings', 'Join Date'].join(','),
+      ...teamData.map(m => [
+        m.name, m.email, m.mlmCode, m.rank, m.status, m.depth,
+        m.monthlyEarnings, m.totalEarnings, m.joinDate
+      ].join(','))
+    ].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'team-genealogy.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const inviteMember = async (email: string, name: string) => {
     try {
-      setLoading(true)
-      setError(null)
-
-      const response = await fetch(
-        `/api/mlm/genealogy/search?q=${encodeURIComponent(searchTerm)}&userId=${user?.id}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      )
-
-      if (!response.ok) {
-        throw new Error(`Search failed: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      
-      if (!data.success) {
-        throw new Error(data.error || "Search failed")
-      }
-
-      const transformedData = transformApiDataToTeamMembers({ children: data.data })
-      setTeamData(transformedData)
-    } catch (err) {
-      console.error("Error searching members:", err)
-      setError(err instanceof Error ? err.message : "Search failed")
-    } finally {
-      setLoading(false)
-    }
-  }, [user?.id])
-
-  // Export team data
-  const exportTeamData = useCallback(async (format: 'csv' | 'excel' | 'pdf') => {
-    try {
-      const response = await fetch(
-        `/api/mlm/genealogy/export?format=${format}&userId=${user?.id}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      )
-
-      if (!response.ok) {
-        throw new Error(`Export failed: ${response.statusText}`)
-      }
-
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `team-genealogy.${format}`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-    } catch (err) {
-      console.error("Error exporting data:", err)
-      setError(err instanceof Error ? err.message : "Export failed")
-    }
-  }, [user?.id])
-
-  // Invite new member
-  const inviteMember = useCallback(async (email: string, name: string) => {
-    try {
-      const response = await fetch('/api/mlm/invite', {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          name,
-          sponsorId: user?.id
-        })
+      const res = await fetch('/api/mlm/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name }),
       })
-
-      if (!response.ok) {
-        throw new Error(`Invite failed: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      
-      if (!data.success) {
-        throw new Error(data.error || "Invite failed")
-      }
-
-      // Refresh data to show new member
-      if (user?.id) {
-        await fetchGenealogy(user.id, 5)
-      }
-
-      // Send client-side notification
-      try {
-        const { mlmNotificationService } = await import('@/lib/mlm-notification-service')
-        const notificationService = mlmNotificationService.getInstance()
-        notificationService.sendInvitationSentNotification(email, 'DEMO123')
-      } catch (notificationError) {
-        console.log('Client-side notification error:', notificationError)
-        // Don't fail the invite if notification fails
-      }
-      
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error || 'Invite failed')
       return data
-    } catch (err) {
-      console.error("Error inviting member:", err)
-      setError(err instanceof Error ? err.message : "Invite failed")
-      throw err
+    } catch (e: any) {
+      throw new Error(e.message || 'Failed to send invite')
     }
-  }, [user?.id, fetchGenealogy])
+  }
 
-  // Get member details
-  const getMemberDetails = useCallback(async (memberId: string) => {
-    try {
-      const response = await fetch(
-        `/api/mlm/genealogy/member/${memberId}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      )
+  const getMemberDetails = (memberId: string) => {
+    return allMembers.find(m => m.id === memberId || m.userId === memberId) || null
+  }
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch member details: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      
-      if (!data.success) {
-        throw new Error(data.error || "Failed to fetch member details")
-      }
-
-      return data.data
-    } catch (err) {
-      console.error("Error fetching member details:", err)
-      setError(err instanceof Error ? err.message : "Failed to fetch member details")
-      throw err
-    }
-  }, [])
-
-  // Load data on mount and when user changes
-  useEffect(() => {
-    if (user?.id) {
-      console.log('useGenealogy: Loading data for user:', user.id)
-      fetchGenealogy()
-    }
-  }, [user?.id])
-
-  // Debounced search
-  useEffect(() => {
-    if (filters.searchTerm) {
-      const timeoutId = setTimeout(() => {
-        searchMembers(filters.searchTerm)
-      }, 500)
-
-      return () => clearTimeout(timeoutId)
-    }
-    // Remove the else clause that was causing infinite loops
-  }, [filters.searchTerm, searchMembers])
+  const clearError = () => setError(null)
 
   return {
-    teamData: filteredTeamData,
+    teamData,
+    rawTree: rawData?.tree || null,
     stats,
     loading,
     error,
@@ -350,6 +192,6 @@ export function useGenealogy() {
     exportTeamData,
     inviteMember,
     getMemberDetails,
-    clearError: () => setError(null)
+    clearError,
   }
 }
