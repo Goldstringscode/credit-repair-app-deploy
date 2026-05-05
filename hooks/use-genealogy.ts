@@ -48,10 +48,10 @@ function flattenTree(node: any, depth = 0): GenealogyMember[] {
     mlmCode: node.mlmCode || '',
     joinDate: node.joinDate || node.join_date || '',
     depth,
-    totalEarnings: Number(node.totalEarnings || node.total_earnings) || 0,
-    monthlyEarnings: Number(node.monthlyEarnings || node.current_month_earnings) || 0,
-    personalVolume: Number(node.personalVolume || node.personal_volume) || 0,
-    teamVolume: Number(node.teamVolume || node.team_volume) || 0,
+    totalEarnings: Number(node.totalEarnings ?? node.total_earnings ?? 0) || 0,
+    monthlyEarnings: Number(node.monthlyEarnings ?? node.current_month_earnings ?? 0) || 0,
+    personalVolume: Number(node.personalVolume ?? node.personal_volume ?? 0) || 0,
+    teamVolume: Number(node.teamVolume ?? node.team_volume ?? 0) || 0,
     children: node.children || [],
     directDownlines: node.directDownlines || node.children?.length || 0,
     totalDownlines: node.totalDownlines || 0,
@@ -121,9 +121,9 @@ export function useGenealogy() {
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
       return joined >= weekAgo
     }).length,
-    totalVolume: allMembers.reduce((s, m) => s + m.personalVolume, 0),
+    totalVolume: Number(allMembers.reduce((s, m) => s + (m.personalVolume || 0), 0)) || 0,
     averageMonthlyEarnings: allMembers.length
-      ? Math.round(allMembers.reduce((s, m) => s + m.monthlyEarnings, 0) / allMembers.length)
+      ? Math.round(allMembers.reduce((s, m) => s + (m.monthlyEarnings || 0), 0) / allMembers.length)
       : 0,
     maxDepth: depths.length ? Math.max(...depths) : 0,
     averageDepth: depths.length ? Math.round(depths.reduce((a, b) => a + b, 0) / depths.length) : 0,
