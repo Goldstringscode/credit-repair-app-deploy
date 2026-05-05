@@ -1,23 +1,19 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
+import { getCurrentUser } from "@/lib/auth"
 import { creditDataService } from "@/lib/credit-data"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const userId = "user-123" // Match the user ID used in upload system
-    const stats = await creditDataService.getDashboardStats(userId)
+    const { user, isAuthenticated } = await getCurrentUser(request)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
 
-    return NextResponse.json({
-      success: true,
-      data: stats,
-    })
+    const stats = await creditDataService.getDashboardStats(user.id)
+
+    return NextResponse.json({ success: true, data: stats })
   } catch (error) {
     console.error("Dashboard stats API error:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to fetch dashboard stats",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ success: false, error: "Failed to fetch dashboard stats" }, { status: 500 })
   }
 }
