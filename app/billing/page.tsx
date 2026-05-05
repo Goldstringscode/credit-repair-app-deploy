@@ -45,11 +45,7 @@ function BillingContent() {
   }, [])
 
   // Helper function to get auth headers
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('accessToken')
-    return {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` })
+  // Auth via httpOnly cookie (no explicit headers needed)` })
     }
   }
 
@@ -58,13 +54,14 @@ function BillingContent() {
       setLoading(true)
       
       // Fetch user's subscription data
-      const response = await fetch(`${window.location.origin}/api/billing/user/subscription`, {
-        headers: getAuthHeaders()
-      })
+      const response = await fetch('/api/billing', { credentials: 'include' })
       if (response.ok) {
         const data = await response.json()
-        setSubscription(data.subscription)
-        setCurrentPlan(data.plan)
+        if (data.success) {
+          setSubscription(data.subscription)
+          setCurrentPlan(data.currentPlan || 'free')
+        }
+        // setCurrentPlan(data.plan)
       }
     } catch (error) {
       console.error('Failed to fetch billing data:', error)
