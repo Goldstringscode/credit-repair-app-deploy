@@ -44,10 +44,7 @@ function BillingContent() {
     fetchUserBillingData()
   }, [])
 
-  // Helper function to get auth headers
-  // Auth via httpOnly cookie (no explicit headers needed)` })
-    }
-  }
+  // Auth via httpOnly cookie — credentials: 'include' handles session automatically
 
   const fetchUserBillingData = async () => {
     try {
