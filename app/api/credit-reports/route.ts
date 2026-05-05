@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { extractUserId, getServiceClient } from '@/lib/api-auth'
+import { getCurrentUser } from '@/lib/auth'
+import { getServiceClient } from '@/lib/api-auth'
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = extractUserId(request)
-    if (!userId) {
+    const { user, isAuthenticated } = await getCurrentUser(request)
+    if (!isAuthenticated || !user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
+    const userId = user.id
 
     const supabase = getServiceClient()
 
