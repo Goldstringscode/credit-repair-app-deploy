@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   if (!m) return NextResponse.json({ success: true, commissions: [], summary: { pending: 0, paid: 0, total: 0 } })
 
   const { data: list } = await supabase.from('mlm_commissions')
-    .select('id,commission_type,commission_amount,sale_amount,status,payable_at,paid_at,created_at')
+    .select('id,commission_type,commission_amount,status,paid_at,created_at,level_depth')
     .eq('recipient_user_id', user.id)
     .order('created_at', { ascending: false }).limit(50)
 
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       date: c.paid_at || c.created_at,
       created_at: c.created_at,
       paid_at: c.paid_at,
-      level: c.level_depth || c.commission_level || 1,
+      level: Number(c.level_depth) || 1,
     })),
     summary: {
       pending: parseFloat(pending.toFixed(2)),
