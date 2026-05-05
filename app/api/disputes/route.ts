@@ -1,3 +1,4 @@
+import { getCurrentUser } from "@/lib/auth"
 import { type NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
 
