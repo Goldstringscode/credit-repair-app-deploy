@@ -85,6 +85,9 @@ export default function MLMDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [teamCodeCopied, setTeamCodeCopied] = useState(false)
+  const [myCodeCopied, setMyCodeCopied] = useState(false)
+  const [myLinkCopied, setMyLinkCopied] = useState(false)
+  const [myInviteLink, setMyInviteLink] = useState('')
   
   // Invite modal state
   const [showInviteModal, setShowInviteModal] = useState(false)
@@ -111,6 +114,9 @@ export default function MLMDashboard() {
       
       if (userData.success) {
         setMlmUser(userData.user)
+        // Build personal invite link from mlmCode
+        const code = userData.user.mlmCode || userData.user.teamCode
+        if(code) setMyInviteLink((process.env.NEXT_PUBLIC_APP_URL || window.location.origin) + '/signup?ref=' + code)
       }
 
       // Fetch team stats
@@ -134,6 +140,25 @@ export default function MLMDashboard() {
       setError('Failed to load MLM data')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const copyMyCode = async () => {
+    const code = mlmUser?.mlmCode || mlmUser?.teamCode
+    if (code) {
+      await navigator.clipboard.writeText(code)
+      setMyCodeCopied(true)
+      toast({ title: "Your Code Copied!", description: "Share your referral code: " + code })
+      setTimeout(() => setMyCodeCopied(false), 2000)
+    }
+  }
+
+  const copyMyLink = async () => {
+    if (myInviteLink) {
+      await navigator.clipboard.writeText(myInviteLink)
+      setMyLinkCopied(true)
+      toast({ title: "Invite Link Copied!", description: "Share this link to recruit members directly under you." })
+      setTimeout(() => setMyLinkCopied(false), 2000)
     }
   }
 
@@ -335,6 +360,40 @@ export default function MLMDashboard() {
         </div>
 
         {/* Stats Overview */}
+
+          {/* Personal Referral Code Card */}
+          {mlmUser && (
+            <div className="bg-gradient-to-r from-blue-600 to-purple-700 rounded-xl p-5 mb-6 text-white">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-blue-100 text-sm font-medium">Your Personal Referral Code</p>
+                  <p className="text-xs text-blue-200 mt-0.5">Members who sign up with your code are placed directly under you</p>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                {/* Personal Code */}
+                <div className="flex-1 bg-white/20 rounded-lg px-4 py-3 flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs text-blue-100 mb-0.5">Your Code</p>
+                    <p className="text-xl font-bold tracking-wider font-mono">{mlmUser.mlmCode || mlmUser.teamCode}</p>
+                  </div>
+                  <button onClick={copyMyCode} className="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex-shrink-0">
+                    {myCodeCopied ? '✓ Copied' : 'Copy Code'}
+                  </button>
+                </div>
+                {/* Personal Invite Link */}
+                <div className="flex-1 bg-white/20 rounded-lg px-4 py-3 flex items-center justify-between gap-2 min-w-0">
+                  <div className="min-w-0">
+                    <p className="text-xs text-blue-100 mb-0.5">Your Invite Link</p>
+                    <p className="text-sm font-mono truncate text-blue-100">{myInviteLink || 'Loading...'}</p>
+                  </div>
+                  <button onClick={copyMyLink} className="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex-shrink-0">
+                    {myLinkCopied ? '✓ Copied' : 'Copy Link'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardContent className="p-6">
