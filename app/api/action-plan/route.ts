@@ -1,3 +1,4 @@
+import { getCurrentUser } from "@/lib/auth"
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import jwt from "jsonwebtoken"
@@ -27,10 +28,11 @@ function verifyToken(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const user = verifyToken(request)
-    if (!user) {
+    const { user, isAuthenticated } = await getCurrentUser(request)
+    if (!isAuthenticated || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+    const userId = user.id
 
     // Get user's action plan
     const supabase = getSupabaseClient()
