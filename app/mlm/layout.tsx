@@ -261,6 +261,9 @@ export default function MLMLayout({ children }: { children: React.ReactNode }) {
               <LogOut className="mr-2 h-4 w-4" />
               Sign Out
             </Button>
+            <a href="/dashboard" className="block mt-2 w-full px-3 py-2 rounded-md text-xs text-gray-400 hover:text-blue-300 hover:bg-blue-500/20 transition-colors text-center">
+              ← Back to Credit Repair Dashboard
+            </a>
           </div>
         </div>
       </div>
