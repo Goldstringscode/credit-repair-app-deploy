@@ -30,9 +30,20 @@ export async function GET(req: NextRequest) {
       commission_amount: Number(c.commission_amount) || 0,
       type: c.commission_type || 'commission',
       commission_type: c.commission_type || 'commission',
-      description: c.commission_type
-        ? (c.commission_type.charAt(0).toUpperCase() + c.commission_type.slice(1)).replace(/_/g,' ') + ' Commission'
-        : 'Commission',
+      description: (() => {
+        const labels: Record<string,string> = {
+          direct_referral: 'Direct Referral Commission',
+          unilevel: 'Unilevel Commission',
+          binary: 'Binary Commission',
+          matrix: 'Matrix Commission',
+          matching_bonus: 'Matching Bonus',
+          rank_advancement: 'Rank Advancement Bonus',
+          leadership_bonus: 'Leadership Bonus',
+          fast_start: 'Fast Start Bonus',
+          infinity_bonus: 'Infinity Bonus',
+        }
+        return labels[c.commission_type] || 'Commission'
+      })(),
       status: c.status || 'pending',
       date: c.paid_at || c.created_at,
       created_at: c.created_at,
