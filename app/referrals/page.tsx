@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -22,58 +22,34 @@ import {
 } from "lucide-react"
 
 export default function ReferralsPage() {
-  const [referralCode] = useState("CREDIT2024")
-  const [referralLink] = useState("https://creditrepair.com/ref/CREDIT2024")
+  const [referralCode, setReferralCode] = useState('')
+  const [referralLink, setReferralLink] = useState('')
   const [copied, setCopied] = useState(false)
-
-  const referralStats = {
-    totalReferrals: 12,
-    successfulReferrals: 8,
-    pendingReferrals: 4,
-    totalEarnings: 320,
-    pendingEarnings: 160,
+  const [loading, setLoading] = useState(true)
+  const [referralStats, setReferralStats] = useState({
+    totalReferrals: 0,
+    successfulReferrals: 0,
+    pendingReferrals: 0,
+    totalEarnings: 0,
+    pendingEarnings: 0,
     nextReward: 500,
-  }
+  })
+  const [referralHistory, setReferralHistory] = useState<any[]>([])
 
-  const referralHistory = [
-    {
-      id: 1,
-      name: "Sarah Johnson",
-      email: "sarah@example.com",
-      status: "Active",
-      signupDate: "2024-01-15",
-      reward: 40,
-      plan: "Professional",
-    },
-    {
-      id: 2,
-      name: "Mike Davis",
-      email: "mike@example.com",
-      status: "Active",
-      signupDate: "2024-01-10",
-      reward: 40,
-      plan: "Professional",
-    },
-    {
-      id: 3,
-      name: "Emily Wilson",
-      email: "emily@example.com",
-      status: "Pending",
-      signupDate: "2024-01-08",
-      reward: 40,
-      plan: "Basic",
-    },
-    {
-      id: 4,
-      name: "David Chen",
-      email: "david@example.com",
-      status: "Active",
-      signupDate: "2024-01-05",
-      reward: 80,
-      plan: "Premium",
-    },
-  ]
-
+  useEffect(() => {
+    fetch('/api/referrals', { credentials: 'include' })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          setReferralCode(data.referralCode)
+          setReferralLink(data.referralLink)
+          setReferralStats(data.stats)
+          setReferralHistory(data.referralHistory || [])
+        }
+      })
+      .catch(err => console.error('Referrals fetch error:', err))
+      .finally(() => setLoading(false))
+  }, [])
   const rewardTiers = [
     { referrals: 5, reward: 200, title: "Bronze Referrer", achieved: true },
     { referrals: 10, reward: 500, title: "Silver Referrer", achieved: true },
