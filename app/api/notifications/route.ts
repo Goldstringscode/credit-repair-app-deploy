@@ -1,15 +1,18 @@
+import { getCurrentUser } from "@/lib/auth"
 import { type NextRequest, NextResponse } from "next/server"
 import { isSupabaseAvailable, createSupabaseClient } from "@/lib/supabase"
 
 export const dynamic = 'force-dynamic'
 
-// Mock user ID - in real app, get from auth context
-const MOCK_USER_ID = "550e8400-e29b-41d4-a716-446655440000"
+
 
 export async function GET(request: NextRequest) {
+  const { user, isAuthenticated } = await getCurrentUser(request)
+  if (!isAuthenticated || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const userId = user.id
   try {
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId') || MOCK_USER_ID
+    const userId = searchParams.get('userId') || userId
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
 
@@ -90,9 +93,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const { user, isAuthenticated } = await getCurrentUser(request)
+  if (!isAuthenticated || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const userId = user.id
   try {
     const body = await request.json()
-    const { title, message, type = 'info', priority = 'medium', userId = MOCK_USER_ID, data, actions } = body
+    const { title, message, type = 'info', priority = 'medium', userId = userId, data, actions } = body
 
     if (!title || !message) {
       return NextResponse.json({ error: "Title and message are required" }, { status: 400 })
@@ -250,6 +256,9 @@ function getMockNotifications() {
 
 // PATCH method to mark notification as read
 export async function PATCH(request: NextRequest) {
+  const { user, isAuthenticated } = await getCurrentUser(request)
+  if (!isAuthenticated || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const userId = user.id
   try {
     const { id } = await request.json()
     
@@ -280,7 +289,7 @@ export async function PATCH(request: NextRequest) {
       .from('notifications')
       .update({ read: true })
       .eq('id', id)
-      .eq('user_id', MOCK_USER_ID)
+      .eq('user_id', userId)
 
     if (error) {
       console.error('Error updating notification:', error)
