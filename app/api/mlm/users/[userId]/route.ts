@@ -71,7 +71,9 @@ export async function GET(
     user: {
       id: m.user_id,
       mlmId: m.id,
-      // Field names matching dashboard page exactly
+      // Personal referral code (user's own unique code)
+      mlmCode: m.mlm_code,
+      // Alias for backward compat
       teamCode: m.mlm_code,
       sponsorId: null,
       rank: {
