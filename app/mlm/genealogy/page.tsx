@@ -276,7 +276,7 @@ export default function GenealogyPage() {
             </div>
 
             <div className="text-right">
-              <div className="text-sm font-semibold text-green-600">${member.monthlyEarnings.toLocaleString()}</div>
+              <div className="text-sm font-semibold text-green-600">${(member.monthlyEarnings || 0).toLocaleString()}</div>
               <div className="text-xs text-gray-500">{member.totalDownlines} downlines</div>
             </div>
           </div>
@@ -352,7 +352,7 @@ export default function GenealogyPage() {
                 <div className="text-right">
                   <div className="grid grid-cols-2 gap-4 mb-2">
                     <div className="text-center">
-                      <div className="text-lg font-bold text-green-600">${member.monthlyEarnings.toLocaleString()}</div>
+                      <div className="text-lg font-bold text-green-600">${(member.monthlyEarnings || 0).toLocaleString()}</div>
                       <div className="text-xs text-gray-500">Monthly</div>
                     </div>
                     <div className="text-center">
@@ -572,7 +572,7 @@ export default function GenealogyPage() {
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                     <div className="text-center">
                       <div className="text-lg font-bold text-green-600">
-                        ${selectedMember.monthlyEarnings.toLocaleString()}
+                        ${(selectedMember.monthlyEarnings || 0).toLocaleString()}
                       </div>
                       <div className="text-xs text-gray-500">Monthly Earnings</div>
                     </div>
@@ -582,13 +582,13 @@ export default function GenealogyPage() {
                     </div>
                     <div className="text-center">
                       <div className="text-lg font-bold text-purple-600">
-                        ${selectedMember.personalVolume.toLocaleString()}
+                        ${(selectedMember.personalVolume || 0).toLocaleString()}
                       </div>
                       <div className="text-xs text-gray-500">Personal Volume</div>
                     </div>
                     <div className="text-center">
                       <div className="text-lg font-bold text-orange-600">
-                        ${selectedMember.teamVolume.toLocaleString()}
+                        ${(selectedMember.teamVolume || 0).toLocaleString()}
                       </div>
                       <div className="text-xs text-gray-500">Team Volume</div>
                     </div>
@@ -638,11 +638,11 @@ export default function GenealogyPage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm">Total Volume</span>
-                  <span className="font-semibold text-purple-600">${stats.totalVolume.toLocaleString()}</span>
+                  <span className="font-semibold text-purple-600">${(stats.totalVolume || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm">Avg. Monthly Earnings</span>
-                  <span className="font-semibold text-orange-600">${stats.averageMonthlyEarnings.toLocaleString()}</span>
+                  <span className="font-semibold text-orange-600">${(stats.averageMonthlyEarnings || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm">Max Depth</span>
