@@ -82,6 +82,8 @@ export default function MLMDashboard() {
   const [mlmUser, setMlmUser] = useState<MLMUser | null>(null)
   const [teamStats, setTeamStats] = useState<TeamStats | null>(null)
   const [commissions, setCommissions] = useState<Commission[]>([])
+  const [commissionSummary, setCommissionSummary] = useState<{pending:number;paid:number;total:number}>({pending:0,paid:0,total:0})
+  const [totalEarnings, setTotalEarnings] = useState<number>(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [teamCodeCopied, setTeamCodeCopied] = useState(false)
@@ -132,7 +134,9 @@ export default function MLMDashboard() {
       const commissionsData = await commissionsResponse.json()
       
       if (commissionsData.success) {
-        setCommissions(commissionsData.commissions)
+        setCommissions(commissionsData.commissions || [])
+        if(commissionsData.summary) setCommissionSummary(commissionsData.summary)
+        if(commissionsData.mlmUser?.totalEarnings) setTotalEarnings(commissionsData.mlmUser.totalEarnings)
       }
 
     } catch (error) {
@@ -404,8 +408,9 @@ export default function MLMDashboard() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Monthly Earnings</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    ${mlmUser.currentMonthEarnings.toLocaleString()}
+                    ${(Number(mlmUser.currentMonthEarnings)||0).toLocaleString()}
                   </p>
+                  <p className="text-xs text-gray-400 mt-0.5">Total paid: ${(Number(totalEarnings)||0).toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>
@@ -436,7 +441,7 @@ export default function MLMDashboard() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Personal Volume</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    ${mlmUser.personalVolume.toLocaleString()}
+                    ${(Number(mlmUser.personalVolume)||0).toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -452,7 +457,7 @@ export default function MLMDashboard() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Team Volume</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    ${mlmUser.teamVolume.toLocaleString()}
+                    ${(Number(mlmUser.teamVolume)||0).toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -487,13 +492,13 @@ export default function MLMDashboard() {
                     <div className="text-center p-3 bg-gray-50 rounded-lg">
                       <p className="text-sm text-gray-600">Personal Volume</p>
                       <p className="font-semibold">
-                        ${mlmUser.personalVolume.toLocaleString()} / ${mlmUser.rank.requirements.personalVolume.toLocaleString()}
+                        ${(Number(mlmUser.personalVolume)||0).toLocaleString()} / ${(Number(mlmUser.rank?.requirements?.personalVolume)||0).toLocaleString()}
                       </p>
                     </div>
                     <div className="text-center p-3 bg-gray-50 rounded-lg">
                       <p className="text-sm text-gray-600">Team Volume</p>
                       <p className="font-semibold">
-                        ${mlmUser.teamVolume.toLocaleString()} / ${mlmUser.rank.requirements.teamVolume.toLocaleString()}
+                        ${(Number(mlmUser.teamVolume)||0).toLocaleString()} / ${(Number(mlmUser.rank?.requirements?.teamVolume)||0).toLocaleString()}
                       </p>
                     </div>
                   </div>
@@ -598,6 +603,23 @@ export default function MLMDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
+
+                {commissionSummary.total > 0 && (
+                  <div className="flex gap-3 mb-3 text-sm">
+                    <div className="flex-1 bg-green-50 rounded-lg px-3 py-2 text-center">
+                      <div className="font-bold text-green-700">${(Number(commissionSummary.paid)||0).toLocaleString()}</div>
+                      <div className="text-xs text-green-600">Paid</div>
+                    </div>
+                    <div className="flex-1 bg-yellow-50 rounded-lg px-3 py-2 text-center">
+                      <div className="font-bold text-yellow-700">${(Number(commissionSummary.pending)||0).toLocaleString()}</div>
+                      <div className="text-xs text-yellow-600">Pending</div>
+                    </div>
+                    <div className="flex-1 bg-blue-50 rounded-lg px-3 py-2 text-center">
+                      <div className="font-bold text-blue-700">${(Number(commissionSummary.total)||0).toLocaleString()}</div>
+                      <div className="text-xs text-blue-600">Total</div>
+                    </div>
+                  </div>
+                )}
                   {commissions.slice(0, 5).map((commission) => (
                     <div key={commission.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
@@ -606,7 +628,7 @@ export default function MLMDashboard() {
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold text-green-600">
-                          +${commission.amount.toLocaleString()}
+                          +${(Number(commission.amount)||0).toLocaleString()}
                         </p>
                         <p className="text-xs text-gray-600">
                           {new Date(commission.date).toLocaleDateString()}
