@@ -60,57 +60,20 @@ export default function DashboardPage() {
     try {
       setLoading(true)
 
-      // Read from localStorage instead of API
-      const latestReport = localStorage.getItem("latestCreditReport")
+      // Fetch from real API (uses getCurrentUser auth via httpOnly cookie)
+      const res = await fetch('/api/dashboard/stats', { credentials: 'include' })
+      const data = await res.json()
 
-      if (latestReport) {
-        const reportData = JSON.parse(latestReport)
-        const analysis = reportData.analysis
-
-        // Transform localStorage data to match DashboardStats interface
-        const dashboardStats: DashboardStats = {
-          current_credit_score: analysis.credit_score,
-          bureau_scores: {
-            experian: analysis.experian_score,
-            equifax: analysis.equifax_score,
-            transunion: analysis.transunion_score,
-          },
-          score_change: Math.floor(Math.random() * 20 - 10), // Mock score change
-          total_accounts: analysis.accounts?.length || 0,
-          open_accounts: analysis.accounts?.filter((acc: any) => acc.payment_status === "Current").length || 0,
-          negative_items: analysis.negative_items?.length || 0,
-          total_debt: analysis.summary?.total_balance || 0,
-          credit_utilization: analysis.summary?.credit_utilization || null,
-          recent_inquiries: analysis.inquiries?.length || 0,
-          dispute_success_rate: 85, // Mock success rate
-          data_completeness: {
-            confidence_score: 0.95, // High confidence for uploaded data
-            has_personal_info: !!analysis.personal_info,
-            has_accounts: (analysis.accounts?.length || 0) > 0,
-            has_payment_history: true,
-            has_inquiries: (analysis.inquiries?.length || 0) > 0,
-            has_negative_items: (analysis.negative_items?.length || 0) > 0,
-          },
-          email_metrics: {
-            total_sent: 15420,
-            open_rate: 80.0,
-            click_rate: 20.0,
-            active_campaigns: 3,
-            total_subscribers: 2150,
-          },
-          last_updated: reportData.uploadDate,
-        }
-
-        setStats(dashboardStats)
+      if (data.success && data.data) {
+        setStats(data.data)
+      } else if (res.status === 401) {
+        // Not authenticated - redirect to login
+        window.location.href = '/login'
       } else {
-        // No data available - set empty state
+        // API returned error or no data - set empty state
         setStats({
           current_credit_score: null,
-          bureau_scores: {
-            experian: null,
-            equifax: null,
-            transunion: null,
-          },
+          bureau_scores: { experian: null, equifax: null, transunion: null },
           score_change: null,
           total_accounts: 0,
           open_accounts: 0,
@@ -127,19 +90,13 @@ export default function DashboardPage() {
             has_inquiries: false,
             has_negative_items: false,
           },
-          email_metrics: {
-            total_sent: 0,
-            open_rate: 0,
-            click_rate: 0,
-            active_campaigns: 0,
-            total_subscribers: 0,
-          },
-          last_updated: null,
+          email_metrics: { total_sent: 0, delivery_rate: 0, open_rate: 0, response_rate: 0 },
+          disputes: { total: 0, pending: 0, successful: 0, failed: 0 },
         })
       }
-    } catch (err) {
-      setError("Failed to load dashboard data")
-      console.error("Dashboard stats error:", err)
+    } catch (error) {
+      console.error('Failed to fetch dashboard stats:', error)
+      setError('Failed to load dashboard data. Please refresh.')
     } finally {
       setLoading(false)
     }
