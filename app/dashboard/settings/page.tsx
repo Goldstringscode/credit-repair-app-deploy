@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,15 +33,22 @@ import {
 import { NotificationSettings } from "@/components/notification-settings"
 
 export default function SettingsPage() {
+  const searchParams = useSearchParams()
+  const defaultTab = searchParams.get('tab') || 'profile'
+  const [activeTab, setActiveTab] = useState(defaultTab)
   const [isEditing, setIsEditing] = useState(false)
+  const [pageLoading, setPageLoading] = useState(true)
+  const [saveSuccess, setSaveSuccess] = useState('')
+  const [saveError, setSaveError] = useState('')
+  const [billingData, setBillingData] = useState<any>(null)
   const [profileData, setProfileData] = useState({
-    firstName: "John",
-    lastName: "Doe",
-    email: "john.doe@example.com",
-    phone: "+1 (555) 123-4567",
-    bio: "Credit repair specialist with 5+ years of experience helping clients improve their financial health.",
-    company: "Credit Solutions Inc.",
-    website: "https://creditsolutions.com",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    bio: "",
+    company: "",
+    website: "",
     timezone: "America/New_York",
   })
 
@@ -79,6 +87,70 @@ export default function SettingsPage() {
     deviceTracking: true,
   })
 
+
+  // Load real user + billing data on mount
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/auth/me', { credentials: 'include' }).then(r=>r.json()).catch(()=>null),
+      fetch('/api/billing', { credentials: 'include' }).then(r=>r.json()).catch(()=>null),
+    ]).then(([me, billing]) => {
+      if (me?.user) {
+        const u = me.user
+        setProfileData(prev => ({
+          ...prev,
+          firstName: u.first_name || u.firstName || '',
+          lastName: u.last_name || u.lastName || '',
+          email: u.email || '',
+          phone: u.phone || u.phone_number || prev.phone,
+          bio: u.bio || prev.bio,
+          company: u.company || prev.company,
+          website: u.website || prev.website,
+          timezone: u.timezone || prev.timezone,
+        }))
+      }
+      if (billing?.success) setBillingData(billing)
+      setPageLoading(false)
+    })
+  }, [])
+
+  // Handle profile save
+  const handleSaveProfile = async () => {
+    setSaveSuccess('')
+    setSaveError('')
+    try {
+      const res = await fetch('/api/auth/update-profile', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          first_name: profileData.firstName,
+          last_name: profileData.lastName,
+          phone: profileData.phone,
+          bio: profileData.bio,
+          company: profileData.company,
+          website: profileData.website,
+          timezone: profileData.timezone,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) { setSaveSuccess('Profile updated successfully!'); setIsEditing(false) }
+      else setSaveError(data.error || 'Failed to save profile')
+    } catch { setSaveError('Network error — please try again') }
+  }
+
+  // Handle password change
+  const handleChangePassword = async (currentPassword: string, newPassword: string) => {
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })
+      const data = await res.json()
+      return data.success ? { success: true } : { error: data.error || 'Failed to change password' }
+    } catch { return { error: 'Network error' } }
+  }
   const handleSaveProfile = () => {
     setIsEditing(false)
     // Here you would typically save to your backend
@@ -107,7 +179,18 @@ export default function SettingsPage() {
         <p className="text-gray-600">Manage your account preferences and security settings</p>
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-8">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+          {saveSuccess && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm flex items-center gap-2">
+              <span>✓</span> {saveSuccess}
+            </div>
+          )}
+          {saveError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm flex items-center gap-2">
+              <span>⚠</span> {saveError}
+            </div>
+          )}
+
         <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
@@ -377,6 +460,51 @@ export default function SettingsPage() {
 
         {/* Billing Tab */}
         <TabsContent value="billing" className="space-y-6">
+          {/* Current Plan Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Current Subscription
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {billingData ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div>
+                      <p className="font-semibold text-gray-900 text-lg capitalize">{billingData.planName || billingData.currentPlan || 'Free'} Plan</p>
+                      <p className="text-sm text-gray-500">${billingData.planPrice || 0}/month</p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${billingData.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                      {billingData.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  {billingData.subscription?.currentPeriodEnd && (
+                    <p className="text-sm text-gray-500">
+                      Next billing date: {new Date(billingData.subscription.currentPeriodEnd).toLocaleDateString()}
+                    </p>
+                  )}
+                  <div className="flex gap-2 mt-3">
+                    <a href="/pricing" className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
+                      Upgrade Plan
+                    </a>
+                    {billingData.isActive && (
+                      <button className="inline-flex items-center px-4 py-2 border border-gray-200 text-sm rounded-lg hover:bg-gray-50 transition-colors">
+                        Cancel Subscription
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6 text-gray-400">
+                  <CreditCard className="h-10 w-10 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">No active subscription</p>
+                  <a href="/pricing" className="inline-flex mt-3 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">View Plans</a>
+                </div>
+              )}
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
