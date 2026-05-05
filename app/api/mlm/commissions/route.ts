@@ -24,7 +24,21 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    commissions: comms.map((c: any) => ({ ...c, amount: Number(c.commission_amount) || 0 })),
+    commissions: comms.map((c: any) => ({
+      id: c.id,
+      amount: Number(c.commission_amount) || 0,
+      commission_amount: Number(c.commission_amount) || 0,
+      type: c.commission_type || 'commission',
+      commission_type: c.commission_type || 'commission',
+      description: c.commission_type
+        ? (c.commission_type.charAt(0).toUpperCase() + c.commission_type.slice(1)).replace(/_/g,' ') + ' Commission'
+        : 'Commission',
+      status: c.status || 'pending',
+      date: c.paid_at || c.created_at,
+      created_at: c.created_at,
+      paid_at: c.paid_at,
+      level: c.level_depth || c.commission_level || 1,
+    })),
     summary: {
       pending: parseFloat(pending.toFixed(2)),
       paid: parseFloat(paid.toFixed(2)),
