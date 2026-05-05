@@ -47,6 +47,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [analytics, setAnalytics] = useState<any>(null)
   const { addNotification } = useNotifications()
   
   // Add dashboard notification integration
@@ -61,8 +62,13 @@ export default function DashboardPage() {
       setLoading(true)
 
       // Fetch from real API (uses getCurrentUser auth via httpOnly cookie)
-      const res = await fetch('/api/dashboard/stats', { credentials: 'include' })
+      const [res, analyticsRes] = await Promise.all([
+        fetch('/api/dashboard/stats', { credentials: 'include' }),
+        fetch('/api/analytics', { credentials: 'include' }).catch(() => null),
+      ])
       const data = await res.json()
+      const analyticsData = analyticsRes?.ok ? await analyticsRes.json().catch(()=>null) : null
+      if (analyticsData?.success) setAnalytics(analyticsData)
 
       if (data.success && data.data) {
         setStats(data.data)
