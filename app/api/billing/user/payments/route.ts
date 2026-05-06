@@ -4,6 +4,8 @@ import { database } from '@/lib/database-config'
 import { withRateLimit } from '@/lib/rate-limiter'
 import { generateSamplePayments } from '@/lib/sample-data-generator'
 
+export const dynamic = 'force-dynamic'
+
 export const GET = withRateLimit(
   requireAuth(async (request: NextRequest, user) => {
     try {
