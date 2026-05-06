@@ -4,6 +4,8 @@ import { getStripeClient } from '@/lib/stripe-client'
 import { getSupabaseClient } from '@/lib/supabase-client'
 import { dunningManager } from '@/lib/dunning-manager'
 
+export const dynamic = 'force-dynamic'
+
 // Raw body access is handled via request.text() below — required for Stripe signature verification
 export const runtime = 'nodejs'
 
