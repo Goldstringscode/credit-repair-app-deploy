@@ -2,6 +2,8 @@ import { getCurrentUser } from "@/lib/auth"
 import { type NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
 
+export const dynamic = 'force-dynamic'
+
 const JWT_SECRET = process.env.JWT_SECRET
 
 function verifyToken(request: NextRequest) {
