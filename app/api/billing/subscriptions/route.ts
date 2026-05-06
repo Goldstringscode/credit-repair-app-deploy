@@ -6,6 +6,8 @@ import { getAuthenticatedUser } from '@/lib/auth-helpers'
 import { getSupabaseClient } from '@/lib/supabase-client'
 import { z } from 'zod'
 
+export const dynamic = 'force-dynamic'
+
 // Validation schemas
 const createSubscriptionSchema = z.object({
   action: z.string().optional(),
