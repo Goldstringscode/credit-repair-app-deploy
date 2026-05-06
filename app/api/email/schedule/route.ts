@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { 
-
-export const dynamic = 'force-dynamic'
+import {
   scheduleEmail, 
   triggerAutomation, 
   getScheduledEmails, 
@@ -10,6 +8,8 @@ export const dynamic = 'force-dynamic'
   getEmailStatus 
 } from '@/lib/email-scheduler'
 
+
+export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
