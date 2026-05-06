@@ -1,6 +1,8 @@
 import { type NextRequest } from "next/server"
 import { isSupabaseAvailable, createSupabaseClient } from "@/lib/supabase"
 
+export const dynamic = 'force-dynamic'
+
 // Mock user ID - in real app, get from auth context
 const MOCK_USER_ID = "550e8400-e29b-41d4-a716-446655440000"
 
