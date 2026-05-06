@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getSupabaseClient } from "@/lib/supabase-client"
 import { verifyToken } from "@/lib/jwt"
 
+export const dynamic = 'force-dynamic'
+
 function getAdminFromRequest(request: NextRequest) {
   const cookieHeader = request.headers.get("cookie") ?? ""
   const token = cookieHeader
