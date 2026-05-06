@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { initiateBankVerification, verifyMicroDeposits, mockBankVerifications } from "@/lib/bank-verification"
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
