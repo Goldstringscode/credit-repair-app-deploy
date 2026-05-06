@@ -27,6 +27,7 @@ import {
   FileCheck,
   Mail,
   MessageSquare,
+  Settings,
 } from "lucide-react"
 
 const navigation = [
@@ -37,7 +38,7 @@ const navigation = [
   { name: "Training", href: "/dashboard/training", icon: GraduationCap },
   { name: "MLM System", href: "/mlm/dashboard", icon: TrendingUp },
   { name: "Compliance", href: "/admin/compliance", icon: FileCheck },
-  { name: "Settings", href: "/dashboard/settings", icon: Settings2 },
+  { name: "Settings", href: "/dashboard/settings", icon: Settings },
   { name: "Admin", href: "/admin", icon: UserCog },
 ]
 
