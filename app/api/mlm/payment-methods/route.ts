@@ -3,6 +3,8 @@ import { getStripeClient } from "@/lib/stripe-client"
 import { getSupabaseClient } from "@/lib/supabase-client"
 import jwt from "jsonwebtoken"
 
+export const dynamic = 'force-dynamic'
+
 // GET - Fetch user's payment methods
 export async function GET(request: NextRequest) {
   try {
