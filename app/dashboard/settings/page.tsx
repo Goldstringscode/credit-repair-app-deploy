@@ -40,6 +40,17 @@ function SettingsPageInner() {
   const [pageLoading, setPageLoading] = useState(true)
   const [saveSuccess, setSaveSuccess] = useState('')
   const [saveError, setSaveError] = useState('')
+  // Password change form state
+  const [currentPw, setCurrentPw] = useState('')
+  const [newPw, setNewPw] = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+  const [pwLoading, setPwLoading] = useState(false)
+  const [pwSuccess, setPwSuccess] = useState('')
+  const [pwError, setPwError] = useState('')
+  // Delete account state
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [billingData, setBillingData] = useState<any>(null)
   const [profileData, setProfileData] = useState({
     firstName: "",
@@ -139,27 +150,38 @@ function SettingsPageInner() {
   }
 
   // Handle password change
-  const handleChangePassword = async (currentPassword: string, newPassword: string) => {
+  const handleChangePassword = async () => {
+    setPwError('')
+    setPwSuccess('')
+    if (!currentPw || !newPw || !confirmPw) { setPwError('All fields are required'); return }
+    if (newPw !== confirmPw) { setPwError('New passwords do not match'); return }
+    if (newPw.length < 8) { setPwError('Password must be at least 8 characters'); return }
+    setPwLoading(true)
     try {
       const res = await fetch('/api/auth/change-password', {
-        method: 'POST',
-        credentials: 'include',
+        method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPassword, newPassword }),
+        body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw }),
       })
       const data = await res.json()
-      return data.success ? { success: true } : { error: data.error || 'Failed to change password' }
-    } catch { return { error: 'Network error' } }
+      if (data.success) { setPwSuccess('Password changed successfully!'); setCurrentPw(''); setNewPw(''); setConfirmPw('') }
+      else setPwError(data.error || 'Failed to change password')
+    } catch { setPwError('Network error — please try again') }
+    finally { setPwLoading(false) }
   }
 
 
-  const handleExportData = () => {
-    // Simulate data export
-    const data = {
-      profile: profileData,
-      settings: { notifications, privacy, security },
-      exportDate: new Date().toISOString(),
-    }
+  const handleExportData = async () => {
+    try {
+      const [meRes, creditRes] = await Promise.all([
+        fetch('/api/auth/me', {credentials:'include'}).then(r=>r.json()).catch(()=>null),
+        fetch('/api/dashboard/stats', {credentials:'include'}).then(r=>r.json()).catch(()=>null),
+      ])
+      const data = {
+        profile: meRes?.user || profileData,
+        creditData: creditRes?.data || {},
+        settings: { notifications, privacy },
+        exportDate: new Date().toISOString(),
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
