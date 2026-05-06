@@ -1,7 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import {
-
-export const dynamic = 'force-dynamic'
   generateSample1099NEC,
   generateSampleQuarterlyReport,
   generateSampleTaxSummary,
@@ -9,6 +7,8 @@ export const dynamic = 'force-dynamic'
   mockSampleDocuments,
 } from "@/lib/sample-tax-documents"
 
+
+export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
