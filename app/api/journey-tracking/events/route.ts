@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 
+export const dynamic = 'force-dynamic'
+
 // Mock real-time events for demonstration
 const generateMockEvents = () => {
   const journeys = ["onboarding", "subscription", "mlm_activation"]
