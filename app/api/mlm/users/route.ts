@@ -4,6 +4,8 @@ import { mlmCommissionEngine } from "@/lib/mlm/commission-engine"
 import { requireAuth } from "@/lib/auth"
 import { withRateLimit } from "@/lib/rate-limiter"
 
+export const dynamic = 'force-dynamic'
+
 export const GET = withRateLimit(
   requireAuth(async (request: NextRequest, user) => {
     try {
