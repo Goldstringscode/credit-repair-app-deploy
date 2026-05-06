@@ -4,6 +4,8 @@ import { requireAuth } from '@/lib/auth'
 import { clearTokenCookies } from '@/lib/jwt'
 import { auditLogger } from '@/lib/audit-logger'
 
+export const dynamic = 'force-dynamic'
+
 export const POST = withRateLimit(
   requireAuth(async (request: NextRequest, user) => {
     try {
