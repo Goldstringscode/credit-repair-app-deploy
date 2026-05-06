@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { sendTaskCompletionEmail, sendTrainingCompletionEmail } from "@/lib/email-service-server"
 import { mlmCommissionEngine } from "@/lib/mlm/commission-engine"
 
+export const dynamic = 'force-dynamic'
+
 interface TaskCompletion {
   taskId: string
   userId?: string
