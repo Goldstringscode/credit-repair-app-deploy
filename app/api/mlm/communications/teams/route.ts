@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { mlmDatabaseService } from '@/lib/mlm/database-service';
 import { communicationDatabaseService } from '@/lib/database/communication-service';
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
