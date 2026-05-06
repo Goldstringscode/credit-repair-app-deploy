@@ -4,6 +4,8 @@ import { withRateLimit } from '@/lib/rate-limiter'
 import { withValidation } from '@/lib/validation-middleware'
 import { z } from 'zod'
 
+export const dynamic = 'force-dynamic'
+
 // Validation schema for subscription creation
 const createSubscriptionSchema = z.object({
   customerId: z.string().min(1),
