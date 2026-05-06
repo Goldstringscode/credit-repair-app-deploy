@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/auth"
 import { creditDataService } from "@/lib/credit-data"
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const { user, isAuthenticated } = await getCurrentUser(request)
