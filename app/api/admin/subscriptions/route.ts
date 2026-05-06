@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { databaseService } from "@/lib/database-service"
 
+export const dynamic = 'force-dynamic'
+
 // GET - Get all subscriptions with filtering and pagination
 export async function GET(request: NextRequest) {
   try {
