@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { communicationDatabaseService } from '@/lib/database/communication-service';
 
+export const dynamic = 'force-dynamic'
+
 // GET - Fetch scheduled messages for a user
 export async function GET(request: NextRequest) {
   try {
