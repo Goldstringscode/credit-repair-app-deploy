@@ -1,7 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import {
-
-export const dynamic = 'force-dynamic'
   generateTaxReminders,
   getRemindersToSend,
   markReminderSent,
@@ -10,6 +8,8 @@ export const dynamic = 'force-dynamic'
   defaultTaxReminderSettings,
 } from "@/lib/tax-reminder-system"
 
+
+export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
