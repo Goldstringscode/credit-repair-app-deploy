@@ -3,6 +3,8 @@ import { invoiceGenerator } from '@/lib/invoice-generator'
 import { withRateLimit } from '@/lib/rate-limiter'
 import { getCurrentUser } from '@/lib/auth'
 
+export const dynamic = 'force-dynamic'
+
 export const GET = withRateLimit(
   async (request: NextRequest) => {
     try {
