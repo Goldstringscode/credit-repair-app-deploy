@@ -3,6 +3,8 @@ import { mlmRanks, calculateRankAdvancement } from "@/lib/mlm-system"
 import { mlmDatabaseService } from "@/lib/mlm/database-service"
 import { getAuthenticatedUser } from "@/lib/auth-helpers"
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
