@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/auth'
 import { getTeamContext, getVisibleTeamIds } from '@/lib/mlm-team-context'
 
+export const dynamic = 'force-dynamic'
+
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 // GET: list channels visible to the user
