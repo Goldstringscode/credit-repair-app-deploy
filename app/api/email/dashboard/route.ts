@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendInvitationEmail, sendWelcomeEmail, sendCreditRepairEmail } from '@/lib/email-service-server'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/email/dashboard - Get email dashboard data
 export async function GET(request: NextRequest) {
   try {
