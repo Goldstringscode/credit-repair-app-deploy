@@ -395,7 +395,7 @@ export async function sendTeamJoinEmail(params: {
 }): Promise<void> {
   await emailService.sendEmail({
     to: params.to,
-    subject: 'You've Joined a Team on Credit Repair AI!',
+    subject: "You've Joined a Team on Credit Repair AI!",
     body: `Hi ${params.name}, you've joined the team sponsored by ${params.sponsorName}. Your team code is ${params.teamCode}. Dashboard: ${params.dashboardLink}`,
     template: 'mlm_team_join',
   }).catch(err => console.error('sendTeamJoinEmail error:', err))
