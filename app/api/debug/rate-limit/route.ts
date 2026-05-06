@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
+export const dynamic = 'force-dynamic'
+
 // This endpoint helps debug and manage rate limits in development
 export async function GET(request: NextRequest) {
   // Only allow in development
