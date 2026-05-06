@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { communicationDatabaseService } from '@/lib/database/communication-service';
 import { withRateLimit } from '@/lib/rate-limiter';
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/mlm/communications/reactions - Add a reaction to a message
 export async function POST(request: NextRequest) {
   return withRateLimit(async (req) => {
