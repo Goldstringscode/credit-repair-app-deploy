@@ -151,11 +151,7 @@ export default function SettingsPage() {
       return data.success ? { success: true } : { error: data.error || 'Failed to change password' }
     } catch { return { error: 'Network error' } }
   }
-  const handleSaveProfile = () => {
-    setIsEditing(false)
-    // Here you would typically save to your backend
-    console.log("Profile saved:", profileData)
-  }
+
 
   const handleExportData = () => {
     // Simulate data export
