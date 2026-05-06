@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 
+export const dynamic = 'force-dynamic'
+
 // Mock user ID - in real app, get from auth context
 const MOCK_MLM_USER_ID = "550e8400-e29b-41d4-a716-446655440000"
 
