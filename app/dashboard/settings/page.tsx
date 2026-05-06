@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -32,7 +32,7 @@ import {
 } from "lucide-react"
 import { NotificationSettings } from "@/components/notification-settings"
 
-export default function SettingsPage() {
+function SettingsPageInner() {
   const searchParams = useSearchParams()
   const defaultTab = searchParams.get('tab') || 'profile'
   const [activeTab, setActiveTab] = useState(defaultTab)
@@ -609,5 +609,13 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"/></div>}>
+      <SettingsPageInner />
+    </Suspense>
   )
 }
