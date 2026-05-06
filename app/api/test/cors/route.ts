@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withCors } from '@/lib/cors'
 
+export const dynamic = 'force-dynamic'
+
 const optionsHandler = async (request: NextRequest) => {
   return new NextResponse(null, { status: 200 })
 }
