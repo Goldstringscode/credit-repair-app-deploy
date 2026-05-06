@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { smsService } from '@/lib/sms-service'
 import { smsNotificationService } from '@/lib/sms-notification-service'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
