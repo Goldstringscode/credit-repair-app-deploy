@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { creditRepairEmailTemplates, additionalCreditRepairTemplates } from '@/lib/credit-repair-email-templates'
 
+export const dynamic = 'force-dynamic'
+
 // Mock data - in production, this would come from a database
 let templates = [
   {
