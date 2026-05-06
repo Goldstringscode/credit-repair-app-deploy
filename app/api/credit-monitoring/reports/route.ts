@@ -3,6 +3,8 @@ import { requireAuth } from '@/lib/auth'
 import { withRateLimit } from '@/lib/rate-limiter'
 import { CreditMonitoringService } from '@/lib/credit-monitoring/credit-bureau-apis'
 
+export const dynamic = 'force-dynamic'
+
 export const GET = withRateLimit(
   requireAuth(async (request: NextRequest, user) => {
     try {
