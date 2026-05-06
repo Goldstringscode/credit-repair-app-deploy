@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendCreditRepairTemplateEmail } from '@/lib/email-service-server'
 
+export const dynamic = 'force-dynamic'
+
 // Mock data - in production, this would come from a database
 let campaigns = [
   {
