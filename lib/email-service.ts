@@ -369,4 +369,66 @@ The Credit Repair Team`
 }
 
 export const emailService = new EmailService()
+
+
+// Named exports for MLM registration emails
+export async function sendWelcomeEmail(params: {
+  to: string
+  name: string
+  teamCode: string
+  dashboardLink: string
+}): Promise<void> {
+  await emailService.sendEmail({
+    to: params.to,
+    subject: 'Welcome to Credit Repair AI!',
+    body: `Hi ${params.name}, welcome to the team! Your MLM code is ${params.teamCode}. Visit your dashboard: ${params.dashboardLink}`,
+    template: 'mlm_welcome',
+  }).catch(err => console.error('sendWelcomeEmail error:', err))
+}
+
+export async function sendTeamJoinEmail(params: {
+  to: string
+  name: string
+  teamCode: string
+  sponsorName: string
+  dashboardLink: string
+}): Promise<void> {
+  await emailService.sendEmail({
+    to: params.to,
+    subject: 'You've Joined a Team on Credit Repair AI!',
+    body: `Hi ${params.name}, you've joined the team sponsored by ${params.sponsorName}. Your team code is ${params.teamCode}. Dashboard: ${params.dashboardLink}`,
+    template: 'mlm_team_join',
+  }).catch(err => console.error('sendTeamJoinEmail error:', err))
+}
+
+export async function sendTeamCreationEmail(params: {
+  to: string
+  name: string
+  teamCode: string
+  dashboardLink: string
+}): Promise<void> {
+  await emailService.sendEmail({
+    to: params.to,
+    subject: 'Your MLM Team Has Been Created!',
+    body: `Hi ${params.name}, your team has been created. Team code: ${params.teamCode}. Manage it here: ${params.dashboardLink}`,
+    template: 'mlm_team_creation',
+  }).catch(err => console.error('sendTeamCreationEmail error:', err))
+}
+
+export async function sendNewTeamMemberEmail(params: {
+  to: string
+  sponsorName: string
+  newMemberName: string
+  newMemberEmail: string
+  teamCode: string
+  dashboardLink: string
+}): Promise<void> {
+  await emailService.sendEmail({
+    to: params.to,
+    subject: 'A New Member Has Joined Your Team!',
+    body: `Hi ${params.sponsorName}, ${params.newMemberName} (${params.newMemberEmail}) has joined your team (${params.teamCode}). Dashboard: ${params.dashboardLink}`,
+    template: 'mlm_new_team_member',
+  }).catch(err => console.error('sendNewTeamMemberEmail error:', err))
+}
+
 export type { EmailData, EmailResponse }
