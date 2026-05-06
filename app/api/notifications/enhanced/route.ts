@@ -5,6 +5,8 @@ import { notificationScheduler } from "@/lib/notification-scheduler"
 import { notificationAnalyticsService } from "@/lib/notification-analytics"
 import { notificationPrioritySystem } from "@/lib/notification-priority-system"
 
+export const dynamic = 'force-dynamic'
+
 // Mock user ID - in real app, get from auth context
 const MOCK_USER_ID = "550e8400-e29b-41d4-a716-446655440000"
 
