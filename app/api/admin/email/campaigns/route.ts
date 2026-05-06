@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 // Mock data storage (in production, this would be a database)
 // This needs to be outside the function to persist across requests
 let campaigns = [
