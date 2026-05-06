@@ -431,4 +431,68 @@ export async function sendNewTeamMemberEmail(params: {
   }).catch(err => console.error('sendNewTeamMemberEmail error:', err))
 }
 
+
+export async function sendCreditRepairTemplateEmail(params: {
+  to: string
+  subject: string
+  htmlContent: string
+  textContent?: string
+}): Promise<void> {
+  await emailService.sendEmail({
+    to: params.to,
+    subject: params.subject,
+    body: params.textContent || params.htmlContent,
+  }).catch(err => console.error('sendCreditRepairTemplateEmail error:', err))
+}
+
+export async function sendCommissionEarnedEmail(params: {
+  to: string
+  name: string
+  amount: number
+  type: string
+  level: number
+  dashboardLink?: string
+}): Promise<void> {
+  await emailService.sendEmail({
+    to: params.to,
+    subject: "Commission Earned - Credit Repair AI",
+    body: `Hi ${params.name}, you earned a ${params.type} commission of ${params.amount} (Level ${params.level}). View your earnings in your dashboard.`,
+    template: 'mlm_commission_earned',
+  }).catch(err => console.error('sendCommissionEarnedEmail error:', err))
+}
+
+export async function sendRankAdvancementEmail(params: {
+  to: string
+  name: string
+  oldRank: string
+  newRank: string
+  benefits?: string[]
+  dashboardLink?: string
+}): Promise<void> {
+  await emailService.sendEmail({
+    to: params.to,
+    subject: `Congratulations! You've Advanced to ${params.newRank} - Credit Repair AI`,
+    body: `Hi ${params.name}, you have advanced from ${params.oldRank} to ${params.newRank}! ${params.benefits?.length ? 'New benefits: ' + params.benefits.join(', ') : ''}`,
+    template: 'mlm_rank_advancement',
+    priority: 'high',
+  }).catch(err => console.error('sendRankAdvancementEmail error:', err))
+}
+
+export async function sendPayoutProcessedEmail(params: {
+  to: string
+  name: string
+  amount: number
+  method: string
+  transactionId: string
+  dashboardLink?: string
+}): Promise<void> {
+  await emailService.sendEmail({
+    to: params.to,
+    subject: "Payout Processed - Credit Repair AI",
+    body: `Hi ${params.name}, your payout of ${params.amount} via ${params.method} has been processed. Transaction ID: ${params.transactionId}`,
+    template: 'mlm_payout_processed',
+    priority: 'high',
+  }).catch(err => console.error('sendPayoutProcessedEmail error:', err))
+}
+
 export type { EmailData, EmailResponse }
