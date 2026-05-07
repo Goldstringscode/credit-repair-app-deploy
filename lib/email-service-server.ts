@@ -1,613 +1,163 @@
-// Server-only email service for Credit Repair App
-// This file should only be imported by server-side code (API routes)
-import { getEmailConfig, EMAIL_TEMPLATES, getEmailService } from './email-config'
+/**
+ * email-service-server.ts - Server-side email service
+ * Uses Resend SDK via lib/resend.ts
+ * DO NOT import on client side - server only
+ */
+import { sendEmail, textToHtml, FROM_NAME } from './resend'
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://creditrepairai.com'
+
+// ─── Interfaces (kept for type compatibility) ─────────────────────────────────
 
 export interface InvitationEmailData {
-  to: string
-  name: string
-  sponsorName: string
-  teamCode: string
-  invitationCode: string
-  invitationLink: string
+  to: string; name: string; sponsorName: string
+  teamCode: string; invitationCode: string; invitationLink: string
 }
-
 export interface WelcomeEmailData {
-  to: string
-  name: string
-  teamCode: string
-  dashboardLink: string
+  to: string; name: string; teamCode: string; dashboardLink: string
 }
 
-export interface CreditRepairEmailData {
-  to: string
-  name: string
-  type: 'welcome' | 'update' | 'completion'
-  data: any
-}
+// ─── Core emailService object (used by routes importing from this file) ───────
 
-export interface AdminEmailData {
-  to: string
-  subject: string
-  type: 'notification' | 'alert'
-  data: any
-}
-
-// MLM-specific email interfaces
-export interface TeamJoinEmailData {
-  to: string
-  name: string
-  teamCode: string
-  sponsorName: string
-  dashboardLink: string
-}
-
-export interface TeamCreationEmailData {
-  to: string
-  name: string
-  teamCode: string
-  dashboardLink: string
-}
-
-export interface CommissionEarnedEmailData {
-  to: string
-  name: string
-  amount: number
-  type: string
-  level: number
-  totalEarnings: number
-  dashboardLink: string
-}
-
-export interface RankAdvancementEmailData {
-  to: string
-  name: string
-  oldRank: string
-  newRank: string
-  benefits: string[]
-  dashboardLink: string
-}
-
-export interface NewTeamMemberEmailData {
-  to: string
-  sponsorName: string
-  newMemberName: string
-  newMemberEmail: string
-  teamCode: string
-  dashboardLink: string
-}
-
-export interface PayoutProcessedEmailData {
-  to: string
-  name: string
-  amount: number
-  method: string
-  transactionId: string
-  dashboardLink: string
-}
-
-export interface TrainingCompletionEmailData {
-  to: string
-  name: string
-  courseName: string
-  pointsEarned: number
-  nextCourse: string
-  dashboardLink: string
-}
-
-export interface TaskCompletionEmailData {
-  to: string
-  name: string
-  taskName: string
-  pointsEarned: number
-  nextTask: string
-  dashboardLink: string
-}
-
-// Create a transporter for sending emails
-const createTransporter = async () => {
-  const config = getEmailConfig()
-  const service = getEmailService()
-  
-  console.log(`📧 Using email service: ${service}`)
-  console.log(`📧 SMTP Host: ${config.host}:${config.port}`)
-  
-  // Dynamic import to avoid browser compatibility issues
-  const nodemailer = await import('nodemailer')
-  
-  return nodemailer.default.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    auth: config.auth,
-    tls: {
-      rejectUnauthorized: false // For development, set to true in production
-    }
-  })
-}
-
-export async function sendInvitationEmail(data: InvitationEmailData): Promise<any> {
-  try {
-    console.log('📧 Sending MLM Invitation Email:')
-    console.log(`   To: ${data.to}`)
-    console.log(`   Name: ${data.name}`)
-    console.log(`   Sponsor: ${data.sponsorName}`)
-    console.log(`   Team Code: ${data.teamCode}`)
-    console.log(`   Invitation Code: ${data.invitationCode}`)
-    console.log(`   Invitation Link: ${data.invitationLink}`)
-    
-    const transporter = await createTransporter()
-    const config = getEmailConfig()
-    const template = EMAIL_TEMPLATES.MLM_INVITATION
-    
-    const mailOptions = {
-      from: `"${config.from.name}" <${config.from.email}>`,
-      to: data.to,
-      subject: template.subject(data.sponsorName, data.teamCode),
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white;">
-            <h1 style="margin: 0; font-size: 28px;">🎉 You're Invited to Join Our MLM Team!</h1>
-          </div>
-          
-          <div style="padding: 30px; background: #f8f9fa;">
-            <p style="font-size: 18px; color: #333; margin-bottom: 20px;">Hello ${data.name},</p>
-            
-            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
-              <strong>${data.sponsorName}</strong> has invited you to join their exclusive MLM team. 
-              This is your opportunity to start building your own successful business!
-            </p>
-            
-            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-              <h3 style="color: #333; margin-top: 0;">Your Team Information:</h3>
-              <p><strong>Team Code:</strong> <code style="background: #e9ecef; padding: 4px 8px; border-radius: 4px;">${data.teamCode}</code></p>
-              <p><strong>Invitation Code:</strong> <code style="background: #e9ecef; padding: 4px 8px; border-radius: 4px;">${data.invitationCode}</code></p>
-            </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${data.invitationLink}" 
-                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                        color: white; 
-                        padding: 15px 30px; 
-                        text-decoration: none; 
-                        border-radius: 25px; 
-                        font-weight: bold; 
-                        font-size: 16px;
-                        display: inline-block;">
-                🚀 Join Team Now
-              </a>
-            </div>
-            
-            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;">
-              <p style="margin: 0; color: #856404;">
-                ⏰ <strong>Important:</strong> This invitation expires in 7 days. Don't miss out on this opportunity!
-              </p>
-            </div>
-            
-            <p style="color: #666; font-size: 14px; margin-top: 30px;">
-              If you have any questions, please contact ${data.sponsorName} or reply to this email.
-            </p>
-          </div>
-          
-          <div style="background: #333; color: white; padding: 20px; text-align: center; font-size: 12px;">
-            <p style="margin: 0;">© 2024 MLM Team. All rights reserved.</p>
-          </div>
-        </div>
-      `
-    }
-    
-    // Send the email
-    const info = await transporter.sendMail(mailOptions)
-    console.log('✅ Email sent successfully:', info.messageId)
-    
-    // Only show preview URL for test services
-    const service = getEmailService()
-    if (service === 'gmail' && process.env.NODE_ENV === 'development') {
-      const nodemailer = await import('nodemailer')
-      console.log('📧 Preview URL:', nodemailer.default.getTestMessageUrl(info))
-    }
-    
-    return info
-  } catch (error) {
-    console.error('❌ Failed to send invitation email:', error)
-    throw error // Re-throw to handle in calling function
-  }
-}
-
-export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<any> {
-  try {
-    console.log('📧 Sending MLM Welcome Email:')
-    console.log(`   To: ${data.to}`)
-    console.log(`   Name: ${data.name}`)
-    console.log(`   Team Code: ${data.teamCode}`)
-    console.log(`   Dashboard Link: ${data.dashboardLink}`)
-    
-    const transporter = await createTransporter()
-    const config = getEmailConfig()
-    
-    const mailOptions = {
-      from: `"${config.from.name}" <${config.from.email}>`,
-      to: data.to,
-      subject: `🎉 Welcome to Your MLM Team, ${data.name}!`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white;">
-            <h1 style="margin: 0; font-size: 28px;">🎉 Welcome to Your MLM Journey!</h1>
-            <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Your success story starts now</p>
-          </div>
-          
-          <div style="padding: 30px; background: #f8f9fa;">
-            <p style="font-size: 18px; color: #333; margin-bottom: 20px;">Hello ${data.name},</p>
-            
-            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
-              Congratulations on joining our exclusive MLM program! You're now part of a community 
-              dedicated to financial success and personal growth.
-            </p>
-            
-            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-              <h3 style="color: #333; margin-top: 0;">Your Team Information:</h3>
-              <p><strong>Team Code:</strong> <code style="background: #e9ecef; padding: 4px 8px; border-radius: 4px;">${data.teamCode}</code></p>
-              <p><strong>Status:</strong> <span style="color: #28a745; font-weight: bold;">Active Member</span></p>
-              <p><strong>Join Date:</strong> ${new Date().toLocaleDateString()}</p>
-            </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${data.dashboardLink}" 
-                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                        color: white; 
-                        padding: 15px 30px; 
-                        text-decoration: none; 
-                        border-radius: 25px; 
-                        font-weight: bold; 
-                        font-size: 16px;
-                        display: inline-block;">
-                🚀 Access Your Dashboard
-              </a>
-            </div>
-            
-            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;">
-              <p style="margin: 0; color: #856404;">
-                💡 <strong>Next Steps:</strong> Complete your profile, start training, and begin building your team!
-              </p>
-            </div>
-            
-            <p style="color: #666; font-size: 14px; margin-top: 30px;">
-              If you have any questions, please don't hesitate to contact our support team.
-            </p>
-          </div>
-          
-          <div style="background: #333; color: white; padding: 20px; text-align: center; font-size: 12px;">
-            <p style="margin: 0;">© 2024 MLM Team. All rights reserved.</p>
-          </div>
-        </div>
-      `
-    }
-    
-    const info = await transporter.sendMail(mailOptions)
-    console.log('✅ Welcome email sent successfully:', info.messageId)
-    
-    return info
-  } catch (error) {
-    console.error('Failed to send welcome email:', error)
-    throw error
-  }
-}
-
-// Credit Repair Email Functions
-export async function sendCreditRepairEmail(data: CreditRepairEmailData): Promise<any> {
-  try {
-    console.log('📧 Sending Credit Repair Email:')
-    console.log(`   To: ${data.to}`)
-    console.log(`   Name: ${data.name}`)
-    console.log(`   Type: ${data.type}`)
-    
-    const transporter = await createTransporter()
-    const config = getEmailConfig()
-    
-    const template = data.type === 'welcome' ? EMAIL_TEMPLATES.CREDIT_REPAIR_WELCOME :
-                    data.type === 'update' ? EMAIL_TEMPLATES.CREDIT_REPAIR_UPDATE :
-                    EMAIL_TEMPLATES.CREDIT_REPAIR_COMPLETION
-    
-    const mailOptions = {
-      from: `"${config.from.name}" <${config.from.email}>`,
-      to: data.to,
-      subject: template.subject(data.name),
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); padding: 30px; text-align: center; color: white;">
-            <h1 style="margin: 0; font-size: 28px;">${data.type === 'welcome' ? '🎉' : data.type === 'update' ? '📊' : '✅'} Credit Repair ${data.type.charAt(0).toUpperCase() + data.type.slice(1)}</h1>
-          </div>
-          <div style="padding: 30px; background: #f8f9fa;">
-            <p style="font-size: 18px; color: #333; margin-bottom: 20px;">Hello ${data.name},</p>
-            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
-              ${data.type === 'welcome' ? 'Welcome to our credit repair services! We\'re here to help you improve your credit score.' :
-                data.type === 'update' ? 'Here\'s an update on your credit repair progress.' :
-                'Congratulations! Your credit repair process has been completed successfully.'}
-            </p>
-            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-              <h3 style="color: #333; margin-top: 0;">Details:</h3>
-              <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">${JSON.stringify(data.data, null, 2)}</pre>
-            </div>
-          </div>
-        </div>
-      `
-    }
-    
-    const info = await transporter.sendMail(mailOptions)
-    console.log('✅ Credit repair email sent successfully:', info.messageId)
-    
-    return info
-  } catch (error) {
-    console.error('Failed to send credit repair email:', error)
-    throw error
-  }
-}
-
-// New function for sending credit repair template emails
-export async function sendCreditRepairTemplateEmail(data: {
-  to: string
-  subject: string
-  htmlContent: string
-  textContent: string
-}): Promise<any> {
-  try {
-    console.log('📧 Sending Credit Repair Template Email:')
-    console.log(`   To: ${data.to}`)
-    console.log(`   Subject: ${data.subject}`)
-    
-    const transporter = await createTransporter()
-    const config = getEmailConfig()
-    
-    const mailOptions = {
-      from: `"${config.from.name}" <${config.from.email}>`,
-      to: data.to,
-      subject: data.subject,
-      html: data.htmlContent,
-      text: data.textContent
-    }
-    
-    const info = await transporter.sendMail(mailOptions)
-    console.log('✅ Credit repair template email sent successfully:', info.messageId)
-    
-    return info
-  } catch (error) {
-    console.error('Failed to send credit repair template email:', error)
-    throw error
-  }
-}
-
-// Export all other functions with mock implementations for client-side compatibility
-export const sendTeamUpdateEmail = async (data: any) => {
-  console.log('📧 Mock: Team update email (server-only)')
-  return { messageId: 'mock-team-update' }
-}
-
-export const sendAdminEmail = async (data: any) => {
-  console.log('📧 Mock: Admin email (server-only)')
-  return { messageId: 'mock-admin' }
-}
-
-export const sendTeamJoinEmail = async (data: any) => {
-  console.log('📧 Mock: Team join email (server-only)')
-  return { messageId: 'mock-team-join' }
-}
-
-export const sendTeamCreationEmail = async (data: any) => {
-  console.log('📧 Mock: Team creation email (server-only)')
-  return { messageId: 'mock-team-creation' }
-}
-
-export const sendCommissionEarnedEmail = async (data: any) => {
-  console.log('📧 Mock: Commission earned email (server-only)')
-  return { messageId: 'mock-commission' }
-}
-
-export const sendRankAdvancementEmail = async (data: any) => {
-  console.log('📧 Mock: Rank advancement email (server-only)')
-  return { messageId: 'mock-rank' }
-}
-
-export const sendNewTeamMemberEmail = async (data: any) => {
-  console.log('📧 Mock: New team member email (server-only)')
-  return { messageId: 'mock-new-member' }
-}
-
-export const sendPayoutProcessedEmail = async (data: any) => {
-  console.log('📧 Mock: Payout processed email (server-only)')
-  return { messageId: 'mock-payout' }
-}
-
-export const sendTrainingCompletionEmail = async (data: any) => {
-  console.log('📧 Mock: Training completion email (server-only)')
-  return { messageId: 'mock-training' }
-}
-
-export const sendTaskCompletionEmail = async (data: any) => {
-  console.log('📧 Mock: Task completion email (server-only)')
-  return { messageId: 'mock-task' }
-}
-
-export const sendPasswordResetEmail = async (email: string, name: string, resetToken: string) => {
-  try {
-    console.log('📧 Sending Password Reset Email:')
-    console.log(`   To: ${email}`)
-    console.log(`   Name: ${name}`)
-    console.log(`   Reset Token: ${resetToken}`)
-    
-    const transporter = await createTransporter()
-    const config = getEmailConfig()
-    
-    const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`
-    
-    const mailOptions = {
-      from: `"${config.from.name}" <${config.from.email}>`,
-      to: email,
-      subject: 'Password Reset Request - CreditAI Pro',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white;">
-            <h1 style="margin: 0; font-size: 28px;">🔐 Password Reset Request</h1>
-          </div>
-          
-          <div style="padding: 30px; background: #f8f9fa;">
-            <p style="font-size: 18px; color: #333; margin-bottom: 20px;">Hello ${name},</p>
-            
-            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
-              We received a request to reset your password for your CreditAI Pro account. 
-              If you made this request, click the button below to reset your password.
-            </p>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${resetLink}" 
-                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                        color: white; 
-                        padding: 15px 30px; 
-                        text-decoration: none; 
-                        border-radius: 25px; 
-                        font-weight: bold; 
-                        font-size: 16px;
-                        display: inline-block;">
-                🔑 Reset Password
-              </a>
-            </div>
-            
-            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;">
-              <p style="margin: 0; color: #856404;">
-                ⏰ <strong>Important:</strong> This link expires in 1 hour for security reasons.
-              </p>
-            </div>
-            
-            <p style="color: #666; font-size: 14px; margin-top: 30px;">
-              If you didn't request this password reset, please ignore this email. Your password will remain unchanged.
-            </p>
-            
-            <p style="color: #666; font-size: 12px; margin-top: 20px;">
-              If the button doesn't work, copy and paste this link into your browser:<br>
-              <a href="${resetLink}" style="color: #667eea;">${resetLink}</a>
-            </p>
-          </div>
-          
-          <div style="background: #333; color: white; padding: 20px; text-align: center; font-size: 12px;">
-            <p style="margin: 0;">© 2024 CreditAI Pro. All rights reserved.</p>
-          </div>
-        </div>
-      `
-    }
-    
-    // Send the email
-    const info = await transporter.sendMail(mailOptions)
-    console.log('✅ Password reset email sent successfully:', info.messageId)
-    
-    return { success: true, messageId: info.messageId }
-  } catch (error) {
-    console.error('❌ Failed to send password reset email:', error)
-    return { success: false, error: error.message }
-  }
-}
-
-export const sendBillingNotification = async (user: any, type: string, data: any) => {
-  try {
-    console.log('📧 Sending Billing Notification:')
-    console.log(`   To: ${user.email}`)
-    console.log(`   Type: ${type}`)
-    console.log(`   Data:`, data)
-    
-    const transporter = await createTransporter()
-    const config = getEmailConfig()
-    
-    let subject = 'Billing Notification - CreditAI Pro'
-    let html = ''
-    
-    switch (type) {
-      case 'subscription_created':
-        subject = 'Welcome to CreditAI Pro - Subscription Created'
-        html = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white;">
-              <h1 style="margin: 0; font-size: 28px;">🎉 Welcome to CreditAI Pro!</h1>
-            </div>
-            
-            <div style="padding: 30px; background: #f8f9fa;">
-              <p style="font-size: 18px; color: #333; margin-bottom: 20px;">Hello ${user.first_name || user.email},</p>
-              
-              <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
-                Your subscription has been successfully created! Welcome to the CreditAI Pro family.
-              </p>
-              
-              <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <h3 style="color: #333; margin-top: 0;">Subscription Details:</h3>
-                <p><strong>Plan:</strong> ${data.planName || 'Demo Plan'}</p>
-                <p><strong>Billing Cycle:</strong> ${data.billingCycle || 'Monthly'}</p>
-                <p><strong>Next Billing Date:</strong> ${data.nextBillingDate || 'N/A'}</p>
-              </div>
-              
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" 
-                   style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                          color: white; 
-                          padding: 15px 30px; 
-                          text-decoration: none; 
-                          border-radius: 25px; 
-                          font-weight: bold; 
-                          font-size: 16px;
-                          display: inline-block;">
-                  🚀 Access Dashboard
-                </a>
-              </div>
-            </div>
-            
-            <div style="background: #333; color: white; padding: 20px; text-align: center; font-size: 12px;">
-              <p style="margin: 0;">© 2024 CreditAI Pro. All rights reserved.</p>
-            </div>
-          </div>
-        `
-        break
-      default:
-        subject = 'Billing Notification - CreditAI Pro'
-        html = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white;">
-              <h1 style="margin: 0; font-size: 28px;">📧 Billing Notification</h1>
-            </div>
-            
-            <div style="padding: 30px; background: #f8f9fa;">
-              <p style="font-size: 18px; color: #333; margin-bottom: 20px;">Hello ${user.first_name || user.email},</p>
-              
-              <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
-                This is a billing notification regarding your CreditAI Pro account.
-              </p>
-            </div>
-            
-            <div style="background: #333; color: white; padding: 20px; text-align: center; font-size: 12px;">
-              <p style="margin: 0;">© 2024 CreditAI Pro. All rights reserved.</p>
-            </div>
-          </div>
-        `
-    }
-    
-    const mailOptions = {
-      from: `"${config.from.name}" <${config.from.email}>`,
-      to: user.email,
-      subject,
-      html
-    }
-    
-    // Send the email
-    const info = await transporter.sendMail(mailOptions)
-    console.log('✅ Billing notification sent successfully:', info.messageId)
-    
-    return { success: true, messageId: info.messageId }
-  } catch (error) {
-    console.error('❌ Failed to send billing notification:', error)
-    return { success: false, error: error.message }
-  }
-}
-
-// Mock email service for client-side compatibility
 export const emailService = {
+  async sendEmail(opts: { to: string; subject: string; body: string; template?: string }) {
+    const html = opts.body.includes('<html') || opts.body.includes('<p') || opts.body.includes('<div')
+      ? opts.body : textToHtml(opts.body)
+    return sendEmail({ to: opts.to, subject: opts.subject, html, text: opts.body.replace(/<[^>]+>/g,'').trim() })
+  },
+
+  sendInvitationEmail: async (data: InvitationEmailData) => {
+    return sendEmail({
+      to: data.to,
+      subject: `You're Invited to Join Credit Repair AI!`,
+      html: textToHtml(`Hi ${data.name},\n\n${data.sponsorName} has invited you to join their team on Credit Repair AI!\n\nYour invitation code: ${data.invitationCode}\n\nJoin now:\n${data.invitationLink}\n\nBest,\nThe Credit Repair AI Team`),
+      tags: [{ name: 'type', value: 'invitation' }],
+    })
+  },
+
+  sendWelcomeEmail: async (data: WelcomeEmailData) => {
+    return sendEmail({
+      to: data.to,
+      subject: 'Welcome to Credit Repair AI! 🎉',
+      html: textToHtml(`Hi ${data.name},\n\nWelcome to Credit Repair AI!\n\nYour MLM code: ${data.teamCode}\n\nGet started:\n${data.dashboardLink}\n\nBest,\nThe Credit Repair AI Team`),
+      tags: [{ name: 'type', value: 'welcome' }],
+    })
+  },
+
+  sendCreditRepairEmail: async (to: string, name: string, subject: string, content: string) => {
+    const html = content.includes('<') ? content : textToHtml(content)
+    return sendEmail({ to, subject, html, tags: [{ name: 'type', value: 'credit_repair' }] })
+  },
+
+  sendPasswordResetEmail: async (email: string, name: string, resetToken: string) => {
+    const resetLink = `${APP_URL}/reset-password?token=${resetToken}`
+    return sendEmail({
+      to: email,
+      subject: 'Reset Your Credit Repair AI Password',
+      html: textToHtml(`Hi ${name},\n\nWe received a request to reset your password.\n\nClick the link below to reset it (expires in 1 hour):\n${resetLink}\n\nIf you did not request this, you can safely ignore this email.\n\nBest,\nThe Credit Repair AI Team`),
+      tags: [{ name: 'type', value: 'password_reset' }],
+    })
+  },
+
+  sendTeamUpdateEmail: async (to: string, name: string, updateMessage: string) => {
+    return sendEmail({
+      to, subject: 'Team Update - Credit Repair AI',
+      html: textToHtml(`Hi ${name},\n\n${updateMessage}\n\nBest,\nThe Credit Repair AI Team`),
+      tags: [{ name: 'type', value: 'team_update' }],
+    })
+  },
+
+  sendAdminEmail: async (to: string, subject: string, content: string) => {
+    const html = content.includes('<') ? content : textToHtml(content)
+    return sendEmail({ to, subject, html, tags: [{ name: 'type', value: 'admin' }] })
+  },
+
+  sendTeamJoinEmail: async (params: { to: string; name: string; teamCode: string; sponsorName: string; dashboardLink: string }) => {
+    return sendEmail({
+      to: params.to,
+      subject: "You've Joined a Team on Credit Repair AI!",
+      html: textToHtml(`Hi ${params.name},\n\nYou've joined the team sponsored by ${params.sponsorName}.\n\nTeam code: ${params.teamCode}\n\nView your dashboard:\n${params.dashboardLink}\n\nBest,\nThe Credit Repair AI Team`),
+      tags: [{ name: 'type', value: 'team_join' }],
+    })
+  },
+
+  sendTeamCreationEmail: async (params: { to: string; name: string; teamCode: string; dashboardLink: string }) => {
+    return sendEmail({
+      to: params.to,
+      subject: 'Your MLM Team Has Been Created!',
+      html: textToHtml(`Hi ${params.name},\n\nYour team has been created!\n\nTeam code: ${params.teamCode}\n\nManage it here:\n${params.dashboardLink}\n\nBest,\nThe Credit Repair AI Team`),
+      tags: [{ name: 'type', value: 'team_creation' }],
+    })
+  },
+
+  sendCommissionEarnedEmail: async (params: { to: string; name: string; amount: number; type: string; level: number; dashboardLink?: string }) => {
+    return sendEmail({
+      to: params.to,
+      subject: `Commission Earned: $${params.amount.toFixed(2)}`,
+      html: textToHtml(`Hi ${params.name},\n\nYou earned a ${params.type} commission of $${params.amount.toFixed(2)} at level ${params.level}.\n\nView your earnings:\n${params.dashboardLink || APP_URL + '/mlm/payouts'}\n\nBest,\nThe Credit Repair AI Team`),
+      tags: [{ name: 'type', value: 'commission' }],
+    })
+  },
+
+  sendRankAdvancementEmail: async (params: { to: string; name: string; oldRank: string; newRank: string; benefits?: string[]; dashboardLink?: string }) => {
+    return sendEmail({
+      to: params.to,
+      subject: `Congratulations! You Reached ${params.newRank}! 🏆`,
+      html: textToHtml(`Hi ${params.name},\n\nYou advanced from ${params.oldRank} to ${params.newRank}!\n${params.benefits?.length ? '\nNew benefits:\n' + params.benefits.map(b => '• ' + b).join('\n') : ''}\n\nView your progress:\n${params.dashboardLink || APP_URL + '/mlm/rank-progression'}\n\nBest,\nThe Credit Repair AI Team`),
+      tags: [{ name: 'type', value: 'rank_advancement' }],
+    })
+  },
+
+  sendNewTeamMemberEmail: async (params: { to: string; sponsorName: string; newMemberName: string; newMemberEmail: string; teamCode: string; dashboardLink: string }) => {
+    return sendEmail({
+      to: params.to,
+      subject: 'A New Member Joined Your Team!',
+      html: textToHtml(`Hi ${params.sponsorName},\n\n${params.newMemberName} (${params.newMemberEmail}) has joined your team (${params.teamCode}).\n\nView your genealogy:\n${params.dashboardLink}\n\nBest,\nThe Credit Repair AI Team`),
+      tags: [{ name: 'type', value: 'new_member' }],
+    })
+  },
+
+  sendPayoutProcessedEmail: async (params: { to: string; name: string; amount: number; method: string; transactionId: string; dashboardLink?: string }) => {
+    return sendEmail({
+      to: params.to,
+      subject: `Payout Processed: $${params.amount.toFixed(2)}`,
+      html: textToHtml(`Hi ${params.name},\n\nYour payout of $${params.amount.toFixed(2)} via ${params.method} has been processed.\n\nTransaction ID: ${params.transactionId}\n\nView your payouts:\n${params.dashboardLink || APP_URL + '/mlm/payouts'}\n\nThank you!\nThe Credit Repair AI Team`),
+      tags: [{ name: 'type', value: 'payout' }],
+    })
+  },
+
+  sendTrainingCompletionEmail: async (params: { to: string; name: string; courseName: string; certificateUrl?: string }) => {
+    return sendEmail({
+      to: params.to,
+      subject: `Training Complete: ${params.courseName} 🎓`,
+      html: textToHtml(`Hi ${params.name},\n\nCongratulations! You completed "${params.courseName}".\n${params.certificateUrl ? '\nView your certificate:\n' + params.certificateUrl : ''}\n\nBest,\nThe Credit Repair AI Team`),
+      tags: [{ name: 'type', value: 'training_completion' }],
+    })
+  },
+
+  sendTaskCompletionEmail: async (params: { to: string; name: string; taskName: string; reward?: string }) => {
+    return sendEmail({
+      to: params.to,
+      subject: `Task Completed: ${params.taskName} ✅`,
+      html: textToHtml(`Hi ${params.name},\n\nYou completed the task "${params.taskName}"!${params.reward ? '\n\nReward earned: ' + params.reward : ''}\n\nKeep going!\nThe Credit Repair AI Team`),
+      tags: [{ name: 'type', value: 'task_completion' }],
+    })
+  },
+
+  sendBillingNotification: async (to: string, name: string, subject: string, message: string) => {
+    return sendEmail({
+      to, subject,
+      html: textToHtml(`Hi ${name},\n\n${message}\n\nBest,\nThe Credit Repair AI Team`),
+      tags: [{ name: 'type', value: 'billing' }],
+    })
+  },
+}
+
+// Named exports (compatible with email-service-server imports)
+export const {
   sendInvitationEmail,
   sendWelcomeEmail,
-  sendCreditRepairEmail,
-  sendCreditRepairTemplateEmail,
+  sendPasswordResetEmail,
   sendTeamUpdateEmail,
   sendAdminEmail,
   sendTeamJoinEmail,
@@ -618,24 +168,10 @@ export const emailService = {
   sendPayoutProcessedEmail,
   sendTrainingCompletionEmail,
   sendTaskCompletionEmail,
-  sendPasswordResetEmail,
-  sendBillingNotification
-}
+  sendBillingNotification,
+} = emailService
 
-export class EmailService {
-  static async sendInvitationEmail(data: InvitationEmailData) {
-    return sendInvitationEmail(data)
-  }
-  
-  static async sendWelcomeEmail(data: WelcomeEmailData) {
-    return sendWelcomeEmail(data)
-  }
-  
-  static async sendCreditRepairEmail(data: CreditRepairEmailData) {
-    return sendCreditRepairEmail(data)
-  }
-  
-  static async sendCreditRepairTemplateEmail(data: any) {
-    return sendCreditRepairTemplateEmail(data)
-  }
+// Legacy compatibility
+export const sendCreditRepairTemplateEmail = async (params: { to: string; subject: string; htmlContent: string; textContent?: string }) => {
+  return sendEmail({ to: params.to, subject: params.subject, html: params.htmlContent, text: params.textContent })
 }
