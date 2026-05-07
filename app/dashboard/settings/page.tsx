@@ -174,8 +174,8 @@ function SettingsPageInner() {
   const handleExportData = async () => {
     try {
       const [meRes, creditRes] = await Promise.all([
-        fetch('/api/auth/me', {credentials:'include'}).then(r=>r.json()).catch(()=>null),
-        fetch('/api/dashboard/stats', {credentials:'include'}).then(r=>r.json()).catch(()=>null),
+        fetch('/api/auth/me', { credentials: 'include' }).then(r => r.json()).catch(() => null),
+        fetch('/api/dashboard/stats', { credentials: 'include' }).then(r => r.json()).catch(() => null),
       ])
       const data = {
         profile: meRes?.user || profileData,
@@ -183,12 +183,18 @@ function SettingsPageInner() {
         settings: { notifications, privacy },
         exportDate: new Date().toISOString(),
       }
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = "credit-repair-data.json"
-    a.click()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'credit-repair-data.json'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Export failed:', err)
+    }
   }
 
   return (
