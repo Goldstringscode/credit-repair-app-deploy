@@ -1,9 +1,14 @@
+import { getCurrentUser } from "@/lib/auth"
 import { type NextRequest, NextResponse } from "next/server"
 import { aiDisputeLetterGenerator } from "@/lib/ai-dispute-letter-generator"
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
+  const { user, isAuthenticated } = await getCurrentUser(request)
+  if (!isAuthenticated || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
   try {
     const body = await request.json()
     
