@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -22,131 +23,55 @@ import {
 import Link from "next/link"
 
 export default function LettersPage() {
+  const { user } = useCurrentUser()
   const [loading, setLoading] = useState(true)
+  const [recentLetters, setRecentLetters] = useState<any[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [generateSuccess, setGenerateSuccess] = useState('')
 
-  // Simulate loading
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false)
-    }, 1500)
+    if (!user?.id) return
+    setLoading(true)
+    fetch('/api/disputes?limit=20', { credentials: 'include' })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.disputes) {
+          setRecentLetters(data.disputes.map((d: any) => ({
+            id: d.id,
+            title: d.account_name ? d.dispute_type + ' - ' + d.account_name : d.title || 'Dispute Letter',
+            type: d.dispute_type || 'Standard Dispute',
+            status: d.status === 'resolved' ? 'Delivered' : d.status === 'pending' ? 'Sent' : d.status || 'Draft',
+            date: (d.created_at || '').substring(0, 10),
+            recipient: d.bureau || d.credit_bureau || 'Experian',
+            trackingNumber: d.tracking_number || null,
+            canFileComplaint: d.status === 'pending' && d.created_at &&
+              (Date.now() - new Date(d.created_at).getTime()) > 30 * 24 * 60 * 60 * 1000,
+            daysSinceSent: d.created_at ? Math.floor((Date.now() - new Date(d.created_at).getTime()) / 86400000) : 0,
+          })))
+        } else {
+          setRecentLetters([])
+        }
+      })
+      .catch(() => setError('Failed to load letters'))
+      .finally(() => setLoading(false))
+  }, [user?.id])
 
-    return () => clearTimeout(timer)
-  }, [])
-
-  if (loading) {
-    return <LettersSkeleton />
+  const handleGenerateLetter = async (disputeId?: string) => {
+    setGenerating(true)
+    try {
+      const res = await fetch('/api/disputes/generate-letter', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ disputeId, userId: user?.id }),
+      })
+      const data = await res.json()
+      if (data.success) { setGenerateSuccess('Letter generated!'); setTimeout(()=>setGenerateSuccess(''),3000) }
+    } catch { setError('Failed to generate letter') }
+    finally { setGenerating(false) }
   }
 
-  const recentLetters = [
-    {
-      id: 1,
-      title: "Late Payment Dispute - Capital One",
-      type: "Standard Dispute",
-      status: "Sent",
-      date: "2024-01-15",
-      recipient: "Experian",
-      trackingNumber: "9405511206213123456789",
-      canFileComplaint: true,
-      daysSinceSent: 25,
-    },
-    {
-      id: 2,
-      title: "Enhanced Dispute Package - Chase",
-      type: "Enhanced Dispute",
-      status: "Delivered",
-      date: "2024-01-12",
-      recipient: "Equifax",
-      trackingNumber: "9405511206213123456790",
-      canFileComplaint: false,
-      daysSinceSent: 28,
-    },
-    {
-      id: 3,
-      title: "FCRA Complaint - TransUnion Violation",
-      type: "FCRA Complaint",
-      status: "Filed with CFPB",
-      date: "2024-01-10",
-      recipient: "Consumer Financial Protection Bureau",
-      trackingNumber: "CFPB-2024-001234",
-      canFileComplaint: false,
-      daysSinceSent: 30,
-    },
-    {
-      id: 4,
-      title: "Premium Attorney Review - Discover",
-      type: "Premium Dispute",
-      status: "Under Review",
-      date: "2024-01-08",
-      recipient: "TransUnion",
-      trackingNumber: "9405511206213123456791",
-      canFileComplaint: false,
-      daysSinceSent: 32,
-    },
-    {
-      id: 5,
-      title: "Standard Dispute - Collections Account",
-      type: "Standard Dispute",
-      status: "No Response",
-      date: "2023-12-15",
-      recipient: "Experian",
-      trackingNumber: "9405511206213123456792",
-      canFileComplaint: true,
-      daysSinceSent: 45,
-    },
-  ]
-
-  const templates = [
-    { name: "Late Payment Dispute", description: "Challenge incorrect late payment records", successRate: "87%" },
-    { name: "Charge-off Dispute", description: "Dispute charge-off accounts", successRate: "82%" },
-    { name: "Collection Account", description: "Challenge collection accounts", successRate: "79%" },
-    { name: "Identity Theft", description: "Report fraudulent accounts", successRate: "94%" },
-    { name: "Inaccurate Balance", description: "Correct wrong balance amounts", successRate: "85%" },
-    { name: "Duplicate Account", description: "Remove duplicate listings", successRate: "91%" },
-  ]
-
-  const fcraComplaintReasons = [
-    {
-      title: "No Response After 30 Days",
-      description: "Credit bureau failed to respond to your dispute within the required timeframe",
-      severity: "High",
-      price: "$29.99",
-    },
-    {
-      title: "Inadequate Investigation",
-      description: "Bureau conducted superficial investigation without proper verification",
-      severity: "Medium",
-      price: "$29.99",
-    },
-    {
-      title: "Refused to Remove Verified Errors",
-      description: "Bureau acknowledged error but refused to correct your credit report",
-      severity: "High",
-      price: "$39.99",
-    },
-    {
-      title: "Repeated Inaccurate Information",
-      description: "Same incorrect information keeps reappearing after removal",
-      severity: "High",
-      price: "$49.99",
-    },
-  ]
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "Sent":
-        return <Badge className="bg-blue-100 text-blue-800">Sent</Badge>
-      case "Delivered":
-        return <Badge className="bg-green-100 text-green-800">Delivered</Badge>
-      case "Filed with CFPB":
-        return <Badge className="bg-purple-100 text-purple-800">Filed with CFPB</Badge>
-      case "Under Review":
-        return <Badge className="bg-yellow-100 text-yellow-800">Under Review</Badge>
-      case "No Response":
-        return <Badge className="bg-red-100 text-red-800">No Response</Badge>
-      default:
-        return <Badge variant="outline">{status}</Badge>
-    }
-  }
+  if (loading) return <LettersSkeleton />
 
   return (
     <div className="min-h-screen bg-gray-50">
