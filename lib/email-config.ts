@@ -124,6 +124,7 @@ export const EMAIL_TEMPLATES = {
 export type EmailService = 'gmail' | 'sendgrid' | 'mailgun' | 'ses'
 
 export function getEmailService(): EmailService {
+  if (process.env.RESEND_API_KEY) return 'resend' as any
   if (process.env.SENDGRID_API_KEY) return 'sendgrid'
   if (process.env.MAILGUN_API_KEY) return 'mailgun'
   if (process.env.AWS_SES_ACCESS_KEY_ID) return 'ses'
