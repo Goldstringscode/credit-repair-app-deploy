@@ -1,52 +1,29 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { EmailService } from "@/lib/email-service-server"
+import { sendEmail, textToHtml } from "@/lib/resend"
 
 export async function POST(request: NextRequest) {
   try {
-    const { type, to, data } = await request.json()
+    const { type, to, subject, body: emailBody, html, data } = await request.json()
 
-    if (!to || !type) {
-      return NextResponse.json({ error: "Missing required fields: to, type" }, { status: 400 })
+    if (!to) {
+      return NextResponse.json({ error: 'Missing required field: to' }, { status: 400 })
     }
 
-    let result
+    // Build subject and content from type or direct params
+    const emailSubject = subject || (type ? type.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) + ' - Credit Repair AI' : 'Message from Credit Repair AI')
+    const content = html || emailBody || (data?.message || data?.content || '')
+    const htmlContent = content && (content.includes('<html') || content.includes('<p'))
+      ? content : textToHtml(content || 'No content provided')
 
-    switch (type) {
-      case "welcome":
-        result = await EmailService.sendWelcomeEmail({
-          to,
-          name: data.userName || 'User',
-          teamCode: data.teamCode || 'DEMO123',
-          dashboardLink: data.dashboardLink || `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/dashboard`
-        })
-        break
-      case "password-reset":
-        // Note: sendPasswordResetEmail method not accessible in EmailService
-        result = { success: true, data: { message: "Password reset email functionality not yet implemented" } }
-        break
-      case "dispute-letter":
-        // Note: sendDisputeLetterNotification method not implemented in EmailService
-        result = { success: true, data: { message: "Dispute letter notification functionality not yet implemented" } }
-        break
-      case "credit-score-update":
-        // Note: sendCreditScoreUpdate method not implemented in EmailService
-        result = { success: true, data: { message: "Credit score update notification functionality not yet implemented" } }
-        break
-      case "subscription-confirmation":
-        // Note: sendSubscriptionConfirmation method not implemented in EmailService
-        result = { success: true, data: { message: "Subscription confirmation functionality not yet implemented" } }
-        break
-      default:
-        return NextResponse.json({ error: "Invalid email type" }, { status: 400 })
+    const result = await sendEmail({ to, subject: emailSubject, html: htmlContent })
+
+    if (!result.success) {
+      return NextResponse.json({ success: false, error: result.error }, { status: 500 })
     }
 
-    if (result.success) {
-      return NextResponse.json({ success: true, data: result.data })
-    } else {
-      return NextResponse.json({ error: result.error }, { status: 500 })
-    }
-  } catch (error) {
-    console.error("Email API error:", error)
-    return NextResponse.json({ error: "Failed to send email" }, { status: 500 })
+    return NextResponse.json({ success: true, id: result.id, message: 'Email sent' })
+  } catch (err: any) {
+    console.error('send-email route error:', err)
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
   }
 }
