@@ -119,6 +119,10 @@ export default function MLMDashboard() {
         // Build personal invite link from mlmCode
         const code = userData.user.mlmCode || userData.user.teamCode
         if(code) setMyInviteLink((process.env.NEXT_PUBLIC_APP_URL || window.location.origin) + '/signup?ref=' + code)
+      } else if (userResponse.status === 404 || !userData.success) {
+        // No MLM account — redirect credit repair users to join page
+        router.push('/mlm/join')
+        return
       }
 
       // Fetch team stats
