@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -23,13 +24,14 @@ interface CreditData {
 }
 
 export default function CreditReportsDashboard() {
+  const { user } = useCurrentUser()
   const [creditData, setCreditData] = useState<CreditData>({ negativeItems: [], creditScores: [] })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    loadCreditData()
-  }, [])
+    if (user?.id) loadCreditData()
+  }, [user?.id])
 
   const loadCreditData = async () => {
     try {
@@ -37,8 +39,8 @@ export default function CreditReportsDashboard() {
       
       // Load negative items and credit scores from database
       const [negativeItemsResponse, creditScoresResponse] = await Promise.all([
-        fetch('/api/credit-reports/negative-items?userId=1'),
-        fetch('/api/credit-reports/credit-scores?userId=1')
+        fetch(`/api/credit-reports/negative-items?userId=${user?.id}`, { credentials: 'include' }),
+        fetch(`/api/credit-reports/credit-scores?userId=${user?.id}`, { credentials: 'include' })
       ])
       
       const negativeItemsData = await negativeItemsResponse.json()
