@@ -171,7 +171,31 @@ function SettingsPageInner() {
   }
 
 
-  const handleExportData = async () => {
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm !== 'DELETE') { setPwError('Type DELETE to confirm'); return }
+    setDeleteLoading(true)
+    try {
+      const res = await fetch('/api/auth/delete-account', {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmation: deleteConfirm }),
+      })
+      const data = await res.json()
+      if (data.success) { window.location.href = '/' }
+      else setPwError(data.error || 'Failed to delete account')
+    } catch { setPwError('Network error — please try again') }
+    finally { setDeleteLoading(false) }
+  }
+
+  const handleRevokeSession = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+      window.location.href = '/login'
+    } catch { console.error('Revoke failed') }
+  }
+
+    const handleExportData = async () => {
     try {
       const [meRes, creditRes] = await Promise.all([
         fetch('/api/auth/me', { credentials: 'include' }).then(r => r.json()).catch(() => null),
@@ -628,7 +652,9 @@ function SettingsPageInner() {
                 <p className="text-sm text-gray-600 mb-4">
                   Permanently delete your account and all associated data. This action cannot be undone.
                 </p>
-                {showDeleteConfirm ? (
+                {user?.role === 'admin' ? (
+                  <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 p-3 rounded-lg">Admin accounts cannot be deleted.</p>
+                ) : showDeleteConfirm ? (
                   <div className="space-y-3 p-4 bg-red-50 border border-red-200 rounded-lg">
                     <p className="text-sm text-red-700 font-medium">This action is permanent and cannot be undone.</p>
                     <p className="text-sm text-red-600">Type <strong>DELETE</strong> to confirm:</p>
