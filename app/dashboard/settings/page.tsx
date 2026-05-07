@@ -183,7 +183,7 @@ function SettingsPageInner() {
         settings: { notifications, privacy },
         exportDate: new Date().toISOString(),
       }
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
@@ -622,10 +622,26 @@ function SettingsPageInner() {
                 <p className="text-sm text-gray-600 mb-4">
                   Permanently delete your account and all associated data. This action cannot be undone.
                 </p>
-                <Button variant="destructive">
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Account
-                </Button>
+                {showDeleteConfirm ? (
+                  <div className="space-y-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-700 font-medium">This action is permanent and cannot be undone.</p>
+                    <p className="text-sm text-red-600">Type <strong>DELETE</strong> to confirm:</p>
+                    <input value={deleteConfirm} onChange={e=>setDeleteConfirm(e.target.value)}
+                      className="w-full px-3 py-2 border border-red-300 rounded-lg text-sm focus:outline-none"
+                      placeholder="Type DELETE"/>
+                    <div className="flex gap-2">
+                      <Button variant="destructive" onClick={handleDeleteAccount} disabled={deleteLoading || deleteConfirm !== 'DELETE'} className="flex-1">
+                        {deleteLoading ? 'Deleting...' : 'Confirm Delete'}
+                      </Button>
+                      <Button variant="outline" onClick={()=>{setShowDeleteConfirm(false);setDeleteConfirm('')}} className="flex-1">Cancel</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button variant="destructive" onClick={()=>setShowDeleteConfirm(true)}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Account
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
