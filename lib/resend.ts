@@ -12,9 +12,17 @@ export function getResend(): Resend {
   return _resend
 }
 
-export const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@creditrepairai.com'
+export const FROM_EMAIL = process.env.FROM_EMAIL || 'onboarding@resend.dev'
 export const FROM_NAME = process.env.FROM_NAME || 'Credit Repair AI'
 export const FROM = `${FROM_NAME} <${FROM_EMAIL}>`
+
+/**
+ * DEV_TO_EMAIL: When set, ALL emails are redirected to this address.
+ * Use this for testing before your domain is verified.
+ * Must be YOUR verified email in Resend (the one you signed up with).
+ * Remove this env var when your domain is live and you want real delivery.
+ */
+export const DEV_TO_EMAIL = process.env.DEV_TO_EMAIL || null
 
 export interface SendEmailOptions {
   to: string | string[]
@@ -40,16 +48,26 @@ export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult
     const apiKey = process.env.RESEND_API_KEY
     if (!apiKey) {
       // Development fallback - log to console
-      console.log('📧 [EMAIL - no RESEND_API_KEY] Would send to:', opts.to)
+      console.log('📧 [EMAIL DEV - no API key] Would send to:', opts.to)
       console.log('   Subject:', opts.subject)
       console.log('   Body preview:', opts.text?.substring(0, 100) || opts.html.replace(/<[^>]+>/g,'').substring(0, 100))
       return { success: true, id: 'dev-'+Date.now() }
     }
 
     const resend = getResend()
+
+    // In test mode (no custom domain), redirect all emails to your verified address
+    const recipients = DEV_TO_EMAIL
+      ? [DEV_TO_EMAIL]
+      : Array.isArray(opts.to) ? opts.to : [opts.to]
+
+    if (DEV_TO_EMAIL && DEV_TO_EMAIL !== (Array.isArray(opts.to) ? opts.to[0] : opts.to)) {
+      console.log(`📧 [TEST MODE] Redirecting email from ${Array.isArray(opts.to)?opts.to.join(','):opts.to} → ${DEV_TO_EMAIL}`)
+    }
+
     const { data, error } = await resend.emails.send({
       from: FROM,
-      to: Array.isArray(opts.to) ? opts.to : [opts.to],
+      to: recipients,
       subject: opts.subject,
       html: opts.html,
       text: opts.text,
