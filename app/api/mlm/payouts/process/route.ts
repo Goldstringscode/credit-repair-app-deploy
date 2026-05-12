@@ -1,3 +1,5 @@
+import { sendPayoutProcessedEmail } from '@/lib/email-service'
+import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/auth'
@@ -52,6 +54,21 @@ export async function POST(req: NextRequest) {
     details: { amount, method, payoutId: payout.id },
     created_at: new Date().toISOString(),
   }).catch(() => {}) // non-fatal
+
+    // Send payout confirmation email
+    try {
+      const db2 = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+      const { data: userRow } = await db2.from('users').select('email,first_name').eq('id', user.id).maybeSingle()
+      if (userRow?.email) {
+        sendPayoutProcessedEmail({
+          to: userRow.email,
+          name: userRow.first_name || userRow.email.split('@')[0],
+          amount: Number(amount),
+          method: payoutMethod || 'bank_transfer',
+          transactionId: payoutId || Date.now().toString(),
+        }).catch(e => console.error('Payout email failed:', e.message))
+      }
+    } catch(emailErr) { console.error('Payout email error:', emailErr) }
 
   return NextResponse.json({ success: true, payout })
 }
