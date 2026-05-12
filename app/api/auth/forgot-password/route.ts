@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { Resend } from "resend"
+import { sendPasswordResetEmail } from "@/lib/email-service"
 import crypto from "crypto"
 
 export const dynamic = 'force-dynamic'
@@ -71,48 +71,16 @@ export async function POST(request: NextRequest) {
     console.log("DB token update:", updateError ? "FAILED: " + updateError.message : "SUCCESS")
 
     // Send email directly via Resend SDK — no intermediary service
-    const apiKey = process.env.RESEND_API_KEY
-    if (!apiKey) {
-      console.error("RESEND_API_KEY is not set — cannot send email")
-      return NextResponse.json({
-        success: true,
-        message: "If an account with that email exists, we have sent a password reset link.",
-        _debug: "email not sent: no api key"
-      })
-    }
-
-    const fromEmail = process.env.FROM_EMAIL || "onboarding@resend.dev"
-    const toEmail = process.env.DEV_TO_EMAIL || user.email
-    const fromName = process.env.FROM_NAME || "Credit Repair AI"
-
-    console.log("Sending email via Resend:")
-    console.log("  from:", fromName + " <" + fromEmail + ">")
-    console.log("  to:", toEmail)
-    console.log("  subject: Reset Your Credit Repair AI Password")
-
-    const resend = new Resend(apiKey)
-
-    const { data: emailData, error: emailError } = await resend.emails.send({
-      from: fromName + " <" + fromEmail + ">",
-      to: [toEmail],
-      subject: "Reset Your Credit Repair AI Password",
-      html: `<!DOCTYPE html>
-<html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
-<h2 style="color:#2563eb">Password Reset Request</h2>
-<p>Hi ${user.first_name || "there"},</p>
-<p>We received a request to reset your Credit Repair AI password.</p>
-<p><a href="${resetLink}" style="display:inline-block;background:#2563eb;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold">Reset My Password</a></p>
-<p>Or copy this link: <br/><small>${resetLink}</small></p>
-<p>This link expires in 1 hour. If you did not request this, you can safely ignore this email.</p>
-<p>— The Credit Repair AI Team</p>
-</body></html>`,
-      text: "Hi " + (user.first_name || "there") + ",\n\nReset your password here:\n" + resetLink + "\n\nThis link expires in 1 hour.\n\n— The Credit Repair AI Team",
+    // Send branded password reset email
+    const emailResult = await sendPasswordResetEmail({
+      to: user.email,
+      name: user.first_name || user.email.split('@')[0],
+      resetToken,
     })
-
-    if (emailError) {
-      console.error("Resend ERROR:", JSON.stringify(emailError))
+    if (!emailResult.success) {
+      console.error("Failed to send password reset email:", emailResult.error)
     } else {
-      console.log("Resend SUCCESS! Email ID:", emailData?.id)
+      console.log("📧 Password reset email sent! id:", emailResult.id)
     }
 
     return NextResponse.json({
