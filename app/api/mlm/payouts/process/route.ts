@@ -1,5 +1,4 @@
 import { sendPayoutProcessedEmail } from '@/lib/email-service'
-import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/auth'
