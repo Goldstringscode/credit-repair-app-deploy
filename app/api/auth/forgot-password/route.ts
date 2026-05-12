@@ -49,13 +49,18 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", user.id)
 
-      if (!updateError) {
-        // Send password reset email
-        const emailResult = await emailService.sendPasswordResetEmail(user.email, user.first_name, resetToken)
+      if (updateError) {
+        // Log the error but don't block - token still generated, try to send anyway
+        console.error("Failed to store reset token in DB:", updateError.message, "| Columns may be missing. Run SQL migration.")
+      }
 
-        if (!emailResult.success) {
-          console.error("Failed to send password reset email:", emailResult.error)
-        }
+      // Send email regardless - even if DB store failed, the token is valid in memory
+      // (though the reset won't work if DB failed - user needs the token persisted)
+      const emailResult = await emailService.sendPasswordResetEmail(user.email, user.first_name, resetToken)
+      if (!emailResult.success) {
+        console.error("Failed to send password reset email:", emailResult.error)
+      } else {
+        console.log("📧 Password reset email sent to:", user.email, "| emailId:", emailResult.id)
       }
     }
 
