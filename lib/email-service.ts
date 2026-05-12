@@ -38,8 +38,8 @@ export async function sendWelcomeEmail(params: {
       headerTitle: 'Welcome Aboard! 🎉',
       headerSubtitle: 'Your credit repair journey starts today',
       body: hi(params.name) +
-        p('We're thrilled to have you join Credit Repair AI. Your account is ready and your AI-powered credit repair tools are waiting.') +
-        highlight('✅ Account created successfully — you're all set to start improving your credit!') +
+        p('We\'re thrilled to have you join Credit Repair AI. Your account is ready and your AI-powered credit repair tools are waiting.') +
+        highlight('✅ Account created successfully — you\'re all set to start improving your credit!') +
         `<div style="background:#f8f9fa;border-radius:10px;padding:24px;margin:24px 0">
           <p style="margin:0 0 16px;font-weight:600;color:#2c3e50;font-size:15px">🚀 Get started in 3 steps:</p>
           <div style="display:flex;flex-direction:column;gap:12px">
@@ -155,7 +155,7 @@ export async function sendNewTeamMemberEmail(params: {
           infoRow('Under Code', params.teamCode) +
           infoRow('Joined', new Date().toLocaleDateString('en-US', {month:'long',day:'numeric',year:'numeric'}))
         ) +
-        highlight('💰 You'll earn commissions on their activity automatically. Keep growing your team!', '#27ae60') +
+        highlight('💰 You\'ll earn commissions on their activity automatically. Keep growing your team!', '#27ae60') +
         sig(),
       ctaUrl: link, ctaText: 'View My Team Tree',
     }),
@@ -294,7 +294,7 @@ export async function sendInvitationEmail(params: {
       headerTitle: 'You're Invited! 🎉',
       headerSubtitle: params.sponsorName + ' thinks you'd be a great fit',
       body: hi(params.name) +
-        p('<strong>' + params.sponsorName + '</strong> has personally invited you to join Credit Repair AI — the AI-powered credit repair platform that's helping thousands improve their credit scores.') +
+        p('<strong>' + params.sponsorName + '</strong> has personally invited you to join Credit Repair AI — the AI-powered credit repair platform that\'s helping thousands improve their credit scores.') +
         `<div style="background:#f0f8ff;border-radius:10px;padding:24px;margin:24px 0;text-align:center">
           <p style="margin:0 0 8px;color:#5a6c7d;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Your Invitation Code</p>
           <p style="margin:0;font-size:28px;font-weight:700;color:#667eea;letter-spacing:4px">${params.teamCode}</p>
@@ -349,7 +349,7 @@ export async function sendCreditScoreImprovementEmail(params: {
       headerSubtitle: 'Your hard work is paying off',
       accentColor: '#27ae60',
       body: hi(params.name) +
-        p('Congratulations! Your credit score has improved. Here's your progress:') +
+        p('Congratulations! Your credit score has improved. Here\'s your progress:') +
         `<div style="text-align:center;margin:32px 0">` +
           badge('Previous Score', params.previousScore.toString(), '#95a5a6') +
           `<span style="font-size:24px;margin:0 12px">→</span>` +
