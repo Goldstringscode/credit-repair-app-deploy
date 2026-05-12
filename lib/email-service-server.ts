@@ -157,6 +157,7 @@ export const emailService = {
 export const {
   sendInvitationEmail,
   sendWelcomeEmail,
+  sendCreditRepairEmail,
   sendPasswordResetEmail,
   sendTeamUpdateEmail,
   sendAdminEmail,
