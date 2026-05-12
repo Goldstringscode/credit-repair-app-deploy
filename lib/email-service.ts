@@ -120,7 +120,7 @@ export async function sendTeamJoinEmail(params: {
   return sendEmail({
     to: params.to, subject: "You've Joined a Team on Credit Repair AI!",
     html: buildEmail({
-      preheader: 'You are now part of ' + params.sponsorName + ''s team.',
+      preheader: `You are now part of ${params.sponsorName}'s team.`,
       headerTitle: 'Team Joined! 🤝',
       headerSubtitle: 'You are now part of a growing team',
       body: hi(params.name) +
