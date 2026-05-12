@@ -1,3 +1,4 @@
+import { sendInvitationEmail } from '@/lib/email-service'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/auth'
@@ -15,6 +16,18 @@ export async function GET(req: NextRequest) {
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://credit-repair-app-deploy.vercel.app'
   const inviteLink = mlmUser?.mlm_code ? baseUrl + '/signup?ref=' + mlmUser.mlm_code : null
+
+    // Send invitation email
+    if (body?.email && body?.sponsorName && body?.teamCode) {
+      const inviteLink = (process.env.NEXT_PUBLIC_APP_URL || '') + '/signup?ref=' + body.teamCode
+      sendInvitationEmail({
+        to: body.email,
+        name: body.recipientName || body.email.split('@')[0],
+        sponsorName: body.sponsorName,
+        teamCode: body.teamCode,
+        invitationLink: inviteLink,
+      }).catch(e => console.error('Invite email failed:', e.message))
+    }
 
   return NextResponse.json({ success: true, inviteLink, mlmCode: mlmUser?.mlm_code, rank: mlmUser?.rank })
 }
