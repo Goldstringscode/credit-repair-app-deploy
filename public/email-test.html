@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Email Test Suite</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f4f6f8;padding:24px;color:#2c3e50}
+.header{background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:28px 32px;border-radius:14px;margin-bottom:24px}
+h1{font-size:24px;font-weight:700;margin-bottom:6px}
+.header p{opacity:.85;font-size:14px}
+.controls{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;align-items:center}
+.btn{padding:10px 22px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.btn-p{background:linear-gradient(135deg,#667eea,#764ba2);color:white}
+.btn-s{background:white;color:#667eea;border:1.5px solid #667eea}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;display:none}
+.stat{background:white;border-radius:10px;padding:16px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.sn{font-size:28px;font-weight:700;margin-bottom:4px}
+.sl{font-size:12px;color:#5a6c7d;text-transform:uppercase;letter-spacing:.5px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px}
+.card{background:white;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08);border:2px solid transparent}
+.card.success{border-color:#2ecc71}.card.error{border-color:#e74c3c}
+.card.running{border-color:#f39c12;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.ct{font-size:15px;font-weight:600}
+.badge{padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;display:inline-block}
+.idle{background:#f4f6f8;color:#5a6c7d}
+.running-b{background:#fff3cd;color:#856404}
+.success-b{background:#d4edda;color:#155724}
+.error-b{background:#f8d7da;color:#721c24}
+.desc{font-size:13px;color:#5a6c7d;margin-bottom:12px}
+.result{font-size:12px;padding:7px 10px;border-radius:6px;margin-top:8px;font-family:monospace;word-break:break-all}
+.r-ok{background:#f0fff4;color:#155724}.r-fail{background:#fff5f5;color:#721c24}
+.sbtn{width:100%;padding:9px;background:#667eea15;border:1.5px solid #667eea40;border-radius:7px;color:#667eea;font-size:13px;font-weight:600;cursor:pointer;margin-top:6px}
+.sbtn:hover{background:#667eea;color:white}.sbtn:disabled{opacity:.5;cursor:not-allowed}
+.pb{height:6px;background:#e9ecef;border-radius:3px;overflow:hidden;margin:16px 0;display:none}
+.pf{height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:3px;width:0;transition:width .3s}
+.log{background:#1e1e1e;color:#d4d4d4;padding:16px;border-radius:10px;font-family:monospace;font-size:12px;max-height:180px;overflow-y:auto;margin-top:16px;display:none}
+.lok{color:#4ec9b0}.lerr{color:#f44747}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>📧 Email Test Suite</h1>
+  <p>Test all 15 email templates — Credit Repair AI / Resend</p>
+</div>
+<div class="controls">
+  <button class="btn btn-p" onclick="runAll()">🚀 Run All Tests</button>
+  <button class="btn btn-s" onclick="clearAll()">🔄 Clear</button>
+  <span id="tolabel" style="font-size:13px;color:#5a6c7d;margin-left:8px"></span>
+</div>
+<div class="summary" id="summary">
+  <div class="stat"><div class="sn" id="s-total">0</div><div class="sl">Total</div></div>
+  <div class="stat"><div class="sn" id="s-pass" style="color:#27ae60">0</div><div class="sl">Passed ✅</div></div>
+  <div class="stat"><div class="sn" id="s-fail" style="color:#e74c3c">0</div><div class="sl">Failed ❌</div></div>
+</div>
+<div class="pb" id="pb"><div class="pf" id="pf"></div></div>
+<div class="grid" id="grid"></div>
+<div class="log" id="log"></div>
+<script>
+var TESTS=[
+  {id:"welcome",name:"Welcome Email",desc:"New CR user registers",icon:"👋"},
+  {id:"password_reset",name:"Password Reset",desc:"User requests password reset",icon:"🔑"},
+  {id:"mlm_welcome",name:"MLM Welcome",desc:"New MLM partner registers",icon:"🏆"},
+  {id:"team_join",name:"Team Join",desc:"Member joins a team",icon:"🤝"},
+  {id:"new_team_member",name:"New Team Member",desc:"Alert to sponsor when downline joins",icon:"🎉"},
+  {id:"team_creation",name:"Team Creation",desc:"User creates a new MLM team",icon:"🚀"},
+  {id:"commission_earned",name:"Commission Earned",desc:"Commission calculated",icon:"💰"},
+  {id:"rank_advancement",name:"Rank Advancement",desc:"User advances to higher rank",icon:"⭐"},
+  {id:"payout_processed",name:"Payout Processed",desc:"Payout request approved",icon:"✅"},
+  {id:"invitation",name:"Team Invitation",desc:"Member invites someone",icon:"✉️"},
+  {id:"dispute_letter",name:"Dispute Letter",desc:"AI generates a dispute letter",icon:"📝"},
+  {id:"score_improvement",name:"Score Improvement",desc:"Credit score improves",icon:"📈"},
+  {id:"payment_success",name:"Payment Confirmed",desc:"Successful Stripe payment",icon:"💳"},
+  {id:"training_complete",name:"Training Complete",desc:"User completes a course",icon:"🎓"},
+  {id:"task_complete",name:"Task Complete",desc:"Onboarding task done",icon:"☑️"}
+];
+var state={};
+TESTS.forEach(function(t){state[t.id]={status:"idle",result:null};});
+
+function badge(s){
+  var cls=s==="idle"?"idle":s==="running"?"running-b":s==="success"?"success-b":"error-b";
+  var txt=s==="idle"?"Idle":s==="running"?"⏳ Sending...":s==="success"?"✅ Sent":"❌ Failed";
+  return "<span class=\"badge "+cls+"\">"+txt+"</span>";
+}
+
+function card(t){
+  var s=state[t.id];
+  var cc="card"+(s.status==="idle"?"":" "+s.status);
+  var res="";
+  if(s.result){
+    var rc=s.status==="success"?"result r-ok":"result r-fail";
+    var rt=s.status==="success"?"✅ Resend ID: "+s.result.id:"❌ "+s.result.error;
+    res="<div class=\""+rc+"\">"+rt+"</div>";
+  }
+  var dis=s.status==="running"?" disabled":"";
+  var bt=s.status==="success"?"Re-send":"Send Test Email";
+  return "<div class=\""+cc+"\" id=\"card-"+t.id+"\">"
+    +"<div class=\"ch\"><div class=\"ct\">"+t.icon+" "+t.name+"</div>"+badge(s.status)+"</div>"
+    +"<div class=\"desc\">"+t.desc+"</div>"
+    +res
+    +"<button class=\"sbtn\""+dis+" onclick=\"runTest('"+t.id+"')\">"+bt+"</button>"
+    +"</div>";
+}
+
+function render(){
+  document.getElementById("grid").innerHTML=TESTS.map(card).join("");
+}
+
+function log(msg,type){
+  var el=document.getElementById("log");
+  el.style.display="block";
+  var d=document.createElement("div");
+  d.className=type==="ok"?"lok":type==="err"?"lerr":"";
+  d.textContent=new Date().toLocaleTimeString()+" — "+msg;
+  el.insertBefore(d,el.firstChild);
+}
+
+function updateSummary(){
+  var pass=TESTS.filter(function(t){return state[t.id].status==="success";}).length;
+  var fail=TESTS.filter(function(t){return state[t.id].status==="error";}).length;
+  document.getElementById("s-total").textContent=TESTS.length;
+  document.getElementById("s-pass").textContent=pass;
+  document.getElementById("s-fail").textContent=fail;
+  document.getElementById("summary").style.display="grid";
+}
+
+function runTest(id){
+  state[id]={status:"running",result:null};
+  render(); log("Sending "+id+"...");
+  fetch("/api/email-test?type="+id)
+    .then(function(r){return r.json();})
+    .then(function(d){
+      state[id]={status:d.success?"success":"error",result:d};
+      log((d.success?"OK ":"FAIL ")+id+(d.success?" id="+d.id:" — "+d.error),d.success?"ok":"err");
+      updateSummary(); render();
+    })
+    .catch(function(e){
+      state[id]={status:"error",result:{error:e.message}};
+      log("FAIL "+id+" "+e.message,"err");
+      updateSummary(); render();
+    });
+}
+
+async function runAll(){
+  document.getElementById("pb").style.display="block";
+  log("Starting all 15 tests...");
+  for(var i=0;i<TESTS.length;i++){
+    await new Promise(function(resolve){
+      var t=TESTS[i];
+      state[t.id]={status:"running",result:null}; render();
+      fetch("/api/email-test?type="+t.id)
+        .then(function(r){return r.json();})
+        .then(function(d){
+          state[t.id]={status:d.success?"success":"error",result:d};
+          log((d.success?"OK ":"FAIL ")+t.id,d.success?"ok":"err");
+          updateSummary(); render();
+          document.getElementById("pf").style.width=((i+1)/TESTS.length*100)+"%";
+          resolve();
+        })
+        .catch(function(e){
+          state[t.id]={status:"error",result:{error:e.message}};
+          updateSummary(); render(); resolve();
+        });
+    });
+    await new Promise(function(r){setTimeout(r,350);});
+  }
+  log("All tests complete! Check your inbox.");
+}
+
+function clearAll(){
+  TESTS.forEach(function(t){state[t.id]={status:"idle",result:null};});
+  document.getElementById("summary").style.display="none";
+  document.getElementById("pb").style.display="none";
+  document.getElementById("pf").style.width="0";
+  document.getElementById("log").style.display="none";
+  render();
+}
+
+fetch("/api/email-test")
+  .then(function(r){return r.json();})
+  .then(function(d){document.getElementById("tolabel").textContent="📬 Sending to: "+d.to;})
+  .catch(function(){});
+
+render();
+</script>
+</body>
+</html>
