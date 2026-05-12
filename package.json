@@ -116,7 +116,8 @@
     "uuid": "^9.0.1",
     "vaul": "^0.9.6",
     "ws": "^8.18.3",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "@anthropic-ai/sdk": "^0.24.0"
   },
   "devDependencies": {
     "@types/node": "^22",
