@@ -49,7 +49,7 @@ export async function sendWelcomeEmail(params: {
           </div>
         </div>` + sig(),
       ctaUrl: link, ctaText: 'Go to My Dashboard',
-      footerNote: 'You're receiving this because you created a Credit Repair AI account.',
+      footerNote: "You're receiving this because you created a Credit Repair AI account.",
     }),
     tags: [{ name: 'type', value: 'welcome' }],
   })
@@ -73,7 +73,7 @@ export async function sendPasswordResetEmail(params: {
         p('If you did not request this reset, you can safely ignore this email — your password will remain unchanged.') +
         sig(),
       ctaUrl: link, ctaText: '🔑 Reset My Password',
-      footerNote: 'If you're having trouble, copy this link into your browser: ' + link,
+      footerNote: "If you're having trouble, copy this link into your browser: " + link,
     }),
     tags: [{ name: 'type', value: 'password_reset' }],
   })
@@ -173,7 +173,7 @@ export async function sendTeamCreationEmail(params: {
     html: buildEmail({
       preheader: 'Your team is live. Start building your network with code: ' + params.teamCode,
       headerTitle: 'Team Created! 🚀',
-      headerSubtitle: 'You're now a team leader',
+      headerSubtitle: "You're now a team leader",
       body: hi(params.name) +
         p('Congratulations! Your Credit Repair AI team has been created and is ready to grow.') +
         highlight('🎯 Team Code: <strong style="font-size:20px;letter-spacing:3px">' + params.teamCode + '</strong>') +
@@ -290,9 +290,9 @@ export async function sendInvitationEmail(params: {
   return sendEmail({
     to: params.to, subject: params.sponsorName + ' invited you to Credit Repair AI 🎉',
     html: buildEmail({
-      preheader: 'You've been personally invited by ' + params.sponsorName + ' to join Credit Repair AI.',
-      headerTitle: 'You're Invited! 🎉',
-      headerSubtitle: params.sponsorName + ' thinks you'd be a great fit',
+      preheader: "You've been personally invited by " + params.sponsorName + " to join Credit Repair AI.",
+      headerTitle: "You're Invited! 🎉",
+      headerSubtitle: params.sponsorName + " thinks you'd be a great fit",
       body: hi(params.name) +
         p('<strong>' + params.sponsorName + '</strong> has personally invited you to join Credit Repair AI — the AI-powered credit repair platform that\'s helping thousands improve their credit scores.') +
         `<div style="background:#f0f8ff;border-radius:10px;padding:24px;margin:24px 0;text-align:center">
