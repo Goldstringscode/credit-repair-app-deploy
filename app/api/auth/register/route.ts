@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { sendWelcomeEmail } from '@/lib/email-service'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
 import { getSupabaseClient } from '@/lib/supabase-client'
@@ -222,6 +223,13 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error('[Register] Error:', error)
+    // Send welcome email (non-blocking)
+    sendWelcomeEmail({
+      to: email,
+      name: firstName || email.split('@')[0],
+      dashboardLink: (process.env.NEXT_PUBLIC_APP_URL || '') + '/dashboard/overview',
+    }).catch(e => console.error('Welcome email failed:', e.message))
+
     return NextResponse.json({
       success: false,
       error: error?.message ?? 'Registration failed'
