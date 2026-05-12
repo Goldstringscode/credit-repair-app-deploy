@@ -1216,7 +1216,7 @@ _________________________________________
 
       try {
         const response = await this.anthropic.messages.create({
-          model: "claude-sonnet-4-5",
+          model: "claude-haiku-4-5-20251001",
           max_tokens: 2000,
           system: "You are an expert credit repair attorney specializing in FCRA compliance and dispute letter generation. Create unique, personalized, legally compliant dispute letters tailored to the specific dispute situation.",
           messages: [{ role: "user", content: prompt }],
