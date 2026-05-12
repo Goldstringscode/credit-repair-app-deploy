@@ -65,22 +65,25 @@ export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult
       console.log(`📧 [TEST MODE] Redirecting email from ${Array.isArray(opts.to)?opts.to.join(','):opts.to} → ${DEV_TO_EMAIL}`)
     }
 
-    const { data, error } = await resend.emails.send({
+    const payload: any = {
       from: FROM,
       to: recipients,
       subject: opts.subject,
       html: opts.html,
-      text: opts.text,
-      reply_to: opts.replyTo,
-      tags: opts.tags,
-    })
+    }
+    if (opts.text) payload.text = opts.text
+    if (opts.replyTo) payload.reply_to = opts.replyTo
+    if (opts.tags?.length) payload.tags = opts.tags
+
+    console.log('📧 Sending via Resend to:', recipients, '| subject:', opts.subject)
+    const { data, error } = await resend.emails.send(payload)
 
     if (error) {
-      console.error('Resend error:', error)
-      return { success: false, error: error.message }
+      console.error('📧 Resend API error:', JSON.stringify(error))
+      return { success: false, error: typeof error === 'string' ? error : (error as any).message || JSON.stringify(error) }
     }
 
-    console.log('📧 Email sent via Resend:', data?.id, '→', opts.to)
+    console.log('📧 Email sent via Resend:', data?.id, '→', recipients)
     return { success: true, id: data?.id }
   } catch (err: any) {
     console.error('sendEmail error:', err)
