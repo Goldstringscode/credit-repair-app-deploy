@@ -23,6 +23,49 @@ import {
 import Link from "next/link"
 
 export default function LettersPage() {
+  const templates = [
+    {
+      name: 'Late Payment Dispute',
+      successRate: '89% Success',
+      description: 'Dispute inaccurate late payment entries under FCRA Section 611.',
+    },
+    {
+      name: 'Collection Account Removal',
+      successRate: '76% Success',
+      description: 'Challenge unverifiable collection accounts and request validation.',
+    },
+    {
+      name: 'Charge-Off Dispute',
+      successRate: '71% Success',
+      description: 'Dispute incorrectly reported charge-offs or inaccurate balances.',
+    },
+    {
+      name: 'Identity Theft / Fraudulent Account',
+      successRate: '94% Success',
+      description: 'Remove accounts opened fraudulently in your name with police report.',
+    },
+    {
+      name: 'Outdated Negative Item',
+      successRate: '98% Success',
+      description: 'Remove negative items that have exceeded the 7-year reporting limit.',
+    },
+    {
+      name: 'Incorrect Personal Information',
+      successRate: '99% Success',
+      description: 'Correct wrong addresses, name variations, or SSN errors on your report.',
+    },
+    {
+      name: 'Hard Inquiry Removal',
+      successRate: '62% Success',
+      description: 'Challenge unauthorized hard inquiries you did not authorize.',
+    },
+    {
+      name: 'Duplicate Account',
+      successRate: '91% Success',
+      description: 'Remove the same debt reported by multiple collectors simultaneously.',
+    },
+  ]
+
   const fcraComplaintReasons = [
     {
       severity: "High",
