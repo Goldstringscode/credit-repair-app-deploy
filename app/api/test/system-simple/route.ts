@@ -14,7 +14,7 @@ export async function GET() {
         'NEXT_PUBLIC_APP_URL',
         'NEXT_PUBLIC_SUPABASE_URL',
         'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-        'OPENAI_API_KEY'
+        'ANTHROPIC_API_KEY'
       ]
 
       const missingVars = requiredEnvVars.filter(varName => !process.env[varName])
