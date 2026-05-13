@@ -4,13 +4,13 @@ export async function GET() {
   try {
     // Check environment variables
     const envVars = {
-      OPENAI_API_KEY: {
-        exists: !!process.env.OPENAI_API_KEY,
-        length: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.length : 0,
-        preview: process.env.OPENAI_API_KEY 
-          ? `${process.env.OPENAI_API_KEY.substring(0, 20)}...${process.env.OPENAI_API_KEY.substring(process.env.OPENAI_API_KEY.length - 10)}`
+      ANTHROPIC_API_KEY: {
+        exists: !!process.env.ANTHROPIC_API_KEY,
+        length: process.env.ANTHROPIC_API_KEY ? process.env.ANTHROPIC_API_KEY.length : 0,
+        preview: process.env.ANTHROPIC_API_KEY 
+          ? `${process.env.ANTHROPIC_API_KEY.substring(0, 20)}...${process.env.ANTHROPIC_API_KEY.substring(process.env.ANTHROPIC_API_KEY.length - 10)}`
           : 'Not set',
-        isValid: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.startsWith('sk-') : false
+        isValid: process.env.ANTHROPIC_API_KEY ? process.env.ANTHROPIC_API_KEY.startsWith('sk-') : false
       },
       DATABASE_URL: {
         exists: !!process.env.DATABASE_URL,
