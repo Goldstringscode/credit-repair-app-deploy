@@ -1102,7 +1102,7 @@ _________________________________________
           personalInfo,
           disputeItems,
           strategy,
-          letterType,
+          disputeType,
           creditBureau,
           writingStyle,
           personalizationLevel,
