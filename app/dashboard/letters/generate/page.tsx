@@ -398,16 +398,23 @@ Enclosures: Credit Report Copy`
         const bureauName = bureauInfo?.name || bureau
         const bureauAddress = bureauInfo?.address || ""
         
-        const requestBody = {
+        // Use enhanced explanation if user accepted it, otherwise use original
+          const explanationToUse = enhancedExplanation && showEnhancedPreview === false && enhancedExplanation.length > 0
+            ? enhancedExplanation
+            : disputeInfo.disputeDetails
+
+          const requestBody = {
           personalInfo,
           disputeItems,
-          letterType: selectedLetterType, // Use the actual dispute type (dispute, goodwill, etc.)
-          letterTier: aiLetterType, // Use the tier (standard/enhanced/premium)
+          letterType: selectedLetterType,
+          letterTier: aiLetterType,
           creditBureau: bureau,
           additionalContext: {
             previousDisputes: disputeInfo.previousDisputes,
             letterPurpose: selectedLetterType,
-            disputeDetails: disputeInfo.disputeDetails,
+            disputeDetails: explanationToUse,
+            enhancedExplanation: enhancedExplanation && enhancedExplanation.length > 0 ? enhancedExplanation : null,
+            aiEnhanced: !!(enhancedExplanation && enhancedExplanation.length > 0),
             desiredOutcome: disputeInfo.desiredOutcome,
             bureauName: bureauName,
             bureauAddress: bureauAddress
