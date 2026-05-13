@@ -1339,6 +1339,12 @@ PERSONAL INFORMATION:
 DISPUTE ITEMS:
 ${disputeItems.map(item => `- ${item.creditorName} (${item.accountNumber}): ${item.disputeReason}`).join('\n')}
 
+${additionalContext?.enhancedExplanation ? `CONSUMER'S AI-ENHANCED EXPLANATION (incorporate this directly into the letter body - this is the core of what the consumer wants to say):
+${additionalContext.enhancedExplanation}
+
+IMPORTANT: The above enhanced explanation has been crafted by the consumer and must be woven into the letter body. Do not ignore it — it should form the foundation of the dispute explanation paragraph(s).` : additionalContext?.disputeDetails ? `CONSUMER'S EXPLANATION (incorporate into the letter body):
+${additionalContext.disputeDetails}` : ''}
+
 DISPUTE STRATEGY:
 - Primary reason: ${strategy.primaryReason}
 - Legal basis: ${strategy.legalBasis.slice(0, 3).join(', ')}
