@@ -23,6 +23,45 @@ import {
 import Link from "next/link"
 
 export default function LettersPage() {
+  const fcraComplaintReasons = [
+    {
+      severity: "High",
+      title: "Bureau Ignored Your Dispute",
+      description: "Credit bureau failed to investigate or respond within 30 days as required by FCRA Section 611.",
+      price: "Free",
+    },
+    {
+      severity: "High",
+      title: "Verified Error Not Removed",
+      description: "Bureau verified information you proved is inaccurate and refused to correct it.",
+      price: "Free",
+    },
+    {
+      severity: "High",
+      title: "Re-inserted Deleted Information",
+      description: "Deleted negative item was re-inserted on your report without proper notice.",
+      price: "Free",
+    },
+    {
+      severity: "Medium",
+      title: "No Response After 30 Days",
+      description: "Bureau failed to complete its investigation within the 30-day statutory period.",
+      price: "Free",
+    },
+    {
+      severity: "Medium",
+      title: "Furnisher Not Notified",
+      description: "Bureau did not forward your dispute to the furnisher as required by law.",
+      price: "Free",
+    },
+    {
+      severity: "Medium",
+      title: "Incomplete Investigation",
+      description: "Bureau claims investigation was completed but errors remain unresolved.",
+      price: "Free",
+    },
+  ]
+
   const { user } = useCurrentUser()
   const [loading, setLoading] = useState(true)
   const [recentLetters, setRecentLetters] = useState<any[]>([])
