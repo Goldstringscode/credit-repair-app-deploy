@@ -1,613 +1,263 @@
 /**
- * Certified Mail Service with ShipEngine Integration
- * Tiered Pricing Model Implementation
+ * lib/certified-mail-service-shipengine.ts
+ * Certified mail business logic — now uses Shippo instead of ShipEngine.
+ * File kept with original name to avoid breaking all the route imports.
  */
 
-import { shipEngineService, type CertifiedMailAddress, type CertifiedMailRequest as ShipEngineRequest } from './shipengine-service';
-import { stripeMailPayments } from './stripe-mail-payments';
+import { shippoService, type CertifiedMailAddress, type CertifiedMailRequest as ShippoMailRequest } from './shippo-service'
+import { stripeMailPayments } from './stripe-mail-payments'
+import { letterTextToBase64PDF } from './letter-pdf-generator'
+import { createClient } from '@supabase/supabase-js'
+
+const db = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+export type { CertifiedMailAddress }
 
 export interface CertifiedMailRequest {
-  userId: string;
-  recipient: {
-    name: string;
-    company?: string;
-    address: CertifiedMailAddress;
-  };
-  sender: {
-    name: string;
-    company?: string;
-    address: CertifiedMailAddress;
-  };
+  userId: string
+  recipient: CertifiedMailAddress
+  sender: CertifiedMailAddress
   letter: {
-    subject: string;
-    content: string;
-    type: string;
-    templateId?: string;
-  };
-  serviceTier: 'basic' | 'premium' | 'professional';
-  additionalServices?: {
-    returnReceipt?: boolean;
-    signatureConfirmation?: boolean;
-    insurance?: number;
-    priorityProcessing?: boolean;
-  };
-  deliveryInstructions?: string;
+    content: string          // Plain text letter content
+    disputeType: string      // 'dispute' | 'goodwill' | etc.
+    bureauName: string
+  }
+  serviceTier: 'standard' | 'certified' | 'priority'
 }
 
 export interface CertifiedMailResponse {
-  trackingId: string;
-  trackingNumber: string;
-  status: string;
-  cost: {
-    baseCost: number;
-    serviceFee: number;
-    additionalFees: number;
-    total: number;
-  };
-  estimatedDelivery: string;
-  labelUrl?: string;
-  serviceTier: string;
+  success: boolean
+  trackingId?: string          // Internal DB record ID
+  trackingNumber?: string      // USPS tracking number from Shippo
+  trackingUrl?: string
+  labelUrl?: string
+  estimatedDelivery?: string
+  cost?: number
+  currency?: string
+  paymentClientSecret?: string // Stripe payment intent client secret
+  error?: string
 }
 
-export interface CertifiedMailStatus {
-  trackingId: string;
-  trackingNumber: string;
-  status: string;
-  processingStatus: string;
-  paymentStatus: string;
-  events: Array<{
-    eventType: string;
-    description: string;
-    location?: string;
-    timestamp: string;
-    source: string;
-  }>;
-  sentDate?: string;
-  deliveredDate?: string;
-  estimatedDelivery?: string;
-  actualDelivery?: string;
-  cost: {
-    baseCost: number;
-    serviceFee: number;
-    additionalFees: number;
-    total: number;
-  };
-  serviceTier: string;
-  errorMessage?: string;
+export interface MailRecord {
+  id: string
+  user_id: string
+  status: 'pending_payment' | 'paid' | 'processing' | 'sent' | 'delivered' | 'failed'
+  tracking_number?: string
+  tracking_url?: string
+  label_url?: string
+  shippo_transaction_id?: string
+  estimated_delivery?: string
+  cost?: number
+  letter_content: string
+  bureau_name: string
+  dispute_type: string
+  recipient_name: string
+  recipient_address: string
+  sender_name: string
+  created_at: string
+  updated_at: string
 }
 
-export interface MailTemplate {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  content: string;
-  variables: Record<string, string>;
-  isActive: boolean;
-  isPremium: boolean;
-}
-
-export interface PricingTier {
-  name: string;
-  description: string;
-  basePrice: number;
-  includes: string[];
-  additionalServices: {
-    returnReceipt: number;
-    signatureConfirmation: number;
-    insurance: number;
-    priorityProcessing: number;
-  };
-}
-
-class CertifiedMailServiceShipEngine {
-  private db: any; // Will be replaced with actual database connection
-
-  constructor() {
-    this.initializeDatabase();
-  }
-
-  private async initializeDatabase() {
-    console.log('Initializing certified mail database connection...');
-  }
+class CertifiedMailService {
 
   /**
-   * Get available pricing tiers
-   */
-  getPricingTiers(): Record<string, PricingTier> {
-    return shipEngineService.instance.getPricingTiers();
-  }
-
-  /**
-   * Calculate cost for a certified mail request
-   */
-  calculateCost(request: CertifiedMailRequest): {
-    baseCost: number;
-    serviceFee: number;
-    additionalFees: number;
-    total: number;
-    breakdown: {
-      tier: string;
-      basePrice: number;
-      additionalServices: Record<string, number>;
-    };
-  } {
-    const shipEngineRequest: ShipEngineRequest = {
-      toAddress: request.recipient.address,
-      fromAddress: request.sender.address,
-      letterContent: request.letter.content,
-      serviceTier: request.serviceTier,
-      additionalServices: request.additionalServices,
-    };
-
-    return shipEngineService.instance.calculateCost(shipEngineRequest);
-  }
-
-  /**
-   * Create a new certified mail request
+   * Step 1: Create a mail record and Stripe payment intent.
+   * Called when user clicks "Send via Certified Mail".
    */
   async createMailRequest(request: CertifiedMailRequest): Promise<CertifiedMailResponse> {
     try {
-      // 1. Validate addresses (simplified for testing)
-      console.log('Validating addresses...');
-      const recipientValidation = await shipEngineService.instance.validateAddress(request.recipient.address);
-      const senderValidation = await shipEngineService.instance.validateAddress(request.sender.address);
-
-      console.log('Recipient validation:', recipientValidation);
-      console.log('Sender validation:', senderValidation);
-
-      if (!recipientValidation.isValid) {
-        console.error('Recipient address validation failed:', recipientValidation);
-        throw new Error('Invalid recipient address');
+      // Validate recipient address via Shippo
+      const validation = await shippoService.validateAddress(request.recipient)
+      if (!validation.isValid) {
+        return { success: false, error: 'Invalid recipient address: ' + validation.errors.join(', ') }
       }
 
-      if (!senderValidation.isValid) {
-        console.error('Sender address validation failed:', senderValidation);
-        throw new Error('Invalid sender address');
+      // Calculate cost based on tier
+      const tierCosts: Record<string, number> = {
+        standard: 399,    // $3.99
+        certified: 799,   // $7.99
+        priority: 1299,   // $12.99
       }
+      const amountCents = tierCosts[request.serviceTier] || 799
 
-      // 2. Calculate costs
-      console.log('Calculating costs...');
-      const costBreakdown = this.calculateCost(request);
-      console.log('Cost breakdown:', costBreakdown);
+      // Create Stripe payment intent
+      const paymentIntent = await stripeMailPayments.createMailPaymentIntent({
+        amount: amountCents,
+        currency: 'usd',
+        userId: request.userId,
+        metadata: {
+          bureauName: request.letter.bureauName,
+          disputeType: request.letter.disputeType,
+          serviceTier: request.serviceTier,
+        },
+      })
 
-      // 3. Generate tracking number
-      console.log('Generating tracking numbers...');
-      const trackingNumber = this.generateTrackingNumber();
-      const trackingId = this.generateTrackingId();
-      console.log('Tracking number:', trackingNumber);
-      console.log('Tracking ID:', trackingId);
+      // Save mail record to Supabase
+      const { data: mailRecord, error: dbError } = await db()
+        .from('certified_mail_requests')
+        .insert({
+          user_id: request.userId,
+          status: 'pending_payment',
+          letter_content: request.letter.content,
+          bureau_name: request.letter.bureauName,
+          dispute_type: request.letter.disputeType,
+          recipient_name: request.recipient.name,
+          recipient_address: JSON.stringify(request.recipient),
+          sender_name: request.sender.name,
+          sender_address: JSON.stringify(request.sender),
+          service_tier: request.serviceTier,
+          amount_cents: amountCents,
+          stripe_payment_intent_id: paymentIntent.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single()
 
-      // 4. Create database record
-      console.log('Creating database record...');
-      const mailRecord = {
-        id: trackingId,
-        user_id: request.userId,
-        tracking_number: trackingNumber,
-        recipient_name: request.recipient.name,
-        recipient_address: JSON.stringify(request.recipient.address),
-        sender_name: request.sender.name,
-        sender_address: JSON.stringify(request.sender.address),
-        letter_content: request.letter.content,
-        mail_service: request.serviceTier,
-        cost: costBreakdown.total,
-        status: 'processing',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-
-      console.log('Mail record created:', mailRecord);
-
-      // Store in database
-      console.log('Storing in database...');
-      await this.storeMailRecord(mailRecord);
-      console.log('Database record stored successfully');
-
-      // 5. Create initial event
-      await this.createMailEvent(trackingId, 'created', 'Mail request created', 'system');
+      if (dbError) {
+        console.error('DB error creating mail record:', dbError)
+        return { success: false, error: 'Failed to create mail record: ' + dbError.message }
+      }
 
       return {
-        trackingId,
-        trackingNumber,
-        status: 'processing',
-        cost: {
-          baseCost: costBreakdown.baseCost,
-          serviceFee: costBreakdown.serviceFee,
-          additionalFees: costBreakdown.additionalFees,
-          total: costBreakdown.total,
-        },
-        estimatedDelivery: this.calculateEstimatedDelivery(request.serviceTier),
-        serviceTier: request.serviceTier,
-      };
-    } catch (error) {
-      console.error('Error creating mail request:', error);
-      throw new Error(`Failed to create mail request: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        success: true,
+        trackingId: mailRecord.id,
+        cost: amountCents / 100,
+        currency: 'USD',
+        paymentClientSecret: paymentIntent.client_secret,
+      }
+    } catch (err: any) {
+      console.error('createMailRequest error:', err)
+      return { success: false, error: err.message }
     }
   }
 
   /**
-   * Process payment and send mail
+   * Step 2: After payment confirmed — generate PDF and send via Shippo.
+   * Called by process-payment route or Stripe webhook.
    */
   async processPaymentAndSend(trackingId: string, paymentIntentId: string): Promise<CertifiedMailResponse> {
     try {
-      // 1. Update payment status
-      await this.updateMailRecord(trackingId, {
-        payment_status: 'paid',
-        stripe_payment_intent_id: paymentIntentId,
-        processing_status: 'validating',
-      });
+      // Get mail record
+      const { data: mailRecord, error: fetchError } = await db()
+        .from('certified_mail_requests')
+        .select('*')
+        .eq('id', trackingId)
+        .single()
 
-      // 2. Create payment event
-      await this.createMailEvent(trackingId, 'payment_completed', 'Payment processed successfully', 'stripe');
-
-      // 3. Get mail record
-      const mailRecord = await this.getMailRecord(trackingId);
-      if (!mailRecord) {
-        throw new Error('Mail record not found');
+      if (fetchError || !mailRecord) {
+        return { success: false, error: 'Mail record not found' }
       }
 
-      // 4. Create ShipEngine label
-      const shipEngineRequest: ShipEngineRequest = {
-        toAddress: JSON.parse(mailRecord.recipient_address),
-        fromAddress: JSON.parse(mailRecord.sender_address),
+      if (mailRecord.status === 'sent') {
+        return {
+          success: true,
+          trackingNumber: mailRecord.tracking_number,
+          trackingUrl: mailRecord.tracking_url,
+          message: 'Already sent',
+        } as any
+      }
+
+      // Verify Stripe payment succeeded
+      const paymentStatus = await stripeMailPayments.getPaymentStatus(paymentIntentId)
+      if (paymentStatus.status !== 'succeeded') {
+        return { success: false, error: 'Payment not confirmed: ' + paymentStatus.status }
+      }
+
+      // Update status to processing
+      await db().from('certified_mail_requests').update({ status: 'processing', updated_at: new Date().toISOString() }).eq('id', trackingId)
+
+      // Generate PDF from letter content
+      const recipient = typeof mailRecord.recipient_address === 'string'
+        ? JSON.parse(mailRecord.recipient_address)
+        : mailRecord.recipient_address
+
+      const sender = typeof mailRecord.sender_address === 'string'
+        ? JSON.parse(mailRecord.sender_address)
+        : mailRecord.sender_address
+
+      console.log('📄 Generating letter PDF...')
+      const pdfBase64 = await letterTextToBase64PDF({
         letterContent: mailRecord.letter_content,
-        serviceTier: mailRecord.service_tier,
-        additionalServices: JSON.parse(mailRecord.additional_services || '{}'),
-      };
+        senderName: mailRecord.sender_name,
+        senderAddress: sender?.street1,
+        senderCity: sender?.city,
+        senderState: sender?.state,
+        senderZip: sender?.zip,
+      })
 
-      const labelResponse = await shipEngineService.instance.createCertifiedMail(shipEngineRequest);
+      // Send via Shippo
+      console.log('📮 Creating Shippo certified mail shipment...')
+      const shippoResult = await shippoService.createCertifiedMail({
+        sender,
+        recipient,
+        letterPdfBase64: pdfBase64,
+        serviceTier: mailRecord.service_tier || 'certified',
+        metadata: {
+          trackingId,
+          userId: mailRecord.user_id,
+          bureauName: mailRecord.bureau_name,
+        },
+      })
 
-      // 5. Update with ShipEngine tracking info
-      await this.updateMailRecord(trackingId, {
-        shipengine_tracking_id: labelResponse.trackingNumber,
+      if (!shippoResult.success) {
+        await db().from('certified_mail_requests').update({ status: 'failed', updated_at: new Date().toISOString() }).eq('id', trackingId)
+        return { success: false, error: 'Shippo error: ' + shippoResult.error }
+      }
+
+      // Update record with tracking info
+      await db().from('certified_mail_requests').update({
         status: 'sent',
-        processing_status: 'completed',
-        sent_date: new Date().toISOString(),
-        label_url: labelResponse.labelUrl,
-      });
+        tracking_number: shippoResult.trackingNumber,
+        tracking_url: shippoResult.trackingUrl,
+        label_url: shippoResult.labelUrl,
+        shippo_transaction_id: shippoResult.shippoTransactionId,
+        estimated_delivery: shippoResult.estimatedDelivery,
+        sent_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq('id', trackingId)
 
-      // 6. Create sent event
-      await this.createMailEvent(trackingId, 'sent', 'Mail sent via ShipEngine', 'shipengine');
+      console.log('✅ Certified mail sent! Tracking:', shippoResult.trackingNumber)
 
       return {
+        success: true,
         trackingId,
-        trackingNumber: mailRecord.tracking_number,
-        status: 'sent',
-        cost: labelResponse.cost,
-        estimatedDelivery: labelResponse.estimatedDelivery,
-        labelUrl: labelResponse.labelUrl,
-        serviceTier: mailRecord.service_tier,
-      };
-    } catch (error) {
-      console.error('Error processing payment and sending mail:', error);
-
-      // Update status to failed
-      await this.updateMailRecord(trackingId, {
-        status: 'failed',
-        processing_status: 'failed',
-        error_message: error instanceof Error ? error.message : 'Unknown error',
-      });
-
-      await this.createMailEvent(trackingId, 'failed', 'Failed to process payment and send mail', 'system');
-
-      throw new Error(`Failed to process payment and send mail: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  /**
-   * Get mail status and tracking information
-   */
-  async getMailStatus(trackingId: string): Promise<CertifiedMailStatus> {
-    try {
-      // Get mail record from database
-      const mailRecord = await this.getMailRecord(trackingId);
-      if (!mailRecord) {
-        throw new Error('Mail record not found');
+        trackingNumber: shippoResult.trackingNumber,
+        trackingUrl: shippoResult.trackingUrl,
+        labelUrl: shippoResult.labelUrl,
+        estimatedDelivery: shippoResult.estimatedDelivery,
+        cost: shippoResult.cost,
+        currency: shippoResult.currency,
       }
-
-      // Get events
-      const events = await this.getMailEvents(trackingId);
-
-      // If we have a ShipEngine tracking number, get real-time tracking
-      if (mailRecord.shipengine_tracking_id) {
-        try {
-          const shipEngineTracking = await shipEngineService.instance.getTrackingInfo(mailRecord.shipengine_tracking_id);
-
-          // Update status based on ShipEngine tracking
-          if (shipEngineTracking.status !== mailRecord.status) {
-            await this.updateMailRecord(trackingId, {
-              status: this.mapShipEngineStatusToInternal(shipEngineTracking.status),
-            });
-          }
-
-          // Add ShipEngine events
-          shipEngineTracking.events.forEach((event) => {
-            events.push({
-              eventType: 'shipengine_update',
-              description: event.details,
-              location: event.location,
-              timestamp: event.timestamp,
-              source: 'shipengine',
-            });
-          });
-        } catch (error) {
-          console.warn('Failed to get ShipEngine tracking info:', error);
-        }
-      }
-
-      return {
-        trackingId: mailRecord.id,
-        trackingNumber: mailRecord.tracking_number,
-        status: mailRecord.status,
-        processingStatus: mailRecord.processing_status,
-        paymentStatus: mailRecord.payment_status,
-        events: events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
-        sentDate: mailRecord.sent_date,
-        deliveredDate: mailRecord.delivered_date,
-        estimatedDelivery: mailRecord.estimated_delivery,
-        actualDelivery: mailRecord.actual_delivery,
-        cost: {
-          baseCost: mailRecord.base_cost,
-          serviceFee: mailRecord.service_fee,
-          additionalFees: mailRecord.additional_fees,
-          total: mailRecord.total_cost,
-        },
-        serviceTier: mailRecord.service_tier,
-        errorMessage: mailRecord.error_message,
-      };
-    } catch (error) {
-      console.error('Error getting mail status:', error);
-      throw new Error(`Failed to get mail status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } catch (err: any) {
+      console.error('processPaymentAndSend error:', err)
+      await db().from('certified_mail_requests').update({ status: 'failed', updated_at: new Date().toISOString() }).eq('id', trackingId).catch(()=>{})
+      return { success: false, error: err.message }
     }
   }
 
   /**
-   * Get available mail templates
+   * Get tracking status for a mail record.
    */
-  async getMailTemplates(category?: string): Promise<MailTemplate[]> {
-    try {
-      // This would query the database for templates
-      // For now, return mock data
-      return [
-        {
-          id: '1',
-          name: 'Basic Dispute Letter',
-          description: 'Standard credit report dispute letter',
-          category: 'dispute',
-          content: 'Template content...',
-          variables: {
-            your_name: 'string',
-            your_address: 'string',
-            disputed_items: 'string',
-          },
-          isActive: true,
-          isPremium: false,
-        },
-        {
-          id: '2',
-          name: 'Premium Dispute Letter',
-          description: 'Enhanced dispute letter with legal language',
-          category: 'dispute',
-          content: 'Premium template content...',
-          variables: {
-            your_name: 'string',
-            your_address: 'string',
-            disputed_items: 'string',
-            creditor_name: 'string',
-          },
-          isActive: true,
-          isPremium: true,
-        },
-      ];
-    } catch (error) {
-      console.error('Error getting mail templates:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Get service rates from ShipEngine
-   */
-  async getServiceRates(fromAddress: CertifiedMailAddress, toAddress: CertifiedMailAddress): Promise<{
-    serviceCode: string;
-    serviceName: string;
-    cost: number;
-    estimatedDelivery: string;
-  }[]> {
-    try {
-      return await shipEngineService.instance.getServiceRates(fromAddress, toAddress);
-    } catch (error) {
-      console.error('Error getting service rates:', error);
-      return [];
-    }
-  }
-
-  // Private helper methods
-
-  private generateTrackingNumber(): string {
-    return `CR${Date.now()}${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-  }
-
-  private generateTrackingId(): string {
-    // Generate a valid UUID v4
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  }
-
-  private calculateEstimatedDelivery(serviceTier: string): string {
-    const deliveryDays: Record<string, number> = {
-      basic: 3,
-      premium: 2,
-      professional: 1,
-    };
-
-    const days = deliveryDays[serviceTier] || 3;
-    const deliveryDate = new Date();
-    deliveryDate.setDate(deliveryDate.getDate() + days);
-
-    return deliveryDate.toISOString().split('T')[0];
-  }
-
-  private mapShipEngineStatusToInternal(shipEngineStatus: string): string {
-    const statusMap: Record<string, string> = {
-      accepted: 'sent',
-      in_transit: 'in_transit',
-      out_for_delivery: 'in_transit',
-      delivered: 'delivered',
-      returned: 'returned',
-      failed: 'failed',
-    };
-
-    return statusMap[shipEngineStatus] || 'in_transit';
-  }
-
-  // Database methods (mock implementations for now)
-
-  private async storeMailRecord(record: any): Promise<void> {
-    // Real Supabase implementation
-    const { createClient } = require('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
-
-    const { error } = await supabase
-      .from('certified_mail_tracking')
-      .insert([record]);
-
-    if (error) {
-      console.error('Error storing mail record:', error);
-      console.error('Record that failed:', record);
-      throw new Error(`Failed to store mail record: ${error.message}`);
-    }
-
-    console.log('Stored mail record:', record.id);
-  }
-
-  private async getMailRecord(trackingId: string): Promise<any> {
-    // Real Supabase implementation
-    const { createClient } = require('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
-
-    const { data, error } = await supabase
-      .from('certified_mail_tracking')
+  async getTrackingStatus(trackingId: string): Promise<any> {
+    const { data: record } = await db()
+      .from('certified_mail_requests')
       .select('*')
       .eq('id', trackingId)
-      .single();
+      .single()
 
-    if (error) {
-      console.error('Error getting mail record:', error);
-      return null;
+    if (!record) return { error: 'Not found' }
+
+    let liveTracking = null
+    if (record.tracking_number) {
+      liveTracking = await shippoService.getTrackingInfo('usps', record.tracking_number)
     }
 
-    return data;
-  }
-
-  private async updateMailRecord(trackingId: string, updates: any): Promise<void> {
-    // Real Supabase implementation
-    const { createClient } = require('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
-
-    const { error } = await supabase
-      .from('certified_mail_tracking')
-      .update(updates)
-      .eq('id', trackingId);
-
-    if (error) {
-      console.error('Error updating mail record:', error);
-      throw new Error('Failed to update mail record');
+    return {
+      ...record,
+      liveTracking,
     }
-
-    console.log('Updated mail record:', trackingId, updates);
-  }
-
-  private async createMailEvent(trackingId: string, eventType: string, description: string, source: string): Promise<void> {
-    // Real Supabase implementation
-    const { createClient } = require('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
-
-    const { error } = await supabase
-      .from('mail_events')
-      .insert([{
-        tracking_id: trackingId,
-        event_type: eventType,
-        description: description,
-        location: source,
-        timestamp: new Date().toISOString()
-      }]);
-
-    if (error) {
-      console.error('Error creating mail event:', error);
-      throw new Error('Failed to create mail event');
-    }
-
-    console.log('Created mail event:', { trackingId, eventType, description, source });
-  }
-
-  private async getMailEvents(trackingId: string): Promise<Array<{
-    eventType: string;
-    description: string;
-    location?: string;
-    timestamp: string;
-    source: string;
-  }>> {
-    // Real Supabase implementation
-    const { createClient } = require('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
-
-    const { data, error } = await supabase
-      .from('mail_events')
-      .select('*')
-      .eq('tracking_id', trackingId)
-      .order('timestamp', { ascending: false });
-
-    if (error) {
-      console.error('Error getting mail events:', error);
-      return [];
-    }
-
-    return data.map(event => ({
-      eventType: event.event_type,
-      description: event.description,
-      location: event.location,
-      timestamp: event.timestamp,
-      source: event.location || 'system',
-    }));
   }
 }
 
-// Export singleton instance with lazy initialization
-let _certifiedMailService: CertifiedMailServiceShipEngine | null = null
-
-export const certifiedMailService = {
-  get instance() {
-    if (!_certifiedMailService) {
-      _certifiedMailService = new CertifiedMailServiceShipEngine()
-    }
-    return _certifiedMailService
-  }
-}
-
-// Export types
-export type {
-  CertifiedMailRequest,
-  CertifiedMailResponse,
-  CertifiedMailStatus,
-  MailTemplate,
-  PricingTier,
-};
+export const certifiedMailService = new CertifiedMailService()
