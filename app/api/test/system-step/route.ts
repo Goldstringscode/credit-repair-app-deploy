@@ -17,7 +17,7 @@ export async function GET() {
         details: {
           nodeEnv: process.env.NODE_ENV,
           hasDatabaseUrl: !!process.env.NEON_DATABASE_URL,
-          hasOpenAIKey: !!process.env.OPENAI_API_KEY
+          hasOpenAIKey: !!process.env.ANTHROPIC_API_KEY
         }
       }
     } catch (error) {
@@ -55,8 +55,8 @@ export async function GET() {
 
     // Test 3: OpenAI API (simplified)
     try {
-      if (process.env.OPENAI_API_KEY) {
-        if (!process.env.OPENAI_API_KEY.startsWith("sk-")) {
+      if (process.env.ANTHROPIC_API_KEY) {
+        if (!process.env.ANTHROPIC_API_KEY.startsWith("sk-")) {
           results.tests.openai = {
             status: "FAIL",
             message: "Invalid OpenAI API key format (should start with 'sk-')"
@@ -64,23 +64,23 @@ export async function GET() {
         } else {
           results.tests.openai = {
             status: "PASS",
-            message: "OpenAI API key format is valid",
+            message: "Anthropic API key format is valid",
             details: {
               keyFormat: "Valid (sk-...)",
-              keyLength: process.env.OPENAI_API_KEY.length
+              keyLength: process.env.ANTHROPIC_API_KEY.length
             }
           }
         }
       } else {
         results.tests.openai = {
           status: "SKIP",
-          message: "OpenAI API key not configured"
+          message: "Anthropic API key not configured"
         }
       }
     } catch (error) {
       results.tests.openai = {
         status: "ERROR",
-        message: "OpenAI check failed",
+        message: "Anthropic check failed",
         error: error instanceof Error ? error.message : "Unknown error"
       }
     }
