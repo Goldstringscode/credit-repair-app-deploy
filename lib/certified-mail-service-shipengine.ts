@@ -81,14 +81,16 @@ class CertifiedMailService {
       const amountCents = tierCosts[request.serviceTier] || 799
 
       // Create Stripe payment intent
-      const paymentIntent = await stripeMailPayments.createMailPaymentIntent({
-        amount: amountCents,
+      const paymentIntent = await stripeMailPayments.createPaymentIntent({
+        trackingId: 'pending',               // Will be updated after DB insert
+        amount: amountCents / 100,           // createPaymentIntent expects dollars, converts to cents internally
         currency: 'usd',
-        userId: request.userId,
+        description: `Certified Mail - ${request.letter.bureauName} (${request.serviceTier})`,
         metadata: {
-          bureauName: request.letter.bureauName,
-          disputeType: request.letter.disputeType,
-          serviceTier: request.serviceTier,
+          mailType: 'certified_mail',
+          serviceType: request.serviceTier,
+          trackingNumber: 'pending',
+          userId: request.userId,
         },
       })
 
@@ -107,7 +109,7 @@ class CertifiedMailService {
           sender_address: JSON.stringify(request.sender),
           service_tier: request.serviceTier,
           amount_cents: amountCents,
-          stripe_payment_intent_id: paymentIntent.id,
+          stripe_payment_intent_id: paymentIntent.paymentIntentId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
@@ -124,7 +126,7 @@ class CertifiedMailService {
         trackingId: mailRecord.id,
         cost: amountCents / 100,
         currency: 'USD',
-        paymentClientSecret: paymentIntent.client_secret,
+        paymentClientSecret: paymentIntent.clientSecret,
       }
     } catch (err: any) {
       console.error('createMailRequest error:', err)
