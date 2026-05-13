@@ -106,7 +106,6 @@
     "react-resizable-panels": "^2.1.7",
     "recharts": "^3.1.2",
     "resend": "^6.0.2",
-    "shipengine": "^1.0.0",
     "sonner": "^1.7.1",
     "stripe": "^18.5.0",
     "supports-color": "^10.2.2",
@@ -117,7 +116,10 @@
     "vaul": "^0.9.6",
     "ws": "^8.18.3",
     "zod": "^3.23.8",
-    "@anthropic-ai/sdk": "^0.24.0"
+    "@anthropic-ai/sdk": "^0.24.0",
+    "shippo": "^2.0.0",
+    "pdfkit": "^0.15.1",
+    "@types/pdfkit": "^0.13.6"
   },
   "devDependencies": {
     "@types/node": "^22",
