@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 
 export async function GET() {
   try {
     // Check if API key exists
-    if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json(
         {
           success: false,
-          message: 'OPENAI_API_KEY environment variable is not set',
+          message: 'ANTHROPIC_API_KEY environment variable is not set',
           error: 'Missing API key'
         },
         { status: 400 }
@@ -16,26 +16,24 @@ export async function GET() {
     }
 
     // Check if API key format is valid
-    if (!process.env.OPENAI_API_KEY.startsWith('sk-')) {
+    if (!process.env.ANTHROPIC_API_KEY.startsWith('sk-')) {
       return NextResponse.json(
         {
           success: false,
-          message: 'OPENAI_API_KEY format is invalid',
+          message: 'ANTHROPIC_API_KEY format is invalid',
           error: 'Invalid API key format',
-          keyPreview: `${process.env.OPENAI_API_KEY.substring(0, 10)}...`
+          keyPreview: `${process.env.ANTHROPIC_API_KEY.substring(0, 10)}...`
         },
         { status: 400 }
       );
     }
 
     // Initialize OpenAI client
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    const openai = new Anthropic({ apiKey: anthropicApiKey });
 
     // Test connection with a simple API call
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+    const completion = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
       messages: [
         {
           role: "user",
@@ -46,12 +44,12 @@ export async function GET() {
       temperature: 0
     });
 
-    const response = completion.choices[0]?.message?.content?.trim();
+    const response = response.content[0]?.type === 'text' ? response.content[0].text : null?.trim();
 
     if (response === 'SUCCESS') {
       return NextResponse.json({
         success: true,
-        message: 'OpenAI API connection successful',
+        message: 'Anthropic API connection successful',
         data: {
           model: completion.model,
           usage: completion.usage,
@@ -63,7 +61,7 @@ export async function GET() {
       return NextResponse.json(
         {
           success: false,
-          message: 'OpenAI API responded but with unexpected content',
+          message: 'Anthropic API responded but with unexpected content',
           error: 'Unexpected response',
           response: response,
           timestamp: new Date().toISOString()
@@ -73,14 +71,14 @@ export async function GET() {
     }
 
   } catch (error: any) {
-    console.error('OpenAI connection test error:', error);
+    console.error('Anthropic connection test error:', error);
     
     // Handle specific OpenAI errors
     if (error?.status === 401) {
       return NextResponse.json(
         {
           success: false,
-          message: 'OpenAI API authentication failed',
+          message: 'Anthropic API authentication failed',
           error: 'Invalid API key',
           details: error.message || 'Authentication error'
         },
@@ -92,7 +90,7 @@ export async function GET() {
       return NextResponse.json(
         {
           success: false,
-          message: 'OpenAI API rate limit exceeded',
+          message: 'Anthropic API rate limit exceeded',
           error: 'Rate limit',
           details: error.message || 'Too many requests'
         },
@@ -103,7 +101,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        message: 'OpenAI API connection failed',
+        message: 'Anthropic API connection failed',
         error: error?.message || 'Unknown error',
         details: error
       },
