@@ -1218,7 +1218,16 @@ _________________________________________
         const response = await this.anthropic.messages.create({
           model: "claude-haiku-4-5-20251001",
           max_tokens: 2000,
-          system: "You are an expert credit repair attorney specializing in FCRA compliance and dispute letter generation. Create unique, personalized, legally compliant dispute letters tailored to the specific dispute situation.",
+          system: `You are an expert credit repair attorney specializing in FCRA compliance and dispute letter writing. Your letters must be:
+
+ABSOLUTE RULES (never violate):
+1. CONSISTENT VOICE: The entire letter must be written in FIRST PERSON ("I", "my", "me") from the consumer's perspective. NEVER switch to third person ("this person", "the consumer", "the applicant", "they").
+2. NO TYPOS: Proofread carefully. No trailing characters, extra punctuation, or formatting artifacts.
+3. CLEAN SENTENCES: Never end a sentence with a period followed by extra characters (e.g., ".s" or ". :" is wrong).
+4. PROFESSIONAL FORMAT: Complete paragraphs only. No incomplete sentences or dangling phrases.
+5. COMPLETE LETTER: Include date line, recipient address, salutation, body paragraphs, closing, and signature line.
+6. NO PLACEHOLDERS: Never leave [brackets] or {{variables}} in the final output. Fill in all details from the provided information.
+7. FACTUAL ONLY: Only include facts provided. Do not invent account numbers, dates, or amounts.`,
           messages: [{ role: "user", content: prompt }],
         })
         const content = response.content[0]?.type === 'text' ? response.content[0].text : null
@@ -1359,39 +1368,96 @@ BUREAU-SPECIFIC CONTENT REQUIREMENTS:
 
 IMPORTANT: The base template above already contains the correct bureau address and personal information. Use this as your foundation and rewrite the content to be unique while maintaining all the specific details. Do NOT change the addresses, names, or other factual information - only rewrite the language and presentation to be unique.
 
-Generate the complete letter with all the same sections but completely rewritten content that sounds unique and different. Focus on making this attempt ${attemptNumber} distinct from any previous versions. The quality should reflect the ${letterType} tier pricing level. The letter MUST be specifically addressed to ${additionalContext?.bureauName || creditBureau} with the correct address.`
+Generate the complete letter with all the same sections but completely rewritten content that sounds unique and different. Focus on making this attempt ${attemptNumber} distinct from any previous versions. The quality should reflect the ${letterType} tier pricing level. The letter MUST be specifically addressed to ${additionalContext?.bureauName || creditBureau} with the correct address.
+
+CRITICAL OUTPUT RULES:
+- Write ENTIRELY in first person ("I am writing", "I request", "my credit report", "contact me")
+- NEVER use third person ("this person", "the consumer", "the applicant")  
+- NO trailing characters after punctuation (avoid ".s", ". :", ",s" etc.)
+- Every sentence must be grammatically complete
+- The closing signature line must say "Sincerely," followed by the consumer's full name
+- Do not include any brackets, placeholders, or template variables in the output
+- Proofread for typos before finalizing
+
+OUTPUT FORMAT:
+[Date]
+
+[Bureau Name]
+[Bureau Address]
+
+Re: Credit Report Dispute - [Consumer Name]
+SSN Last 4: [Last 4 digits if provided]
+
+To Whom It May Concern:
+
+[Letter body in first person - minimum 4 paragraphs]
+
+Sincerely,
+
+[Consumer Full Name]
+[Consumer Address]
+[Consumer Phone]
+[Consumer Email]`
   }
 
   private cleanAndValidateAIContent(aiContent: string, baseTemplate: string): string {
     let cleaned = aiContent.trim()
     
-    // Remove any markdown formatting if present
-    cleaned = cleaned.replace(/```/g, '').replace(/^letter\s*:\s*/i, '').replace(/^dispute\s*letter\s*:\s*/i, '')
+    // Remove markdown formatting
+    cleaned = cleaned.replace(/```[\s\S]*?```/g, '').replace(/```/g, '')
+    cleaned = cleaned.replace(/^letter\s*:\s*/i, '').replace(/^dispute\s*letter\s*:\s*/i, '')
     
-    // Ensure the letter has the basic required structure
-    const requiredElements = [
-      'To Whom It May Concern',
-      'dispute',
-      'credit report',
-      'Sincerely',
-      'Federal Trade Commission'
+    // Fix common typos from AI output
+    // Remove trailing "s" after periods (e.g. "highlighted.s")
+    cleaned = cleaned.replace(/\.s\s/g, '. ')
+    cleaned = cleaned.replace(/\.s$/g, '.')
+    // Remove trailing colon-space artifacts
+    cleaned = cleaned.replace(/\.\s*:\s/g, '. ')
+    // Fix double periods
+    cleaned = cleaned.replace(/\.\./g, '.')
+    // Remove stray characters after sentence endings
+    cleaned = cleaned.replace(/([.!?])([a-z])\s/g, (m, p, q) => p + ' ' + q.toUpperCase() + ' ')
+    
+    // Fix third-person references — convert to first person
+    const thirdPersonFixes: [RegExp, string][] = [
+      [/\bthis person\b/gi, 'I'],
+      [/\bthe consumer\b/gi, 'I'],
+      [/\bthe applicant\b/gi, 'I'],
+      [/\bthe debtor\b/gi, 'I'],
+      [/\bthe individual\b/gi, 'I'],
+      [/\bthis individual\b/gi, 'I'],
+      [/\bhe\/she\b/gi, 'I'],
+      [/\bhe or she\b/gi, 'I'],
+      [/\btheir credit report\b/gi, 'my credit report'],
+      [/\btheir credit\b/gi, 'my credit'],
+      [/\bthey have\b/gi, 'I have'],
+      [/\bthey are\b/gi, 'I am'],
+      [/\bthey were\b/gi, 'I was'],
+      [/\bthey request\b/gi, 'I request'],
+      [/\bcontact this person\b/gi, 'contact me'],
+      [/\bcontact the consumer\b/gi, 'contact me'],
+      [/\bcontact him\/her\b/gi, 'contact me'],
+      [/\bcontact him or her\b/gi, 'contact me'],
     ]
     
-    const missingElements = requiredElements.filter(element => 
-      !cleaned.toLowerCase().includes(element.toLowerCase())
+    thirdPersonFixes.forEach(([pattern, replacement]) => {
+      cleaned = cleaned.replace(pattern, replacement)
+    })
+    
+    // Ensure required elements exist
+    const requiredElements = ['dispute', 'credit report', 'Sincerely']
+    const missingElements = requiredElements.filter(el => 
+      !cleaned.toLowerCase().includes(el.toLowerCase())
     )
     
-    if (missingElements.length > 0) {
-      console.warn("AI content missing required elements, using base template as fallback")
+    if (missingElements.length > 1) {
+      console.warn('AI content missing required elements, using base template as fallback')
       return baseTemplate
     }
     
-    // Ensure proper formatting
-    cleaned = cleaned.replace(/\n{3,}/g, '\n\n') // Remove excessive line breaks
-    cleaned = cleaned.replace(/\s{2,}/g, ' ') // Remove excessive spaces
-    
     return cleaned
   }
+
 
   private fillBaseTemplate(
     personalInfo: PersonalInfo,
