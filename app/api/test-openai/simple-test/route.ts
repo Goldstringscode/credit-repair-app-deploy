@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 
 export async function POST(request: Request) {
   try {
@@ -17,11 +17,11 @@ export async function POST(request: Request) {
     }
 
     // Check if API key exists
-    if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json(
         {
           success: false,
-          message: 'OPENAI_API_KEY environment variable is not set',
+          message: 'ANTHROPIC_API_KEY environment variable is not set',
           error: 'Missing API key'
         },
         { status: 400 }
@@ -29,13 +29,11 @@ export async function POST(request: Request) {
     }
 
     // Initialize OpenAI client
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    const openai = new Anthropic({ apiKey: anthropicApiKey });
 
     // Generate simple response
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+    const completion = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
       messages: [
         {
           role: "user",
@@ -46,7 +44,7 @@ export async function POST(request: Request) {
       temperature: 0.7
     });
 
-    const response = completion.choices[0]?.message?.content?.trim();
+    const response = response.content[0]?.type === 'text' ? response.content[0].text : null?.trim();
 
     return NextResponse.json({
       success: true,
@@ -68,7 +66,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: 'OpenAI API authentication failed',
+          message: 'Anthropic API authentication failed',
           error: 'Invalid API key',
           details: error.message || 'Authentication error'
         },
@@ -80,7 +78,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: 'OpenAI API rate limit exceeded',
+          message: 'Anthropic API rate limit exceeded',
           error: 'Rate limit',
           details: error.message || 'Too many requests'
         },
