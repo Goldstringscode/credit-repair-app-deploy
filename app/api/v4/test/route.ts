@@ -4,7 +4,7 @@ export async function GET() {
   try {
     // Check environment variables
     const databaseUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL
-    const openaiKey = process.env.OPENAI_API_KEY
+    const openaiKey = process.env.ANTHROPIC_API_KEY
     
     const status = {
       api_version: "v4",
