@@ -1501,6 +1501,8 @@ Enclosures: Credit Report Copy`
                               letterType={letterType}
                               recipientName={creditBureaus.find(b => b.id === currentBureau)?.name || currentBureau}
                               recipientAddress={creditBureaus.find(b => b.id === currentBureau)?.address || ''}
+                              allBureaus={disputeInfo.bureaus}
+                              userId={user?.id}
                               onSuccess={(trackingNumber) => {
                                 toast.success(`Letter sent via certified mail! Tracking: ${trackingNumber}`)
                                 // You could also save this to a database or state
