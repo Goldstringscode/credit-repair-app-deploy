@@ -1,121 +1,41 @@
-/**
- * API Route: Create Certified Mail Request
- * Phase 1: Core Infrastructure
- */
-
 import { NextRequest, NextResponse } from 'next/server'
-import { certifiedMailService, type CertifiedMailRequest } from '@/lib/certified-mail-service-shipengine'
-import { stripeMailPayments, type MailPaymentRequest } from '@/lib/stripe-mail-payments'
-import { requirePlan } from '@/lib/plan-enforcement'
-import type { User } from '@/lib/auth'
+import { certifiedMailService } from '@/lib/certified-mail-service-shipengine'
+import { getCurrentUser } from '@/lib/auth'
 
-export const POST = requirePlan('premium')(async (request: NextRequest, _user: User) => {
+export const dynamic = 'force-dynamic'
+
+export async function POST(request: NextRequest) {
   try {
+    const { user, isAuthenticated } = await getCurrentUser(request)
+    if (!isAuthenticated || !user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
-    
-    // Validate required fields
-    const requiredFields = [
-      'userId', 'recipient', 'sender', 'letter', 'serviceTier'
-    ]
-    
-    for (const field of requiredFields) {
-      if (!body[field]) {
-        return NextResponse.json(
-          { error: `Missing required field: ${field}` },
-          { status: 400 }
-        )
-      }
-    }
+    const { letter, recipient, sender, serviceTier = 'certified', bureaus = [] } = body
 
-    // Validate recipient address
-    if (!body.recipient.address || !body.recipient.address.address1 || 
-        !body.recipient.address.city || !body.recipient.address.state || 
-        !body.recipient.address.zip) {
+    if (!letter?.content || !recipient || !sender) {
       return NextResponse.json(
-        { error: 'Invalid recipient address format' },
+        { success: false, error: 'Missing required fields: letter, recipient, sender' },
         { status: 400 }
       )
     }
 
-    // Validate sender address
-    if (!body.sender.address || !body.sender.address.address1 || 
-        !body.sender.address.city || !body.sender.address.state || 
-        !body.sender.address.zip) {
-      return NextResponse.json(
-        { error: 'Invalid sender address format' },
-        { status: 400 }
-      )
-    }
-
-    // Create mail request
-    const mailRequest: CertifiedMailRequest = {
-      userId: body.userId,
-      recipient: {
-        name: body.recipient.name,
-        company: body.recipient.company,
-        address: body.recipient.address
-      },
-      sender: {
-        name: body.sender.name,
-        company: body.sender.company,
-        address: body.sender.address
-      },
+    const result = await certifiedMailService.createMailRequest({
+      userId: user.id,
+      recipient,
+      sender,
       letter: {
-        subject: body.letter.subject,
-        content: body.letter.content,
-        type: body.letter.type,
-        templateId: body.letter.templateId
+        content: letter.content,
+        disputeType: letter.disputeType || 'dispute',
+        bureauName: letter.bureauName || recipient.name,
       },
-      serviceTier: body.serviceTier,
-      additionalServices: body.additionalServices,
-      deliveryInstructions: body.deliveryInstructions
-    }
-
-    // Create the mail request
-    const mailResponse = await certifiedMailService.instance.createMailRequest(mailRequest)
-
-    // Create payment intent
-    const paymentRequest: MailPaymentRequest = {
-      trackingId: mailResponse.trackingId,
-      amount: mailResponse.cost.total,
-      currency: 'usd',
-      description: `Certified Mail - ${mailRequest.letter.subject}`,
-      customerId: body.customerId,
-      metadata: {
-        mailType: mailRequest.letter.type,
-        serviceType: mailRequest.serviceTier,
-        trackingNumber: mailResponse.trackingNumber,
-        userId: mailRequest.userId
-      }
-    }
-
-    const paymentResponse = await stripeMailPayments.instance.createPaymentIntent(paymentRequest)
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        mail: mailResponse,
-        payment: paymentResponse
-      }
+      serviceTier,
     })
 
-  } catch (error) {
-    console.error('Error creating certified mail request:', error)
-    
-    return NextResponse.json(
-      { 
-        error: 'Failed to create certified mail request',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    )
+    return NextResponse.json(result)
+  } catch (err: any) {
+    console.error('certified-mail/create error:', err)
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
   }
-})
-
-export async function GET() {
-  return NextResponse.json({
-    error: 'Method not allowed',
-    message: 'Use POST to create a certified mail request'
-  }, { status: 405 })
 }
-
