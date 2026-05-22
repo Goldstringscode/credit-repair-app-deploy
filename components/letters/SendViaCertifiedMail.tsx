@@ -1,656 +1,437 @@
-'use client';
+'use client'
 
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
-  Mail,
-  Send,
-  DollarSign,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  Loader2,
-  Truck,
-  FileText,
-  CreditCard,
-} from 'lucide-react';
-import { toast } from 'sonner';
+import React, { useState, useEffect, useCallback } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { toast } from 'sonner'
+import { Mail, CreditCard, Truck, CheckCircle, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 
-interface SendViaCertifiedMailProps {
-  letterContent: string;
-  letterType: string;
-  recipientName?: string;
-  recipientAddress?: string;
-  onSuccess?: (trackingNumber: string) => void;
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface Rate {
+  carrier: string
+  service: string
+  serviceCode: string
+  days: string
+  cents: number
+  dollars: string
+  objectId: string
+  recommended?: boolean
 }
 
-interface MailData {
-  recipient: {
-    name: string;
-    address: {
-      address1: string;
-      city: string;
-      state: string;
-      zip: string;
-      country: string;
-    };
-  };
-  sender: {
-    name: string;
-    address: {
-      address1: string;
-      city: string;
-      state: string;
-      zip: string;
-      country: string;
-    };
-  };
-  serviceTier: 'basic' | 'premium' | 'professional';
-  additionalServices: {
-    returnReceipt: boolean;
-    signatureConfirmation: boolean;
-    insurance: boolean;
-  };
+interface CostBreakdown {
+  bureauCount: number
+  tierName: string
+  totalCents: number
+  totalDollars: string
+  perBureauDollars: string
+  discountPercent: number
+  discountAmount: number
+  lineItems: { label: string; cents: number; dollars: string }[]
 }
+
+interface Props {
+  letterContent: string
+  letterType: string
+  recipientName: string
+  recipientAddress: string
+  bureaus?: string[]          // All selected bureaus — drives multi-bureau pricing
+  tier?: string               // 'standard' | 'certified' | 'priority'
+  userId?: string
+  personalInfo?: {
+    firstName: string; lastName: string
+    address: string; city: string; state: string; zip: string
+    email: string; phone: string
+  }
+  onSuccess?: (trackingNumber: string) => void
+  onError?: (error: string) => void
+}
+
+// ─── Credit bureau address book ───────────────────────────────────────────────
+
+const BUREAU_ADDRESSES: Record<string, { name: string; street1: string; city: string; state: string; zip: string }> = {
+  experian:  { name: 'Experian',  street1: '475 Anton Blvd',      city: 'Costa Mesa',   state: 'CA', zip: '92626' },
+  equifax:   { name: 'Equifax',   street1: '1550 Peachtree St NW', city: 'Atlanta',      state: 'GA', zip: '30309' },
+  transunion:{ name: 'TransUnion',street1: '2 Baldwin Pl PO Box 1000', city: 'Chester',  state: 'PA', zip: '19016' },
+}
+
+// ─── Tier pricing display ──────────────────────────────────────────────────────
+
+const TIER_INFO: Record<string, { label: string; badge: string | null; badgeColor: string }> = {
+  standard: { label: 'Standard Mail',    badge: null,           badgeColor: '' },
+  certified:{ label: 'Certified Mail',   badge: 'Most Popular', badgeColor: 'bg-blue-100 text-blue-700' },
+  priority: { label: 'Priority Mail',    badge: 'Fastest',      badgeColor: 'bg-orange-100 text-orange-700' },
+}
+
+// ─── Stripe test card helper ───────────────────────────────────────────────────
+
+const TEST_CARDS = [
+  { number: '4242 4242 4242 4242', label: 'Visa (succeeds)' },
+  { number: '5555 5555 5555 4444', label: 'Mastercard (succeeds)' },
+  { number: '4000 0000 0000 9995', label: 'Visa (declined)' },
+]
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function SendViaCertifiedMail({
-  letterContent,
-  letterType,
-  recipientName = '',
-  recipientAddress = '',
-  onSuccess,
-}: SendViaCertifiedMailProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [mailData, setMailData] = useState<MailData>({
-    recipient: {
-      name: recipientName,
-      address: {
-        address1: recipientAddress,
-        city: '',
-        state: '',
-        zip: '',
-        country: 'US',
-      },
-    },
-    sender: {
-      name: '',
-      address: {
-        address1: '',
-        city: '',
-        state: '',
-        zip: '',
-        country: 'US',
-      },
-    },
-    serviceTier: 'basic',
-    additionalServices: {
-      returnReceipt: false,
-      signatureConfirmation: false,
-      insurance: false,
-    },
-  });
-  const [pricing, setPricing] = useState<any>(null);
-  const [isCalculatingCost, setIsCalculatingCost] = useState(false);
+  letterContent, letterType, recipientName, recipientAddress,
+  bureaus = [], tier = 'certified', userId, personalInfo, onSuccess, onError,
+}: Props) {
+  const bureauList = bureaus.length > 0 ? bureaus : ['experian']
+  const bureauCount = bureauList.length
+  const tierInfo = TIER_INFO[tier] || TIER_INFO.certified
 
-  const pricingTiers = {
-    basic: {
-      name: 'Basic Service',
-      price: 5.50,
-      description: 'Certified mail with tracking and basic templates',
-      features: ['Certified mail tracking', 'Basic templates', 'Standard delivery'],
-    },
-    premium: {
-      name: 'Premium Service',
-      price: 7.50,
-      description: 'Basic + return receipt + priority processing',
-      features: ['Everything in Basic', 'Return receipt', 'Priority processing'],
-    },
-    professional: {
-      name: 'Professional Service',
-      price: 9.50,
-      description: 'Premium + signature confirmation + insurance',
-      features: ['Everything in Premium', 'Signature confirmation', 'Insurance coverage'],
-    },
-  };
+  // ─── State ──────────────────────────────────────────────────────────────────
+  const [step, setStep] = useState<'rates' | 'payment' | 'processing' | 'done'>('rates')
+  const [rates, setRates] = useState<Rate[]>([])
+  const [selectedRate, setSelectedRate] = useState<Rate | null>(null)
+  const [costBreakdown, setCostBreakdown] = useState<CostBreakdown | null>(null)
+  const [loadingRates, setLoadingRates] = useState(false)
+  const [loadingPayment, setLoadingPayment] = useState(false)
+  const [showBreakdown, setShowBreakdown] = useState(false)
+  const [trackingNumber, setTrackingNumber] = useState('')
 
-  const calculateCost = async () => {
-    setIsCalculatingCost(true);
+  // Stripe card fields (manual entry — no saved cards yet)
+  const [cardNumber, setCardNumber] = useState('')
+  const [cardExpiry, setCardExpiry] = useState('')
+  const [cardCvc, setCardCvc] = useState('')
+  const [cardName, setCardName] = useState(personalInfo ? personalInfo.firstName + ' ' + personalInfo.lastName : '')
+
+  // ─── Load rates + pricing on mount ──────────────────────────────────────────
+  const loadRatesAndPricing = useCallback(async () => {
+    setLoadingRates(true)
     try {
-      const response = await fetch('/api/certified-mail/calculate-cost', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          serviceTier: mailData.serviceTier,
-          additionalServices: mailData.additionalServices,
+      const [ratesRes, costRes] = await Promise.all([
+        fetch('/api/certified-mail/rates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bureauCount, toAddress: BUREAU_ADDRESSES[bureauList[0]] }),
         }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setPricing(data.data);
-      }
-    } catch (error) {
-      console.error('Error calculating cost:', error);
-    } finally {
-      setIsCalculatingCost(false);
-    }
-  };
-
-  const validateAddress = async (address: any) => {
-    try {
-      const response = await fetch('/api/certified-mail/validate-address', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        return data.data.isValid;
-      }
-      return false;
-    } catch (error) {
-      console.error('Error validating address:', error);
-      return false;
-    }
-  };
-
-  const handleSendMail = async () => {
-    setIsLoading(true);
-    try {
-      // Validate addresses
-      const recipientValid = await validateAddress(mailData.recipient.address);
-      const senderValid = await validateAddress(mailData.sender.address);
-
-      if (!recipientValid || !senderValid) {
-        toast.error('Please check your addresses. One or more addresses are invalid.');
-        return;
-      }
-
-      // Create mail request
-      const response = await fetch('/api/certified-mail/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: '550e8400-e29b-41d4-a716-446655440000', // This should come from auth
-          recipient: mailData.recipient,
-          sender: mailData.sender,
-          letter: {
-            subject: `${letterType} Letter`,
-            content: letterContent,
-            type: letterType,
-          },
-          serviceTier: mailData.serviceTier,
-          additionalServices: mailData.additionalServices,
+        fetch('/api/certified-mail/calculate-cost', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tier, bureauCount, bureaus: bureauList }),
         }),
-      });
+      ])
+      const [ratesData, costData] = await Promise.all([ratesRes.json(), costRes.json()])
 
-      if (response.ok) {
-        const data = await response.json();
-        const trackingNumber = data.data.mail.trackingNumber;
-        
-        toast.success(`Letter sent successfully! Tracking number: ${trackingNumber}`);
-        setIsOpen(false);
-        onSuccess?.(trackingNumber);
-      } else {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to send letter');
+      if (ratesData.success && ratesData.rates?.length) {
+        setRates(ratesData.rates)
+        const preferred = ratesData.rates.find((r: Rate) => r.recommended) || ratesData.rates[0]
+        setSelectedRate(preferred)
       }
-    } catch (error) {
-      console.error('Error sending mail:', error);
-      toast.error('Failed to send letter. Please try again.');
+      if (costData.success) {
+        setCostBreakdown(costData)
+      }
+    } catch (e: any) {
+      toast.error('Failed to load shipping rates: ' + e.message)
     } finally {
-      setIsLoading(false);
+      setLoadingRates(false)
     }
-  };
+  }, [bureauCount, tier, bureauList])
 
-  const handleNext = () => {
-    if (currentStep === 1) {
-      calculateCost();
+  useEffect(() => { loadRatesAndPricing() }, [loadRatesAndPricing])
+
+  // ─── Payment submission ──────────────────────────────────────────────────────
+  const handlePay = async () => {
+    if (!selectedRate) { toast.error('Please select a shipping rate'); return }
+    if (!cardNumber.replace(/s/g,'') || !cardExpiry || !cardCvc) {
+      toast.error('Please fill in all card fields')
+      return
     }
-    setCurrentStep(currentStep + 1);
-  };
+    setLoadingPayment(true)
+    setStep('processing')
 
-  const handleBack = () => {
-    setCurrentStep(currentStep - 1);
-  };
+    try {
+      // Step 1: Create the mail request + Stripe payment intent
+      const sender = personalInfo ? {
+        name: personalInfo.firstName + ' ' + personalInfo.lastName,
+        street1: personalInfo.address,
+        city: personalInfo.city, state: personalInfo.state, zip: personalInfo.zip,
+        email: personalInfo.email, phone: personalInfo.phone,
+      } : {
+        name: 'Credit Repair AI User',
+        street1: '215 Clayton St', city: 'San Francisco', state: 'CA', zip: '94117',
+      }
 
-  const renderStep1 = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Recipient Information</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="recipient-name">Recipient Name *</Label>
-            <Input
-              id="recipient-name"
-              value={mailData.recipient.name}
-              onChange={(e) =>
-                setMailData({
-                  ...mailData,
-                  recipient: { ...mailData.recipient, name: e.target.value },
-                })
-              }
-              placeholder="Credit Bureau Name"
-            />
-          </div>
-          <div>
-            <Label htmlFor="recipient-address">Address Line 1 *</Label>
-            <Input
-              id="recipient-address"
-              value={mailData.recipient.address.address1}
-              onChange={(e) =>
-                setMailData({
-                  ...mailData,
-                  recipient: {
-                    ...mailData.recipient,
-                    address: { ...mailData.recipient.address, address1: e.target.value },
-                  },
-                })
-              }
-              placeholder="P.O. Box 4500"
-            />
-          </div>
-          <div>
-            <Label htmlFor="recipient-city">City *</Label>
-            <Input
-              id="recipient-city"
-              value={mailData.recipient.address.city}
-              onChange={(e) =>
-                setMailData({
-                  ...mailData,
-                  recipient: {
-                    ...mailData.recipient,
-                    address: { ...mailData.recipient.address, city: e.target.value },
-                  },
-                })
-              }
-              placeholder="Allen"
-            />
-          </div>
-          <div>
-            <Label htmlFor="recipient-state">State *</Label>
-            <Input
-              id="recipient-state"
-              value={mailData.recipient.address.state}
-              onChange={(e) =>
-                setMailData({
-                  ...mailData,
-                  recipient: {
-                    ...mailData.recipient,
-                    address: { ...mailData.recipient.address, state: e.target.value },
-                  },
-                })
-              }
-              placeholder="TX"
-            />
-          </div>
-          <div>
-            <Label htmlFor="recipient-zip">ZIP Code *</Label>
-            <Input
-              id="recipient-zip"
-              value={mailData.recipient.address.zip}
-              onChange={(e) =>
-                setMailData({
-                  ...mailData,
-                  recipient: {
-                    ...mailData.recipient,
-                    address: { ...mailData.recipient.address, zip: e.target.value },
-                  },
-                })
-              }
-              placeholder="75013"
-            />
-          </div>
-        </div>
-      </div>
+      // Send to each bureau
+      const results: { bureau: string; trackingNumber: string }[] = []
+      for (const bureauId of bureauList) {
+        const bureauAddr = BUREAU_ADDRESSES[bureauId]
+        const recipient = bureauAddr || { name: recipientName, street1: recipientAddress, city: '', state: '', zip: '' }
 
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Your Information (Sender)</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="sender-name">Your Name *</Label>
-            <Input
-              id="sender-name"
-              value={mailData.sender.name}
-              onChange={(e) =>
-                setMailData({
-                  ...mailData,
-                  sender: { ...mailData.sender, name: e.target.value },
-                })
-              }
-              placeholder="John Doe"
-            />
-          </div>
-          <div>
-            <Label htmlFor="sender-address">Your Address *</Label>
-            <Input
-              id="sender-address"
-              value={mailData.sender.address.address1}
-              onChange={(e) =>
-                setMailData({
-                  ...mailData,
-                  sender: {
-                    ...mailData.sender,
-                    address: { ...mailData.sender.address, address1: e.target.value },
-                  },
-                })
-              }
-              placeholder="123 Main St"
-            />
-          </div>
-          <div>
-            <Label htmlFor="sender-city">City *</Label>
-            <Input
-              id="sender-city"
-              value={mailData.sender.address.city}
-              onChange={(e) =>
-                setMailData({
-                  ...mailData,
-                  sender: {
-                    ...mailData.sender,
-                    address: { ...mailData.sender.address, city: e.target.value },
-                  },
-                })
-              }
-              placeholder="Your City"
-            />
-          </div>
-          <div>
-            <Label htmlFor="sender-state">State *</Label>
-            <Input
-              id="sender-state"
-              value={mailData.sender.address.state}
-              onChange={(e) =>
-                setMailData({
-                  ...mailData,
-                  sender: {
-                    ...mailData.sender,
-                    address: { ...mailData.sender.address, state: e.target.value },
-                  },
-                })
-              }
-              placeholder="CA"
-            />
-          </div>
-          <div>
-            <Label htmlFor="sender-zip">ZIP Code *</Label>
-            <Input
-              id="sender-zip"
-              value={mailData.sender.address.zip}
-              onChange={(e) =>
-                setMailData({
-                  ...mailData,
-                  sender: {
-                    ...mailData.sender,
-                    address: { ...mailData.sender.address, zip: e.target.value },
-                  },
-                })
-              }
-              placeholder="90210"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+        const createRes = await fetch('/api/certified-mail/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: userId || 'unknown',
+            recipient: { ...recipient, country: 'US' },
+            sender: { ...sender, country: 'US' },
+            letter: {
+              content: letterContent,
+              disputeType: letterType,
+              bureauName: bureauAddr?.name || recipientName,
+            },
+            serviceTier: tier,
+            selectedRateObjectId: selectedRate.objectId,
+          }),
+        })
+        const createData = await createRes.json()
+        if (!createData.success) throw new Error(createData.error || 'Failed to create mail request for ' + (bureauAddr?.name || bureauId))
 
-  const renderStep2 = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Service Options</h3>
-        <div className="space-y-4">
-          {Object.entries(pricingTiers).map(([key, tier]) => (
-            <Card
-              key={key}
-              className={`cursor-pointer transition-all ${
-                mailData.serviceTier === key
-                  ? 'ring-2 ring-blue-500 bg-blue-50'
-                  : 'hover:shadow-md'
-              }`}
-              onClick={() =>
-                setMailData({ ...mailData, serviceTier: key as any })
-              }
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-semibold">{tier.name}</h4>
-                    <p className="text-sm text-gray-600">{tier.description}</p>
-                    <ul className="text-xs text-gray-500 mt-2">
-                      {tier.features.map((feature, index) => (
-                        <li key={index}>• {feature}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-blue-600">
-                      ${tier.price}
-                    </div>
-                    <div className="text-sm text-gray-500">per letter</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
+        // Step 2: Process payment via the payment intent
+        const payRes = await fetch('/api/certified-mail/process-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            trackingId: createData.trackingId,
+            paymentIntentId: createData.paymentIntentId,
+            // Card details passed for Stripe to confirm
+            card: {
+              number: cardNumber.replace(/s/g,''),
+              expMonth: parseInt(cardExpiry.split('/')[0]),
+              expYear: parseInt('20' + cardExpiry.split('/')[1]),
+              cvc: cardCvc,
+              name: cardName,
+            },
+          }),
+        })
+        const payData = await payRes.json()
+        if (!payData.success) throw new Error(payData.error || 'Payment failed for ' + (bureauAddr?.name || bureauId))
 
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Additional Services</h3>
-        <div className="space-y-3">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="return-receipt"
-              checked={mailData.additionalServices.returnReceipt}
-              onCheckedChange={(checked) =>
-                setMailData({
-                  ...mailData,
-                  additionalServices: {
-                    ...mailData.additionalServices,
-                    returnReceipt: checked as boolean,
-                  },
-                })
-              }
-            />
-            <Label htmlFor="return-receipt">
-              Return Receipt (+$2.75) - Proof of delivery
-            </Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="signature-confirmation"
-              checked={mailData.additionalServices.signatureConfirmation}
-              onCheckedChange={(checked) =>
-                setMailData({
-                  ...mailData,
-                  additionalServices: {
-                    ...mailData.additionalServices,
-                    signatureConfirmation: checked as boolean,
-                  },
-                })
-              }
-            />
-            <Label htmlFor="signature-confirmation">
-              Signature Confirmation (+$3.50) - Signature required
-            </Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="insurance"
-              checked={mailData.additionalServices.insurance}
-              onCheckedChange={(checked) =>
-                setMailData({
-                  ...mailData,
-                  additionalServices: {
-                    ...mailData.additionalServices,
-                    insurance: checked as boolean,
-                  },
-                })
-              }
-            />
-            <Label htmlFor="insurance">
-              Insurance (+$0.00) - Basic insurance included
-            </Label>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+        results.push({ bureau: bureauAddr?.name || bureauId, trackingNumber: payData.trackingNumber || createData.trackingId })
+      }
 
-  const renderStep3 = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Review & Send</h3>
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h4 className="font-medium mb-2">Letter Preview</h4>
-          <div className="text-sm text-gray-600 max-h-32 overflow-y-auto">
-            {letterContent.substring(0, 500)}
-            {letterContent.length > 500 && '...'}
-          </div>
-        </div>
-      </div>
+      // All bureaus sent successfully
+      const firstTracking = results[0]?.trackingNumber || ''
+      setTrackingNumber(firstTracking)
+      setStep('done')
+      toast.success('Letter' + (bureauList.length > 1 ? 's' : '') + ' sent via certified mail!')
+      onSuccess?.(firstTracking)
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to send letter')
+      setStep('payment')
+      onError?.(e.message)
+    } finally {
+      setLoadingPayment(false)
+    }
+  }
 
-      {pricing && (
-        <div>
-          <h3 className="text-lg font-semibold mb-4">Cost Breakdown</h3>
-          <Card>
-            <CardContent className="p-4">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span>Base Cost:</span>
-                  <span>${pricing.baseCost}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Service Fee:</span>
-                  <span>${pricing.serviceFee}</span>
-                </div>
-                {pricing.additionalFees > 0 && (
-                  <div className="flex justify-between">
-                    <span>Additional Services:</span>
-                    <span>${pricing.additionalFees}</span>
-                  </div>
-                )}
-                <div className="border-t pt-2 flex justify-between font-semibold">
-                  <span>Total:</span>
-                  <span>${pricing.total}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+  // ─── Card number formatting ───────────────────────────────────────────────
+  const formatCard = (v: string) => v.replace(/D/g,'').replace(/(.{4})/g,'$1 ').trim().substring(0,19)
+  const formatExpiry = (v: string) => { const d = v.replace(/D/g,''); return d.length>=3 ? d.substring(0,2)+'/'+d.substring(2,4) : d }
 
-      <div className="bg-blue-50 p-4 rounded-lg">
-        <div className="flex items-start space-x-2">
-          <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5" />
-          <div>
-            <h4 className="font-medium text-blue-900">What happens next?</h4>
-            <ul className="text-sm text-blue-800 mt-1 space-y-1">
-              <li>• Your letter will be printed and sent via certified mail</li>
-              <li>• You'll receive a tracking number for monitoring</li>
-              <li>• Delivery confirmation will be sent to your email</li>
-              <li>• Typical delivery time: 2-3 business days</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  // ─── Render ───────────────────────────────────────────────────────────────
+  if (step === 'done') {
+    return (
+      <Card className="border-green-300 bg-green-50">
+        <CardContent className="pt-6 text-center">
+          <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-3" />
+          <h3 className="font-bold text-green-800 text-lg mb-1">Letter{bureauList.length > 1 ? 's' : ''} Sent!</h3>
+          <p className="text-green-700 text-sm mb-2">
+            {bureauList.length > 1
+              ? 'Your dispute letters have been sent to all ' + bureauList.length + ' credit bureaus via certified mail.'
+              : 'Your dispute letter has been sent to ' + (BUREAU_ADDRESSES[bureauList[0]]?.name || recipientName) + ' via certified mail.'}
+          </p>
+          {trackingNumber && (
+            <div className="mt-3 bg-white rounded-lg p-3 border border-green-200">
+              <p className="text-xs text-gray-500 mb-1">USPS Tracking Number</p>
+              <p className="font-mono font-bold text-gray-800">{trackingNumber}</p>
+              <a href={"https://tools.usps.com/go/TrackConfirmAction?tLabels=" + trackingNumber}
+                target="_blank" rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:underline mt-1 inline-block">
+                Track on USPS.com →
+              </a>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button className="w-full">
-          <Mail className="w-4 h-4 mr-2" />
-          Send via Certified Mail
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2">
-            <Mail className="w-5 h-5" />
-            <span>Send Letter via Certified Mail</span>
-          </DialogTitle>
-          <DialogDescription>
-            Send your {letterType} letter via certified mail with tracking and delivery confirmation.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-6">
-          {/* Progress Bar */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Step {currentStep} of 3</span>
-              <span>
-                {currentStep === 1 && 'Address Information'}
-                {currentStep === 2 && 'Service Selection'}
-                {currentStep === 3 && 'Review & Send'}
-              </span>
+    <div className="space-y-4">
+      {/* Header */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Mail className="h-5 w-5 text-blue-600" />
+              Send via Certified Mail
+            </CardTitle>
+            {tierInfo.badge && <Badge className={tierInfo.badge.badgeColor}>{tierInfo.badge}</Badge>}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {/* Sending to */}
+          <div className="mb-4">
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-2 font-semibold">Sending To</p>
+            <div className="flex flex-wrap gap-2">
+              {bureauList.map(b => {
+                const addr = BUREAU_ADDRESSES[b]
+                return (
+                  <div key={b} className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm">
+                    <div className="font-semibold text-blue-800">{addr?.name || b}</div>
+                    <div className="text-blue-600 text-xs">{addr ? addr.street1 + ', ' + addr.city + ', ' + addr.state : recipientAddress}</div>
+                  </div>
+                )
+              })}
             </div>
-            <Progress value={(currentStep / 3) * 100} className="h-2" />
           </div>
 
-          {/* Step Content */}
-          {currentStep === 1 && renderStep1()}
-          {currentStep === 2 && renderStep2()}
-          {currentStep === 3 && renderStep3()}
-
-          {/* Navigation Buttons */}
-          <div className="flex justify-between pt-4">
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              disabled={currentStep === 1}
-            >
-              Back
-            </Button>
-            <div className="space-x-2">
-              {currentStep < 3 ? (
-                <Button onClick={handleNext}>
-                  Next
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleSendMail}
-                  disabled={isLoading}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4 mr-2" />
-                      Send Letter
-                    </>
+          {/* Cost breakdown */}
+          {costBreakdown ? (
+            <div className="bg-gray-50 rounded-lg p-4 mb-4">
+              <div className="flex items-center justify-between cursor-pointer" onClick={() => setShowBreakdown(!showBreakdown)}>
+                <div>
+                  <span className="text-sm text-gray-600">{tierInfo.label} — {bureauCount} bureau{bureauCount > 1 ? 's' : ''}</span>
+                  <div className="text-xl font-bold text-gray-900 mt-0.5">{costBreakdown.totalDollars}</div>
+                </div>
+                <div className="text-right">
+                  {bureauCount > 1 && <div className="text-xs text-gray-400">{costBreakdown.perBureauDollars}/bureau</div>}
+                  {costBreakdown.discountPercent > 0 && (
+                    <Badge className="bg-green-100 text-green-700 mt-1">{costBreakdown.discountPercent}% multi-bureau discount</Badge>
                   )}
-                </Button>
+                  {showBreakdown ? <ChevronUp className="h-4 w-4 text-gray-400 mt-1 ml-auto" /> : <ChevronDown className="h-4 w-4 text-gray-400 mt-1 ml-auto" />}
+                </div>
+              </div>
+              {showBreakdown && (
+                <div className="mt-3 border-t border-gray-200 pt-3 space-y-1.5">
+                  {costBreakdown.lineItems.map((item, i) => (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span className={item.cents < 0 ? 'text-green-600' : 'text-gray-600'}>{item.label}</span>
+                      <span className={item.cents < 0 ? 'text-green-600 font-medium' : 'text-gray-800 font-medium'}>{item.dollars}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between font-bold text-sm border-t border-gray-200 pt-2 mt-2">
+                    <span>Total</span>
+                    <span>{costBreakdown.totalDollars}</span>
+                  </div>
+                </div>
               )}
             </div>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
+          ) : loadingRates ? (
+            <div className="bg-gray-50 rounded-lg p-4 mb-4 flex items-center gap-2 text-gray-500 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading pricing...
+            </div>
+          ) : null}
+
+          {/* Shipping rates */}
+          {step === 'rates' && (
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-wide mb-2 font-semibold">Shipping Method</p>
+              {loadingRates ? (
+                <div className="flex items-center gap-2 text-gray-400 text-sm py-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading rates from Shippo...
+                </div>
+              ) : rates.length > 0 ? (
+                <div className="space-y-2">
+                  {rates.map(rate => (
+                    <div key={rate.objectId}
+                      onClick={() => setSelectedRate(rate)}
+                      className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${selectedRate?.objectId === rate.objectId ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${selectedRate?.objectId === rate.objectId ? 'border-blue-500 bg-blue-500' : 'border-gray-300'}`} />
+                        <div>
+                          <div className="font-medium text-sm text-gray-800 flex items-center gap-2">
+                            {rate.service}
+                            {rate.recommended && <Badge className="bg-blue-100 text-blue-700 text-xs">Recommended</Badge>}
+                          </div>
+                          <div className="text-xs text-gray-500">{rate.carrier} · {rate.days}</div>
+                        </div>
+                      </div>
+                      <div className="font-bold text-gray-800">{rate.dollars}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400 py-2">No rates available. Check Shippo API key.</p>
+              )}
+
+              <Button onClick={() => setStep('payment')} disabled={!selectedRate || loadingRates}
+                className="w-full mt-4" style={{ background: 'linear-gradient(135deg,#667eea,#764ba2)' }}>
+                <CreditCard className="h-4 w-4 mr-2" />
+                Continue to Payment
+              </Button>
+            </div>
+          )}
+
+          {/* Payment form */}
+          {(step === 'payment' || step === 'processing') && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Payment Details</p>
+                <button onClick={() => setStep('rates')} className="text-xs text-blue-600 hover:underline">← Change shipping</button>
+              </div>
+
+              {/* Selected rate summary */}
+              {selectedRate && (
+                <div className="bg-gray-50 rounded-lg p-3 mb-4 flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Truck className="h-4 w-4" />
+                    <span>{selectedRate.service} · {selectedRate.days}</span>
+                  </div>
+                  <span className="font-medium">{selectedRate.dollars}</span>
+                </div>
+              )}
+
+              {/* Card fields */}
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Name on Card</label>
+                  <input value={cardName} onChange={e=>setCardName(e.target.value)}
+                    placeholder="John Smith"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Card Number</label>
+                  <input value={cardNumber} onChange={e=>setCardNumber(formatCard(e.target.value))}
+                    placeholder="4242 4242 4242 4242" maxLength={19}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">Expiry (MM/YY)</label>
+                    <input value={cardExpiry} onChange={e=>setCardExpiry(formatExpiry(e.target.value))}
+                      placeholder="12/26" maxLength={5}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">CVC</label>
+                    <input value={cardCvc} onChange={e=>setCardCvc(e.target.value.replace(/D/g,'').substring(0,4))}
+                      placeholder="123" maxLength={4}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Test cards helper */}
+              <details className="mt-3">
+                <summary className="text-xs text-blue-500 cursor-pointer">Test cards (sandbox mode)</summary>
+                <div className="mt-2 space-y-1">
+                  {TEST_CARDS.map(tc => (
+                    <button key={tc.number} onClick={() => setCardNumber(tc.number)}
+                      className="block w-full text-left text-xs bg-gray-50 rounded p-2 hover:bg-blue-50 font-mono">
+                      <span className="font-bold">{tc.number}</span> <span className="text-gray-500 font-sans">— {tc.label}</span>
+                    </button>
+                  ))}
+                  <p className="text-xs text-gray-400 mt-1">Any future date · Any 3-digit CVC · Any ZIP</p>
+                </div>
+              </details>
+
+              <Button onClick={handlePay} disabled={loadingPayment || step === 'processing'}
+                className="w-full mt-4 text-sm font-semibold"
+                style={{ background: 'linear-gradient(135deg,#667eea,#764ba2)' }}>
+                {loadingPayment || step === 'processing'
+                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
+                  : <><Mail className="h-4 w-4 mr-2" /> Pay {costBreakdown?.totalDollars || ''} & Send Letter{bureauList.length > 1 ? 's' : ''}</>}
+              </Button>
+              <p className="text-xs text-center text-gray-400 mt-2">🔒 Secured by Stripe · USPS Certified Mail</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
 }
