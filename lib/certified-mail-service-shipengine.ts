@@ -34,6 +34,7 @@ export interface CertifiedMailResponse {
   estimatedDelivery?: string
   cost?: number
   currency?: string
+  paymentIntentId?: string     // Stripe payment intent ID
   paymentClientSecret?: string // Stripe payment intent client secret
   error?: string
 }
@@ -126,6 +127,7 @@ class CertifiedMailService {
         trackingId: mailRecord.id,
         cost: amountCents / 100,
         currency: 'USD',
+        paymentIntentId: paymentIntent.paymentIntentId,
         paymentClientSecret: paymentIntent.clientSecret,
       }
     } catch (err: any) {
