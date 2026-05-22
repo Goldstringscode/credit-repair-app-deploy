@@ -90,7 +90,7 @@ export default function SendViaCertifiedMail({
   const [loadingRates, setLoadingRates] = useState(false)
   const [loadingPayment, setLoadingPayment] = useState(false)
   const [showBreakdown, setShowBreakdown] = useState(false)
-  const [trackingNumber, setTrackingNumber] = useState('')
+  const [sentResults, setSentResults] = useState<{bureau: string; bureauName: string; trackingNumber: string; trackingUrl?: string; labelUrl?: string}[]>([])
 
   // Stripe card fields (manual entry — no saved cards yet)
   const [cardNumber, setCardNumber] = useState('')
@@ -200,15 +200,21 @@ export default function SendViaCertifiedMail({
         const payData = await payRes.json()
         if (!payData.success) throw new Error(payData.error || 'Payment failed for ' + (bureauAddr?.name || bureauId))
 
-        results.push({ bureau: bureauAddr?.name || bureauId, trackingNumber: payData.trackingNumber || createData.trackingId })
+        results.push({
+          bureau: bureauId,
+          bureauName: bureauAddr?.name || recipientName,
+          trackingNumber: payData.trackingNumber || '',
+          trackingUrl: payData.trackingUrl,
+          labelUrl: payData.labelUrl,
+        })
       }
 
       // All bureaus sent successfully
-      const firstTracking = results[0]?.trackingNumber || ''
-      setTrackingNumber(firstTracking)
+      setSentResults(results)
       setStep('done')
-      toast.success('Letter' + (bureauList.length > 1 ? 's' : '') + ' sent via certified mail!')
-      onSuccess?.(firstTracking)
+      const plural = bureauList.length > 1
+      toast.success(plural ? `${bureauList.length} letters sent via certified mail!` : 'Letter sent via certified mail!')
+      onSuccess?.(results.map(r => r.trackingNumber).join(','))
     } catch (e: any) {
       toast.error(e.message || 'Failed to send letter')
       setStep('payment')
@@ -226,25 +232,52 @@ export default function SendViaCertifiedMail({
   if (step === 'done') {
     return (
       <Card className="border-green-300 bg-green-50">
-        <CardContent className="pt-6 text-center">
-          <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-3" />
-          <h3 className="font-bold text-green-800 text-lg mb-1">Letter{bureauList.length > 1 ? 's' : ''} Sent!</h3>
-          <p className="text-green-700 text-sm mb-2">
-            {bureauList.length > 1
-              ? 'Your dispute letters have been sent to all ' + bureauList.length + ' credit bureaus via certified mail.'
-              : 'Your dispute letter has been sent to ' + (BUREAU_ADDRESSES[bureauList[0]]?.name || recipientName) + ' via certified mail.'}
+        <CardContent className="pt-6">
+          <div className="text-center mb-4">
+            <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-3" />
+            <h3 className="font-bold text-green-800 text-lg mb-1">
+              {sentResults.length > 1 ? `${sentResults.length} Letters Sent!` : 'Letter Sent!'}
+            </h3>
+            <p className="text-green-700 text-sm">
+              {sentResults.length > 1
+                ? `Your dispute letters have been sent to all ${sentResults.length} credit bureaus via USPS Certified Mail.`
+                : `Your dispute letter has been sent to ${sentResults[0]?.bureauName} via USPS Certified Mail.`}
+            </p>
+          </div>
+          <div className="space-y-3">
+            {sentResults.map((result, i) => (
+              <div key={i} className="bg-white rounded-lg p-4 border border-green-200">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-semibold text-gray-800 text-sm">{result.bureauName}</div>
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">Sent ✅</span>
+                </div>
+                {result.trackingNumber ? (
+                  <>
+                    <p className="text-xs text-gray-500 mb-1">USPS Tracking Number</p>
+                    <p className="font-mono font-bold text-gray-800 text-sm mb-2">{result.trackingNumber}</p>
+                    <div className="flex gap-2">
+                      <a href={`https://tools.usps.com/go/TrackConfirmAction?tLabels=${result.trackingNumber}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:underline">
+                        Track on USPS.com →
+                      </a>
+                      {result.labelUrl && (
+                        <a href={result.labelUrl} target="_blank" rel="noopener noreferrer"
+                          className="text-xs text-purple-600 hover:underline">
+                          Download Label →
+                        </a>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-400">Tracking number will be available shortly</p>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-center text-gray-400 mt-4">
+            Credit bureaus must respond within 30 days per FCRA Section 611
           </p>
-          {trackingNumber && (
-            <div className="mt-3 bg-white rounded-lg p-3 border border-green-200">
-              <p className="text-xs text-gray-500 mb-1">USPS Tracking Number</p>
-              <p className="font-mono font-bold text-gray-800">{trackingNumber}</p>
-              <a href={"https://tools.usps.com/go/TrackConfirmAction?tLabels=" + trackingNumber}
-                target="_blank" rel="noopener noreferrer"
-                className="text-xs text-blue-600 hover:underline mt-1 inline-block">
-                Track on USPS.com →
-              </a>
-            </div>
-          )}
         </CardContent>
       </Card>
     )
