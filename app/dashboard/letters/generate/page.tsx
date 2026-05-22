@@ -1499,10 +1499,12 @@ Enclosures: Credit Report Copy`
                             <SendViaCertifiedMail
                               letterContent={generatedLetters[currentBureau] || ''}
                               letterType={letterType}
+                              tier={aiLetterType}
+                              bureaus={disputeInfo.bureaus}
                               recipientName={creditBureaus.find(b => b.id === currentBureau)?.name || currentBureau}
                               recipientAddress={creditBureaus.find(b => b.id === currentBureau)?.address || ''}
-                              allBureaus={disputeInfo.bureaus}
                               userId={user?.id}
+                              personalInfo={personalInfo}
                               onSuccess={(trackingNumber) => {
                                 toast.success(`Letter sent via certified mail! Tracking: ${trackingNumber}`)
                                 // You could also save this to a database or state
