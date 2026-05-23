@@ -7,12 +7,19 @@ export const dynamic = 'force-dynamic'
 const JWT_SECRET = process.env.JWT_SECRET
 
 function verifyToken(request: NextRequest) {
+  // Try Authorization header first (Bearer token)
   const authHeader = request.headers.get("authorization")
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return null
+  let token: string | null = null
+
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.substring(7)
+  } else {
+    // Fall back to auth-token cookie (used by the app's session)
+    token = request.cookies.get("auth-token")?.value || null
   }
 
-  const token = authHeader.substring(7)
+  if (!token) return null
+
   try {
     return jwt.verify(token, JWT_SECRET) as any
   } catch {
