@@ -1499,7 +1499,7 @@ Enclosures: Credit Report Copy`
                             <SendViaCertifiedMail
                               letterContent={generatedLetters[currentBureau] || ''}
                               letterType={letterType}
-                              tier={aiLetterType}
+                              tier={letterType.split('_')[0] || 'standard'}
                               bureaus={disputeInfo.bureaus}
                               recipientName={creditBureaus.find(b => b.id === currentBureau)?.name || currentBureau}
                               recipientAddress={creditBureaus.find(b => b.id === currentBureau)?.address || ''}
