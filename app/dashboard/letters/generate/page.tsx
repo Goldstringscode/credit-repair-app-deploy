@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -36,6 +37,7 @@ import { toast } from "sonner"
 import SendViaCertifiedMail from "@/components/letters/SendViaCertifiedMail"
 
 export default function GenerateLetterPage() {
+  const { user } = useCurrentUser()
   const [currentStep, setCurrentStep] = useState(1)
   const [letterType, setLetterType] = useState("")
   const [personalInfo, setPersonalInfo] = useState({
@@ -1499,7 +1501,7 @@ Enclosures: Credit Report Copy`
                             <SendViaCertifiedMail
                               letterContent={generatedLetters[currentBureau] || ''}
                               letterType={letterType}
-                              tier={letterType.split('_')[0] || 'standard'}
+                              tier={aiLetterType}
                               bureaus={disputeInfo.bureaus}
                               recipientName={creditBureaus.find(b => b.id === currentBureau)?.name || currentBureau}
                               recipientAddress={creditBureaus.find(b => b.id === currentBureau)?.address || ''}
