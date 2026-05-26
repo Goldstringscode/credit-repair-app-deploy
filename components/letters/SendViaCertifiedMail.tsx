@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { Mail, CreditCard, Truck, CheckCircle, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Mail, CreditCard, Truck, CheckCircle, Loader2, ChevronDown, ChevronUp, Bookmark } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -91,6 +91,10 @@ export default function SendViaCertifiedMail({
   const [loadingPayment, setLoadingPayment] = useState(false)
   const [showBreakdown, setShowBreakdown] = useState(false)
   const [sentResults, setSentResults] = useState<{bureau: string; bureauName: string; trackingNumber: string; trackingUrl?: string; labelUrl?: string}[]>([])
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false)
+  const [templateName, setTemplateName] = useState('')
+  const [savingTemplate, setSavingTemplate] = useState(false)
+  const [templateSaved, setTemplateSaved] = useState(false)
 
   // Stripe card fields (manual entry — no saved cards yet)
   const [cardNumber, setCardNumber] = useState('')
@@ -279,10 +283,88 @@ export default function SendViaCertifiedMail({
           <p className="text-xs text-center text-gray-400 mt-4">
             Credit bureaus must respond within 30 days per FCRA Section 611
           </p>
+
+          {/* Save as template */}
+          <div className="mt-4 border-t border-green-200 pt-4">
+            {!showSaveTemplate && !templateSaved && (
+              <button
+                onClick={() => setShowSaveTemplate(true)}
+                className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium py-2 border border-blue-200 rounded-lg hover:bg-blue-50 transition-all"
+              >
+                💾 Save as Template for Future Use
+              </button>
+            )}
+            {showSaveTemplate && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-gray-700">Name this template:</p>
+                <input
+                  value={templateName}
+                  onChange={e => setTemplateName(e.target.value)}
+                  placeholder="e.g. Capital One Late Payment - Experian"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSaveTemplate}
+                    disabled={!templateName.trim() || savingTemplate}
+                    className="flex-1 text-sm font-semibold py-2 rounded-lg text-white disabled:opacity-50"
+                    style={{ background: 'linear-gradient(135deg,#667eea,#764ba2)' }}
+                  >
+                    {savingTemplate ? 'Saving...' : 'Save Template'}
+                  </button>
+                  <button
+                    onClick={() => setShowSaveTemplate(false)}
+                    className="px-4 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+            {templateSaved && (
+              <p className="text-center text-sm text-green-600 font-medium">
+                ✅ Template saved! View in <a href="/dashboard/my-templates" className="underline">My Templates</a>
+              </p>
+            )}
+          </div>
         </CardContent>
       </Card>
     )
   }
+
+  const handleSaveTemplate = async () => {
+    if (!templateName.trim()) return
+    setSavingTemplate(true)
+    try {
+      const res = await fetch('/api/letter-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: templateName.trim(),
+          content: letterContent,
+          letterType,
+          bureaus: bureauList,
+          tier,
+          recipientName,
+          recipientAddress,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setTemplateSaved(true)
+        setShowSaveTemplate(false)
+        setTemplateName('')
+        toast.success('Template saved! Find it in My Templates.')
+      } else {
+        toast.error(data.error || 'Failed to save template')
+      }
+    } catch (e: any) {
+      toast.error('Failed to save template: ' + e.message)
+    } finally {
+      setSavingTemplate(false)
+    }
+  }
+
 
   return (
     <div className="space-y-4">
@@ -450,7 +532,18 @@ export default function SendViaCertifiedMail({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600 mb-1 block">Expiry (MM/YY)</label>
-                    <input value={cardExpiry} onChange={e=>setCardExpiry(formatExpiry(e.target.value))}
+                    <input value={cardExpiry}
+                    onChange={e => {
+                      const raw = e.target.value
+                      // If user is deleting (new value shorter), allow direct delete
+                      if (raw.length < cardExpiry.length) {
+                        // Remove the slash when backspacing past it
+                        const stripped = raw.replace(/[^0-9]/g, '')
+                        setCardExpiry(stripped.length <= 2 ? stripped : stripped.substring(0,2) + '/' + stripped.substring(2,4))
+                      } else {
+                        setCardExpiry(formatExpiry(raw))
+                      }
+                    }}
                       placeholder="12/26" maxLength={5}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
                   </div>
