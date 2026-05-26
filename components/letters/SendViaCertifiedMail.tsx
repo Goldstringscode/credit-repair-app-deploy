@@ -384,6 +384,28 @@ export default function SendViaCertifiedMail({
                 <p className="text-sm text-gray-400 py-2">Unable to load shipping rates. Please try again.</p>
               )}
 
+              {/* Warning about Certified Mail */}
+              {selectedRate && !selectedRate.recommended && (
+                <div className="mt-3 bg-amber-50 border border-amber-300 rounded-lg p-3 flex gap-2">
+                  <span className="text-amber-500 text-lg flex-shrink-0">⚠️</span>
+                  <p className="text-xs text-amber-800">
+                    <strong>Proceed at your own risk.</strong> Credit bureaus only legally recognize{' '}
+                    <strong>USPS Certified Mail</strong> as proof of delivery. Other methods may not be{' '}
+                    accepted and could weaken your dispute rights under FCRA.
+                  </p>
+                </div>
+              )}
+              {selectedRate?.recommended && (
+                <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3 flex gap-2">
+                  <span className="text-green-500 text-lg flex-shrink-0">✅</span>
+                  <p className="text-xs text-green-800">
+                    <strong>Certified Mail is strongly recommended.</strong> This is the only method{' '}
+                    credit bureaus are legally required to accept as proof of delivery under the FCRA.{' '}
+                    It provides a tracking number and return receipt for your records.
+                  </p>
+                </div>
+              )}
+
               <Button onClick={() => setStep('payment')} disabled={!selectedRate || loadingRates}
                 className="w-full mt-4" style={{ background: 'linear-gradient(135deg,#667eea,#764ba2)' }}>
                 <CreditCard className="h-4 w-4 mr-2" />
