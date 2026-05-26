@@ -29,7 +29,7 @@ export async function GET() {
     }
 
     // Initialize OpenAI client
-    const openai = new Anthropic({ apiKey: anthropicApiKey });
+    const openai = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     // Test connection with a simple API call
     const completion = await anthropic.messages.create({
