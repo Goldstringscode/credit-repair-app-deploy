@@ -116,9 +116,10 @@ export default function SendViaCertifiedMail({
       ])
       const [ratesData, costData] = await Promise.all([ratesRes.json(), costRes.json()])
 
-      if (ratesData.success && ratesData.rates?.length) {
-        setRates(ratesData.rates)
-        const preferred = ratesData.rates.find((r: Rate) => r.recommended) || ratesData.rates[0]
+      const ratesList = ratesData.rates || []
+      if (ratesList.length > 0) {
+        setRates(ratesList)
+        const preferred = ratesList.find((r: Rate) => r.recommended) || ratesList[0]
         setSelectedRate(preferred)
       }
       if (costData.success) {
@@ -370,6 +371,7 @@ export default function SendViaCertifiedMail({
                           <div className="font-medium text-sm text-gray-800 flex items-center gap-2">
                             {rate.service}
                             {rate.recommended && <Badge className="bg-blue-100 text-blue-700 text-xs">Recommended</Badge>}
+                            {(rate as any).simulated && <Badge className="bg-gray-100 text-gray-500 text-xs">Test Mode</Badge>}
                           </div>
                           <div className="text-xs text-gray-500">{rate.carrier} · {rate.days}</div>
                         </div>
@@ -379,7 +381,7 @@ export default function SendViaCertifiedMail({
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-400 py-2">No rates available. Check Shippo API key.</p>
+                <p className="text-sm text-gray-400 py-2">Unable to load shipping rates. Please try again.</p>
               )}
 
               <Button onClick={() => setStep('payment')} disabled={!selectedRate || loadingRates}
