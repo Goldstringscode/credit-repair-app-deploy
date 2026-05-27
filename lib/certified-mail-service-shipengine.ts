@@ -82,7 +82,7 @@ class CertifiedMailService {
       const amountCents = tierCosts[request.serviceTier] || 799
 
       // Create Stripe payment intent
-      const paymentIntent = await stripeMailPayments.createPaymentIntent({
+      const paymentIntent = await stripeMailPayments.instance.createPaymentIntent({
         trackingId: 'pending',               // Will be updated after DB insert
         amount: amountCents / 100,           // createPaymentIntent expects dollars, converts to cents internally
         currency: 'usd',
@@ -163,7 +163,7 @@ class CertifiedMailService {
       }
 
       // Verify Stripe payment succeeded
-      const paymentStatus = await stripeMailPayments.getPaymentStatus(paymentIntentId)
+      const paymentStatus = await stripeMailPayments.instance.getPaymentStatus(paymentIntentId)
       if (paymentStatus.status !== 'succeeded') {
         return { success: false, error: 'Payment not confirmed: ' + paymentStatus.status }
       }
