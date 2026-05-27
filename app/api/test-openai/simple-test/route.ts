@@ -1,99 +1,29 @@
-import { NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
+import { NextResponse } from 'next/server'
+import Anthropic from '@anthropic-ai/sdk'
 
-export async function POST(request: Request) {
+export const dynamic = 'force-dynamic'
+
+export async function GET() {
   try {
-    const { prompt } = await request.json();
-
-    if (!prompt) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Prompt is required',
-          error: 'Missing prompt'
-        },
-        { status: 400 }
-      );
+    const key = process.env.ANTHROPIC_API_KEY
+    if (!key) {
+      return NextResponse.json({ success: false, error: 'ANTHROPIC_API_KEY not set' }, { status: 400 })
     }
 
-    // Check if API key exists
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'ANTHROPIC_API_KEY environment variable is not set',
-          error: 'Missing API key'
-        },
-        { status: 400 }
-      );
-    }
-
-    // Initialize OpenAI client
-    const openai = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-    // Generate simple response
-    const completion = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      messages: [
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      max_tokens: 50,
-      temperature: 0.7
-    });
-
-    const response = response.content[0]?.type === 'text' ? response.content[0].text : null?.trim();
+    const client = new Anthropic({ apiKey: key })
+    const msg = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 10,
+      messages: [{ role: 'user', content: 'Say OK' }],
+    })
 
     return NextResponse.json({
       success: true,
-      message: 'Text generation successful',
-      data: {
-        prompt: prompt,
-        response: response,
-        model: completion.model,
-        usage: completion.usage,
-        timestamp: new Date().toISOString()
-      }
-    });
-
+      message: 'Anthropic API working',
+      response: msg.content[0]?.type === 'text' ? msg.content[0].text : 'ok',
+      model: msg.model,
+    })
   } catch (error: any) {
-    console.error('Simple generation test error:', error);
-    
-    // Handle specific OpenAI errors
-    if (error?.status === 401) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Anthropic API authentication failed',
-          error: 'Invalid API key',
-          details: error.message || 'Authentication error'
-        },
-        { status: 401 }
-      );
-    }
-    
-    if (error?.status === 429) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Anthropic API rate limit exceeded',
-          error: 'Rate limit',
-          details: error.message || 'Too many requests'
-        },
-        { status: 429 }
-      );
-    }
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: 'Text generation failed',
-        error: error?.message || 'Unknown error',
-        details: error
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }
