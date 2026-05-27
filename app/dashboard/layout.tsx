@@ -29,6 +29,7 @@ import {
   Mail,
   MessageSquare,
   Settings,
+  Bookmark,
 } from "lucide-react"
 
 const navigation = [
