@@ -3,6 +3,8 @@ import { z } from "zod"
 import { requireAuth, type User } from "@/lib/auth"
 import { getSupabaseClient } from "@/lib/supabase-client"
 
+export const dynamic = 'force-dynamic'
+
 const updateUserSchema = z.object({
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
