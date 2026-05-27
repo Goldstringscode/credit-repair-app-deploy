@@ -477,3 +477,13 @@ export const emailService = {
   sendTeamUpdateEmail: async (to: string, name: string, updateMessage: string) =>
     sendEmail({ to, subject: 'Team Update — Credit Repair AI', html: buildEmail({ headerTitle: 'Team Update', body: hi(name) + p(updateMessage) + sig() }) }),
 }
+
+// Standalone named export so routes can import { sendCreditRepairEmail } directly
+export async function sendCreditRepairEmail(
+  to: string,
+  name: string,
+  subject: string,
+  content: string
+): Promise<void> {
+  return emailService.sendCreditRepairEmail(to, name, subject, content)
+}
