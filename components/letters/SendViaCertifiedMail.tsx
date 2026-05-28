@@ -534,15 +534,8 @@ export default function SendViaCertifiedMail({
                     <label className="text-xs font-medium text-gray-600 mb-1 block">Expiry (MM/YY)</label>
                     <input value={cardExpiry}
                     onChange={e => {
-                      const raw = e.target.value
-                      // If user is deleting (new value shorter), allow direct delete
-                      if (raw.length < cardExpiry.length) {
-                        // Remove the slash when backspacing past it
-                        const stripped = raw.replace(/[^0-9]/g, '')
-                        setCardExpiry(stripped.length <= 2 ? stripped : stripped.substring(0,2) + '/' + stripped.substring(2,4))
-                      } else {
-                        setCardExpiry(formatExpiry(raw))
-                      }
+                      // Strip everything non-digit from whatever was typed
+                      setCardExpiry(formatExpiry(e.target.value))
                     }}
                       placeholder="12/26" maxLength={5}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
