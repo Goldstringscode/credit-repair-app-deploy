@@ -239,7 +239,7 @@ class CertifiedMailService {
       }
     } catch (err: any) {
       console.error('processPaymentAndSend error:', err)
-      await db().from('certified_mail_requests').update({ status: 'failed', updated_at: new Date().toISOString() }).eq('id', trackingId).catch(()=>{})
+      try { await db().from('certified_mail_requests').update({ status: 'failed', updated_at: new Date().toISOString() }).eq('id', trackingId) } catch(_){}
       return { success: false, error: err.message }
     }
   }
