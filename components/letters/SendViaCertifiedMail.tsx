@@ -194,9 +194,9 @@ export default function SendViaCertifiedMail({
             paymentIntentId: createData.paymentIntentId,
             // Card details passed for Stripe to confirm
             card: {
-              number: cardNumber.replace(/s/g,''),
+              number: cardNumber.replace(/\s/g, ''),
               expMonth: parseInt(cardExpiry.split('/')[0]),
-              expYear: parseInt('20' + cardExpiry.split('/')[1]),
+              expYear: parseInt(cardExpiry.split('/')[1] || '0'),
               cvc: cardCvc,
               name: cardName,
             },
