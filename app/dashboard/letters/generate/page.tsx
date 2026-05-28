@@ -40,6 +40,7 @@ export default function GenerateLetterPage() {
   const { user } = useCurrentUser()
   const [currentStep, setCurrentStep] = useState(1)
   const [letterType, setLetterType] = useState("")
+  const [aiLetterType, setAiLetterType] = useState<string>("standard")
   const [personalInfo, setPersonalInfo] = useState({
     firstName: "",
     lastName: "",
@@ -371,6 +372,7 @@ Enclosures: Credit Report Copy`
       }
 
       const aiLetterType = aiLetterTypeMapping[selectedTier] || "standard"
+      setAiLetterType(aiLetterType)
       console.log("🤖 AI letter type:", aiLetterType)
 
       // Prepare dispute items for AI generation
