@@ -533,10 +533,24 @@ export default function SendViaCertifiedMail({
                   <div>
                     <label className="text-xs font-medium text-gray-600 mb-1 block">Expiry (MM/YY)</label>
                     <input value={cardExpiry}
-                    onChange={e => {
-                      // Strip everything non-digit from whatever was typed
-                      setCardExpiry(formatExpiry(e.target.value))
+                    onKeyDown={e => {
+                      const key = e.key
+                      if (['Backspace','Delete','ArrowLeft','ArrowRight','Tab'].includes(key)) {
+                        if (key === 'Backspace') {
+                          e.preventDefault()
+                          const trimmed = cardExpiry.slice(0, -1).replace(/\/$/, '')
+                          setCardExpiry(trimmed)
+                        }
+                        return
+                      }
+                      if (!/^[0-9]$/.test(key)) { e.preventDefault(); return }
+                      e.preventDefault()
+                      const digits = cardExpiry.replace(/\D/g, '')
+                      if (digits.length >= 4) return
+                      const newDigits = digits + key
+                      setCardExpiry(newDigits.length <= 2 ? newDigits : newDigits.substring(0,2) + '/' + newDigits.substring(2,4))
                     }}
+                    onChange={() => {}}
                       placeholder="12/26" maxLength={5}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
                   </div>
