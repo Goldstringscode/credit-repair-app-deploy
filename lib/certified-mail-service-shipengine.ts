@@ -118,8 +118,12 @@ class CertifiedMailService {
         .single()
 
       if (dbError) {
-        console.error('DB error creating mail record:', dbError)
-        return { success: false, error: 'Failed to create mail record: ' + dbError.message }
+        console.error('DB error creating mail record:', JSON.stringify(dbError))
+        const errMsg = dbError.message || dbError.details || dbError.hint || JSON.stringify(dbError)
+        if (dbError.code === '42P01' || (errMsg && errMsg.includes('does not exist'))) {
+          return { success: false, error: 'Database table missing. Run the certified_mail_requests SQL migration in Supabase first.' }
+        }
+        return { success: false, error: 'Failed to create mail record: ' + errMsg }
       }
 
       return {
