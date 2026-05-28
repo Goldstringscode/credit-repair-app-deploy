@@ -159,45 +159,24 @@ class StripeMailPayments {
    */
   async getPaymentStatus(paymentIntentId: string): Promise<MailPaymentStatus> {
     try {
-      const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId, {
-        expand: ['charges', 'charges.refunds']
-      })
-
-      const charges = paymentIntent.charges.data.map(charge => ({
-        id: charge.id,
-        amount: charge.amount / 100,
-        status: charge.status,
-        created: charge.created
-      }))
-
-      const refunds = charges.flatMap(charge => 
-        charge.refunds?.data.map(refund => ({
-          id: refund.id,
-          amount: refund.amount / 100,
-          status: refund.status,
-          reason: refund.reason,
-          created: refund.created
-        })) || []
-      )
+      // Retrieve without problematic expand - just get the intent status
+      const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId)
 
       return {
         paymentIntentId: paymentIntent.id,
         status: paymentIntent.status,
         amount: paymentIntent.amount / 100,
         currency: paymentIntent.currency,
-        charges,
-        refunds,
+        charges: [],
+        refunds: [],
         metadata: paymentIntent.metadata
       }
-    } catch (error) {
-      console.error('Error getting payment status:', error)
-      throw new Error(`Failed to get payment status: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } catch (error: any) {
+      console.error('getPaymentStatus error:', error.message)
+      throw new Error('Failed to get payment status: ' + error.message)
     }
   }
 
-  /**
-   * Refund a payment
-   */
   async refundPayment(paymentIntentId: string, amount?: number, reason?: string): Promise<{
     refundId: string
     amount: number
