@@ -10,19 +10,25 @@ export async function POST(request: NextRequest) {
     if (!trackingId || !paymentIntentId) {
       return NextResponse.json({ success: false, error: 'Missing trackingId or paymentIntentId' }, { status: 400 })
     }
+
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
     const pi = await stripe.paymentIntents.retrieve(paymentIntentId)
+
     if (pi.status !== 'succeeded') {
       if (!paymentMethodId) {
         return NextResponse.json({ success: false, error: 'Payment method required' }, { status: 400 })
       }
       const confirmed = await stripe.paymentIntents.confirm(paymentIntentId, {
         payment_method: paymentMethodId,
+        // Disable redirect-based payment methods (e.g. bank redirects)
+        // so we never need a return_url
+        automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
       })
       if (confirmed.status !== 'succeeded' && confirmed.status !== 'processing') {
         return NextResponse.json({ success: false, error: 'Payment failed: ' + confirmed.status }, { status: 402 })
       }
     }
+
     const result = await certifiedMailService.processPaymentAndSend(trackingId, paymentIntentId)
     if (!result.success) {
       return NextResponse.json({ success: false, error: result.error }, { status: 500 })
