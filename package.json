@@ -119,7 +119,8 @@
     "@anthropic-ai/sdk": "^0.24.0",
     "shippo": "^2.0.0",
     "pdfkit": "^0.15.1",
-    "@types/pdfkit": "^0.13.6"
+    "@types/pdfkit": "^0.13.6",
+    "@stripe/react-stripe-js": "^2.7.0"
   },
   "devDependencies": {
     "@types/node": "^22",
