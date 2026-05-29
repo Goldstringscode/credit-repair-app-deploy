@@ -100,6 +100,7 @@ class StripeMailPayments {
         },
         automatic_payment_methods: {
           enabled: true,
+          allow_redirects: 'never',
         },
         // Enable capture_method for immediate capture
         capture_method: 'automatic',
