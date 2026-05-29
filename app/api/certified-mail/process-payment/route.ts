@@ -18,11 +18,9 @@ export async function POST(request: NextRequest) {
       if (!paymentMethodId) {
         return NextResponse.json({ success: false, error: 'Payment method required' }, { status: 400 })
       }
+      // confirm() only accepts payment_method - no automatic_payment_methods here
       const confirmed = await stripe.paymentIntents.confirm(paymentIntentId, {
         payment_method: paymentMethodId,
-        // Disable redirect-based payment methods (e.g. bank redirects)
-        // so we never need a return_url
-        automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
       })
       if (confirmed.status !== 'succeeded' && confirmed.status !== 'processing') {
         return NextResponse.json({ success: false, error: 'Payment failed: ' + confirmed.status }, { status: 402 })
