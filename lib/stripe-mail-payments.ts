@@ -98,10 +98,7 @@ class StripeMailPayments {
           trackingId: request.trackingId,
           service: 'certified_mail'
         },
-        automatic_payment_methods: {
-          enabled: true,
-          allow_redirects: 'never',
-        },
+        automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
         // Enable capture_method for immediate capture
         capture_method: 'automatic',
         // Add receipt email if customer exists
