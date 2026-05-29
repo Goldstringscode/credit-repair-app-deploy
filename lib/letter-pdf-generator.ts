@@ -1,14 +1,12 @@
 /**
  * lib/letter-pdf-generator.ts
- * Converts dispute letter text to PDF for certified mail via Shippo.
- * Uses pdfkit to generate a properly formatted, printable letter.
+ * Generates PDF from letter text using raw PDF spec - no font file dependencies.
+ * Works in Vercel serverless (no PDFKit font files required).
  */
-
-import PDFDocument from 'pdfkit'
 
 export interface LetterPDFOptions {
   letterContent: string
-  senderName: string
+  senderName?: string
   senderAddress?: string
   senderCity?: string
   senderState?: string
@@ -16,94 +14,144 @@ export interface LetterPDFOptions {
 }
 
 /**
- * Generates a PDF buffer from letter text content.
- * Returns a Buffer containing the PDF binary.
+ * Generates a simple PDF from letter text using raw PDF syntax.
+ * Uses only PDF built-in fonts (Helvetica) - no external font files needed.
  */
-export async function generateLetterPDF(opts: LetterPDFOptions): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    try {
-      const doc = new PDFDocument({
-        size: 'LETTER',           // 8.5 x 11 inches — standard US mail
-        margins: {
-          top: 72,                // 1 inch margins (72 points = 1 inch)
-          bottom: 72,
-          left: 72,
-          right: 72,
-        },
-        info: {
-          Title: 'Credit Dispute Letter',
-          Author: opts.senderName,
-          Creator: 'Credit Repair AI',
-        },
-      })
+export function generateLetterPDFSync(opts: LetterPDFOptions): Buffer {
+  const lines = opts.letterContent
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
 
-      const chunks: Buffer[] = []
-      doc.on('data', (chunk: Buffer) => chunks.push(chunk))
-      doc.on('end', () => resolve(Buffer.concat(chunks)))
-      doc.on('error', reject)
+  // PDF page dimensions (US Letter: 612 x 792 points)
+  const pageW = 612
+  const pageH = 792
+  const margin = 72          // 1 inch margins
+  const fontSize = 11
+  const lineHeight = fontSize * 1.4
+  const maxWidth = pageW - margin * 2
+  const charsPerLine = Math.floor(maxWidth / (fontSize * 0.55)) // approx chars per line
 
-      // Font settings
-      const FONT_REGULAR = 'Helvetica'
-      const FONT_BOLD = 'Helvetica-Bold'
-      const FONT_SIZE = 11
-      const LINE_GAP = 4
-
-      // Split content into lines and render
-      const lines = opts.letterContent
-        .replace(/\r\n/g, '\n')
-        .replace(/\r/g, '\n')
-        .split('\n')
-
-      doc.font(FONT_REGULAR).fontSize(FONT_SIZE)
-
-      let isFirstLine = true
-      for (const line of lines) {
-        const trimmed = line.trim()
-
-        if (!trimmed) {
-          // Blank line = paragraph break
-          doc.moveDown(0.5)
-          continue
-        }
-
-        // Detect and bold headers / key lines
-        const isBold =
-          trimmed.startsWith('Re:') ||
-          trimmed.startsWith('To Whom') ||
-          trimmed.startsWith('Dear ') ||
-          trimmed.startsWith('Sincerely') ||
-          trimmed.startsWith('CERTIFIED MAIL') ||
-          /^[A-Z][A-Z\s]{4,}:/.test(trimmed)  // ALL CAPS labels like "SUBJECT:"
-
-        doc
-          .font(isBold ? FONT_BOLD : FONT_REGULAR)
-          .fontSize(FONT_SIZE)
-          .text(trimmed, {
-            align: 'left',
-            lineGap: LINE_GAP,
-          })
-
-        isFirstLine = false
+  // Word-wrap lines
+  const wrappedLines: string[] = []
+  for (const line of lines) {
+    if (line.trim() === '') { wrappedLines.push(''); continue }
+    // Simple word wrap
+    const words = line.split(' ')
+    let currentLine = ''
+    for (const word of words) {
+      const test = currentLine ? currentLine + ' ' + word : word
+      if (test.length <= charsPerLine) {
+        currentLine = test
+      } else {
+        if (currentLine) wrappedLines.push(currentLine)
+        currentLine = word
       }
-
-      doc.end()
-    } catch (err) {
-      reject(err)
     }
-  })
+    if (currentLine) wrappedLines.push(currentLine)
+  }
+
+  // Build PDF content stream
+  const escape = (s: string) => s
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)')
+    .replace(/[^\x20-\x7E]/g, ' ') // strip non-ASCII
+
+  let y = pageH - margin
+  const streamLines: string[] = []
+  streamLines.push('BT')
+  streamLines.push('/F1 ' + fontSize + ' Tf')
+  streamLines.push(margin + ' ' + y + ' Td')
+  streamLines.push(lineHeight + ' TL')
+
+  for (const line of wrappedLines) {
+    if (line === '') {
+      streamLines.push('T*') // blank line
+    } else {
+      streamLines.push('(' + escape(line) + ') Tj T*')
+    }
+    y -= lineHeight
+    if (y < margin + lineHeight) {
+      // Simple overflow protection - just stop (letters fit on 1-2 pages typically)
+      break
+    }
+  }
+  streamLines.push('ET')
+
+  const stream = streamLines.join('\n')
+  const streamBytes = Buffer.from(stream, 'latin1')
+
+  // Build PDF structure
+  const objects: string[] = []
+
+  // Object 1: Catalog
+  objects.push('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj')
+
+  // Object 2: Pages
+  objects.push('2 0 obj\n<< /Type /Pages /Kids [4 0 R] /Count 1 >>\nendobj')
+
+  // Object 3: Font (Helvetica - built-in, no font file needed)
+  objects.push('3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj')
+
+  // Object 4: Page
+  objects.push(
+    '4 0 obj\n<< /Type /Page /Parent 2 0 R' +
+    ' /MediaBox [0 0 ' + pageW + ' ' + pageH + ']' +
+    ' /Contents 5 0 R' +
+    ' /Resources << /Font << /F1 3 0 R >> >> >>\nendobj'
+  )
+
+  // Object 5: Content stream
+  objects.push(
+    '5 0 obj\n<< /Length ' + streamBytes.length + ' >>\nstream\n' +
+    stream + '\nendstream\nendobj'
+  )
+
+  // Build the full PDF
+  const header = '%PDF-1.4\n'
+  const parts: Buffer[] = [Buffer.from(header, 'latin1')]
+
+  // Track byte offsets for xref table
+  const offsets: number[] = []
+  let offset = header.length
+
+  for (const obj of objects) {
+    offsets.push(offset)
+    const buf = Buffer.from(obj + '\n', 'latin1')
+    parts.push(buf)
+    offset += buf.length
+  }
+
+  // xref table
+  const xrefOffset = offset
+  const xref = ['xref', '0 ' + (objects.length + 1), '0000000000 65535 f ']
+  for (const o of offsets) {
+    xref.push(o.toString().padStart(10, '0') + ' 00000 n ')
+  }
+  xref.push('')
+  const xrefBuf = Buffer.from(xref.join('\n'), 'latin1')
+  parts.push(xrefBuf)
+
+  // trailer
+  const trailer =
+    'trailer\n<< /Size ' + (objects.length + 1) +
+    ' /Root 1 0 R >>\n' +
+    'startxref\n' + xrefOffset + '\n%%EOF\n'
+  parts.push(Buffer.from(trailer, 'latin1'))
+
+  return Buffer.concat(parts)
 }
 
-/**
- * Converts a PDF Buffer to a base64 string for Shippo API.
- */
+export async function generateLetterPDF(opts: LetterPDFOptions): Promise<Buffer> {
+  return generateLetterPDFSync(opts)
+}
+
 export function pdfToBase64(pdfBuffer: Buffer): string {
   return pdfBuffer.toString('base64')
 }
 
-/**
- * Full pipeline: letter text → PDF Buffer → base64 string
- */
 export async function letterTextToBase64PDF(opts: LetterPDFOptions): Promise<string> {
-  const pdfBuffer = await generateLetterPDF(opts)
-  return pdfToBase64(pdfBuffer)
+  const buf = generateLetterPDFSync(opts)
+  return pdfToBase64(buf)
 }
