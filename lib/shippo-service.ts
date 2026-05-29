@@ -86,8 +86,9 @@ class ShippoService {
 
     const data = await response.json()
     if (!response.ok) {
-      console.error('Shippo API error:', data)
-      throw new Error(data.detail || data.message || `Shippo API error: ${response.status}`)
+      console.error('Shippo API error:', JSON.stringify(data))
+      const errMsg = data.detail || data.message || (Array.isArray(data) ? JSON.stringify(data) : JSON.stringify(data))
+      throw new Error(`Shippo API error: ${response.status} - ${errMsg}`)
     }
     return data
   }
@@ -221,18 +222,14 @@ class ShippoService {
       ])
 
       // Step 2: Create shipment
-      const shipment = await this.shippoFetch('/shipments/', 'POST', {
+      const shipment = await console.log('Shippo shipment request:', JSON.stringify({ from: fromAddr.object_id, to: toAddr.object_id }))
+      this.shippoFetch('/shipments/', 'POST', {
         address_from: fromAddr.object_id,
         address_to: toAddr.object_id,
         parcels: [{
           length: '9', width: '6', height: '0.25',
           distance_unit: 'in', weight: '1', mass_unit: 'oz',
         }],
-        extra: {
-          // Certified mail — adds USPS tracking + signature confirmation
-          certified_mail: { imb_barcode: true },
-        },
-        metadata: JSON.stringify(request.metadata || {}),
         async: false,
       })
 
