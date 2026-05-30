@@ -136,23 +136,40 @@ export default function AdminPage() {
     }))
   }
 
-  // Dynamic system stats based on actual data
+  // Real stats from /api/admin/overview
+  const [overview, setOverview] = useState<any>(null)
+  const [overviewLoading, setOverviewLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/admin/overview')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) setOverview(data)
+      })
+      .catch(err => console.error('Overview fetch error:', err))
+      .finally(() => setOverviewLoading(false))
+  }, [])
+
   const systemStats = {
-    totalUsers: users.length,
-    activeUsers: users.filter(user => user.status === 'active').length,
-    totalRevenue: 2847392, // Keep static for now
-    monthlyGrowth: 12.5, // Keep static for now
-    systemHealth: 98.7, // Keep static for now
-    activeDisputes: 1247, // Keep static for now
-    completedDisputes: 8934, // Keep static for now
-    pendingPayments: 23, // Keep static for now
+    totalUsers: overview?.users?.total ?? users.length,
+    activeUsers: overview?.users?.active ?? users.filter(user => user.status === 'active').length,
+    totalRevenue: overview?.revenue?.total ?? 0,
+    monthlyRevenue: overview?.revenue?.thisMonth ?? 0,
+    activeDisputes: overview?.disputes?.active ?? 0,
+    completedDisputes: overview?.disputes?.completed ?? 0,
+    totalDisputes: overview?.disputes?.total ?? 0,
+    lettersSent: overview?.certifiedMail?.sent ?? 0,
+    pendingMail: overview?.certifiedMail?.pending ?? 0,
+    totalTemplates: overview?.templates?.total ?? 0,
+    newUsersThisMonth: overview?.users?.newThisMonth ?? 0,
+    newDisputesThisMonth: overview?.disputes?.newThisMonth ?? 0,
   }
 
   // Recent users from actual data (last 5)
-  const recentUsers = users
+  const recentUsers = (overview?.users?.recent?.length ? overview.users.recent : users
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5)
-    .map(user => ({
+    .slice(0, 5))
+    .map((user: any) => ({
       id: user.id,
       name: user.name,
       email: user.email,
@@ -426,7 +443,7 @@ export default function AdminPage() {
                       </Badge>
                     </div>
                     <div className="text-sm text-gray-500">{user.joined}</div>
-                    <div className="font-medium">$1,247</div>
+                    <div className="font-medium">${systemStats.activeDisputes.toLocaleString()}</div>
                     <div className="flex space-x-1">
                       <Button variant="ghost" size="sm">
                         <Eye className="h-4 w-4" />
@@ -1279,7 +1296,7 @@ export default function AdminPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{subscriptions.filter(sub => sub.status === 'active').length}</div>
-                <p className="text-xs text-muted-foreground">+12.5% from last month</p>
+                <p className="text-xs text-muted-foreground">{systemStats.newUsersThisMonth > 0 ? "+" + systemStats.newUsersThisMonth + " this month" : "0 this month"} from last month</p>
               </CardContent>
             </Card>
 
