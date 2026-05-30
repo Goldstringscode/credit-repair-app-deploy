@@ -1,166 +1,87 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { mockPayoutRequests, mockAdminSettings, mockSystemHealth } from "@/lib/admin-payout-management"
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
+const db = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+)
+
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const action = searchParams.get("action")
+    const supabase = db()
 
-    switch (action) {
-      case "requests":
-        return NextResponse.json({
-          success: true,
-          data: mockPayoutRequests,
-        })
+    // Get all certified mail requests with user info
+    const { data: mailData, error: mailError } = await supabase
+      .from('certified_mail_requests')
+      .select('*')
+      .order('created_at', { ascending: false })
 
-      case "settings":
-        return NextResponse.json({
-          success: true,
-          data: mockAdminSettings,
-        })
+    if (mailError) console.error('payouts mail error:', JSON.stringify(mailError))
 
-      case "health":
-        return NextResponse.json({
-          success: true,
-          data: mockSystemHealth,
-        })
+    // Get users for cross-referencing
+    const { data: usersData } = await supabase
+      .from('users')
+      .select('id, email, first_name, last_name, stripe_customer_id')
 
-      default:
-        return NextResponse.json({
-          success: true,
-          data: {
-            requests: mockPayoutRequests,
-            settings: mockAdminSettings,
-            health: mockSystemHealth,
-          },
-        })
+    const usersMap: Record<string, any> = {}
+    for (const u of (usersData || [])) {
+      usersMap[u.id] = u
     }
-  } catch (error) {
-    console.error("Admin payout fetch error:", error)
-    return NextResponse.json({ error: "Failed to fetch admin payout data" }, { status: 500 })
-  }
-}
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { action, payoutId, adminId, reason, settings } = body
+    const mail = mailData || []
+    const paidMail = mail.filter((m: any) => ['sent', 'delivered', 'completed'].includes(m.status))
 
-    switch (action) {
-      case "approve":
-        // In real app: Update payout status, create audit log, trigger processing
-        console.log(`Admin ${adminId} approved payout ${payoutId}: ${reason}`)
-        return NextResponse.json({
-          success: true,
-          message: "Payout approved successfully",
-        })
+    const now = new Date()
+    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
 
-      case "reject":
-        // In real app: Update payout status, create audit log, notify user
-        console.log(`Admin ${adminId} rejected payout ${payoutId}: ${reason}`)
-        return NextResponse.json({
-          success: true,
-          message: "Payout rejected successfully",
-        })
+    const totalRevenue = paidMail.reduce((s: number, m: any) => s + (m.amount_cents || 0), 0) / 100
+    const monthlyRevenue = paidMail.filter((m: any) => new Date(m.created_at) >= thisMonth)
+      .reduce((s: number, m: any) => s + (m.amount_cents || 0), 0) / 100
+    const lastMonthRevenue = paidMail.filter((m: any) => {
+      const d = new Date(m.created_at)
+      return d >= lastMonth && d < thisMonth
+    }).reduce((s: number, m: any) => s + (m.amount_cents || 0), 0) / 100
 
-      case "bulk_approve":
-        // In real app: Bulk approve multiple payouts
-        const { payoutIds } = body
-        console.log(`Admin ${adminId} bulk approved payouts:`, payoutIds)
-        return NextResponse.json({
-          success: true,
-          message: `${payoutIds.length} payouts approved successfully`,
-        })
-
-      case "bulk_reject":
-        // In real app: Bulk reject multiple payouts
-        const { payoutIds: rejectIds } = body
-        console.log(`Admin ${adminId} bulk rejected payouts:`, rejectIds)
-        return NextResponse.json({
-          success: true,
-          message: `${rejectIds.length} payouts rejected successfully`,
-        })
-
-      case "update_settings":
-        // In real app: Update admin settings in database
-        console.log("Admin updated payout settings:", settings)
-        return NextResponse.json({
-          success: true,
-          message: "Settings updated successfully",
-        })
-
-      case "process_queue":
-        // In real app: Trigger immediate processing of pending payouts
-        console.log(`Admin ${adminId} triggered queue processing`)
-        return NextResponse.json({
-          success: true,
-          message: "Processing queue triggered successfully",
-        })
-
-      case "pause_queue":
-        // In real app: Pause automatic processing
-        console.log(`Admin ${adminId} paused processing queue`)
-        return NextResponse.json({
-          success: true,
-          message: "Processing queue paused",
-        })
-
-      case "resume_queue":
-        // In real app: Resume automatic processing
-        console.log(`Admin ${adminId} resumed processing queue`)
-        return NextResponse.json({
-          success: true,
-          message: "Processing queue resumed",
-        })
-
-      default:
-        return NextResponse.json({ error: "Invalid action" }, { status: 400 })
-    }
-  } catch (error) {
-    console.error("Admin payout action error:", error)
-    return NextResponse.json({ error: "Failed to process admin action" }, { status: 500 })
-  }
-}
-
-export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { payoutId, updates, adminId } = body
-
-    // In real app: Update payout request with new data
-    console.log(`Admin ${adminId} updated payout ${payoutId}:`, updates)
+    // Build transaction list
+    const transactions = mail.slice(0, 100).map((m: any) => {
+      const user = usersMap[m.user_id] || {}
+      const userName = ((user.first_name || '') + ' ' + (user.last_name || '')).trim() || user.email?.split('@')[0] || 'Unknown'
+      return {
+        id: m.id,
+        userId: m.user_id,
+        userName,
+        userEmail: user.email || '',
+        bureauName: m.bureau_name || 'Unknown Bureau',
+        serviceTier: m.service_tier || 'certified',
+        status: m.status,
+        amountCents: m.amount_cents || 0,
+        amount: (m.amount_cents || 0) / 100,
+        trackingNumber: m.tracking_number || '',
+        stripePaymentIntentId: m.stripe_payment_intent_id || '',
+        createdAt: m.created_at,
+        sentAt: m.sent_at,
+      }
+    })
 
     return NextResponse.json({
       success: true,
-      message: "Payout updated successfully",
+      summary: {
+        totalRevenue,
+        monthlyRevenue,
+        lastMonthRevenue,
+        totalTransactions: mail.length,
+        paidTransactions: paidMail.length,
+        pendingTransactions: mail.filter((m: any) => m.status === 'pending_payment').length,
+        failedTransactions: mail.filter((m: any) => m.status === 'failed').length,
+      },
+      transactions,
     })
-  } catch (error) {
-    console.error("Admin payout update error:", error)
-    return NextResponse.json({ error: "Failed to update payout" }, { status: 500 })
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const payoutId = searchParams.get("payoutId")
-    const adminId = searchParams.get("adminId")
-
-    if (!payoutId || !adminId) {
-      return NextResponse.json({ error: "Missing required parameters" }, { status: 400 })
-    }
-
-    // In real app: Cancel/delete payout request
-    console.log(`Admin ${adminId} cancelled payout ${payoutId}`)
-
-    return NextResponse.json({
-      success: true,
-      message: "Payout cancelled successfully",
-    })
-  } catch (error) {
-    console.error("Admin payout cancellation error:", error)
-    return NextResponse.json({ error: "Failed to cancel payout" }, { status: 500 })
+  } catch (err: any) {
+    console.error('Admin payouts error:', err.message)
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
   }
 }
