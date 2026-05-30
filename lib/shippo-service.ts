@@ -244,7 +244,7 @@ class ShippoService {
       }
       
       const rates: any[] = shipment.rates || []
-      const certifiedRate = rates.find((r: any) =>
+      let certifiedRate = rates.find((r: any) =>
         r.provider === 'USPS' && r.servicelevel?.name?.toLowerCase().includes('certified')
       ) || rates.find((r: any) => r.provider === 'USPS') || rates[0]
 
