@@ -234,13 +234,28 @@ class ShippoService {
       })
 
       // Step 3: Select USPS Certified Mail rate
+      // Log response for debugging
+      console.log('Shippo shipment response keys:', Object.keys(shipment || {}))
+      console.log('Shippo shipment status:', shipment?.status)
+      
+      if (!shipment || shipment.status === 'ERROR' || (!shipment.rates && !shipment.object_id)) {
+        const errDetail = shipment?.messages?.[0]?.text || JSON.stringify(shipment)
+        throw new Error('Shippo shipment creation failed: ' + errDetail)
+      }
+      
       const rates: any[] = shipment.rates || []
       const certifiedRate = rates.find((r: any) =>
         r.provider === 'USPS' && r.servicelevel?.name?.toLowerCase().includes('certified')
       ) || rates.find((r: any) => r.provider === 'USPS') || rates[0]
 
       if (!certifiedRate) {
-        throw new Error('No USPS rates available for this address combination')
+        console.log('Available rates:', rates.map((r: any) => r.provider + ' ' + r.servicelevel?.name).join(', '))
+        if (rates.length === 0) {
+          throw new Error('No shipping rates returned from Shippo. Check address validity and API key.')
+        }
+        // Fall back to first available rate if no certified mail rate found
+        certifiedRate = rates[0]
+        console.log('Falling back to first rate:', certifiedRate.provider, certifiedRate.servicelevel?.name)
       }
 
       // Step 4: Purchase the label (this triggers actual mailing)
