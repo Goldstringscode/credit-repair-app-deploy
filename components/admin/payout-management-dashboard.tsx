@@ -51,13 +51,8 @@ import {
   FileText,
   BarChart3,
 } from "lucide-react"
-import {
-  mockPayoutRequests,
-  mockAdminSettings,
-  mockSystemHealth,
-  type PayoutRequest,
-  type AdminPayoutSettings,
-} from "@/lib/admin-payout-management"
+import { useState as _useState, useEffect } from "react"
+import { type PayoutRequest, type AdminPayoutSettings } from "@/lib/admin-payout-management"
 
 export function PayoutManagementDashboard() {
   const [selectedTab, setSelectedTab] = useState("requests")
@@ -65,10 +60,22 @@ export function PayoutManagementDashboard() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [selectedRequests, setSelectedRequests] = useState<string[]>([])
   const [showSettings, setShowSettings] = useState(false)
-  const [settings, setSettings] = useState<AdminPayoutSettings>(mockAdminSettings)
-  const [systemHealth] = useState(mockSystemHealth)
+  const [settings, setSettings] = useState<AdminPayoutSettings>({} as AdminPayoutSettings)
+  const [systemHealth] = useState({ status: "operational", uptime: "99.9%" })
 
-  const filteredRequests = mockPayoutRequests.filter((request) => {
+  const [payoutData, setPayoutData] = useState<any[]>([])
+  const [payoutSummary, setPayoutSummary] = useState<any>(null)
+  const [payoutLoading, setPayoutLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/admin/payouts')
+      .then(r => r.json())
+      .then(d => { if(d.success){ setPayoutData(d.transactions||[]); setPayoutSummary(d.summary||null) } })
+      .catch(err => console.error('Payouts error:', err))
+      .finally(() => setPayoutLoading(false))
+  }, [])
+
+  const filteredRequests = payoutData.filter((request) => {
     const matchesSearch =
       request.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       request.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -121,6 +128,17 @@ export function PayoutManagementDashboard() {
   const handleRejectRequest = (requestId: string, reason: string) => {
     console.log(`Rejecting request ${requestId}:`, reason)
     // In real app, would call API
+  }
+
+  if (payoutLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-500">Loading payout data...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -340,7 +358,7 @@ export function PayoutManagementDashboard() {
 
                     <div>
                       <p className="font-medium">{formatCurrency(request.amount)}</p>
-                      <p className="text-sm text-gray-600">Net: {formatCurrency(request.fees.netAmount)}</p>
+                      <p className="text-sm text-gray-600">Net: {formatCurrency(request.fees?.netAmount ?? (request.amount - 0.30))}</p>
                     </div>
 
                     <div>
