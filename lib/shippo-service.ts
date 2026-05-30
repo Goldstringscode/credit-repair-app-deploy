@@ -221,11 +221,11 @@ class ShippoService {
           country: recipient.country || 'US',
         },
         parcels: [{
-          length: '9.5',
-          width: '6.5',
-          height: '0.5',
+          length: '9',
+          width: '6',
+          height: '0.25',
           distance_unit: 'in',
-          weight: '2',
+          weight: '1',
           mass_unit: 'oz',
         }],
         async: false,
@@ -243,7 +243,20 @@ class ShippoService {
       console.log('Rates count:', rates.length)
 
       if (rates.length === 0) {
-        throw new Error('No shipping rates returned from Shippo. Shipment ID: ' + shipment.object_id)
+        // Rates may not be ready yet - retry fetching the shipment
+        console.log('No rates yet, retrying shipment fetch...')
+        let retryRates: any[] = []
+        for (let attempt = 0; attempt < 5; attempt++) {
+          await new Promise(res => setTimeout(res, 1500))
+          const retryShipment = await this.shippoFetch('/shipments/' + shipment.object_id, 'GET', undefined)
+          console.log('Retry', attempt + 1, 'rates count:', retryShipment.rates?.length || 0)
+          retryRates = retryShipment.rates || []
+          if (retryRates.length > 0) break
+        }
+        if (retryRates.length === 0) {
+          throw new Error('No shipping rates from Shippo after retries. Check your Shippo carrier accounts at app.goshippo.com')
+        }
+        rates.push(...retryRates)
       }
 
       // Prefer USPS Certified, then any USPS, then first available
