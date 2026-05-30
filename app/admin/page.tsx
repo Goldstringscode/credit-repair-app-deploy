@@ -61,27 +61,39 @@ export default function AdminPage() {
   // Load users and subscriptions from unified database service
   const loadData = async () => {
     try {
-      console.log('Admin dashboard loading data...', new Date().toISOString())
-      
-      // Load users
-      const usersResponse = await databaseService.getUsers()
-      console.log('Users response:', usersResponse)
-      if (usersResponse.success && usersResponse.data) {
-        console.log('Setting users:', usersResponse.data.users.length, 'users')
-        setUsers(usersResponse.data.users)
-      }
+      console.log('Admin dashboard loading real data...', new Date().toISOString())
 
-      // Load subscriptions
-      const subscriptionsResponse = await databaseService.getSubscriptions()
-      console.log('Subscriptions response:', subscriptionsResponse)
-      if (subscriptionsResponse.success && subscriptionsResponse.data) {
-        console.log('Setting subscriptions:', subscriptionsResponse.data.subscriptions.length, 'subscriptions')
-        setSubscriptions(subscriptionsResponse.data.subscriptions)
+      // Load from real API - no mock data
+      const overviewRes = await fetch('/api/admin/overview')
+      const overviewData = await overviewRes.json()
+
+      if (overviewData.success) {
+        // Map real users to the shape the page expects
+        // Also fetch full user list
+        const usersRes = await fetch('/api/admin/users')
+        const usersData = await usersRes.json()
+        const allUsers = usersData.success ? usersData.users : []
+        const realUsers = (allUsers.length > 0 ? allUsers : overviewData.users?.recent || []).map((u: any) => ({
+          id: u.id,
+          name: u.name?.trim() || u.email?.split('@')[0] || 'User',
+          email: u.email,
+          role: u.role || 'user',
+          status: u.status || 'active',
+          joinDate: u.joined ? new Date(u.joined).toISOString().split('T')[0] : '',
+          lastLogin: u.joined,
+          subscription: u.plan || 'free',
+          creditScore: 0,
+          phone: '',
+          createdAt: u.joined,
+          isVerified: true,
+          totalSpent: 0,
+          lastActivity: u.joined,
+        }))
+        setUsers(realUsers)
+        console.log('Loaded', realUsers.length, 'real users from API')
       }
     } catch (error) {
-      console.error('Error loading data:', error)
-    } finally {
-      setLoading(false)
+      console.error('Failed to load admin data:', error)
     }
   }
 
