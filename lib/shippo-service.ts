@@ -197,7 +197,10 @@ class ShippoService {
       const { sender, recipient } = request
 
       // Step 1: Create shipment (use async:true - more reliable for rate population)
-      const shipmentBody = {
+      // Get USPS carrier account ID for test mode
+      const isTest = this.apiKey!.startsWith('shippo_test_')
+      
+      const shipmentBody: any = {
         address_from: {
           name: sender.name,
           company: sender.company || '',
@@ -221,11 +224,12 @@ class ShippoService {
           country: recipient.country || 'US',
         },
         parcels: [{
-          length: '9',
-          width: '6',
+          // Standard business letter envelope dimensions
+          length: '11',
+          width: '8.5',
           height: '0.25',
           distance_unit: 'in',
-          weight: '1',
+          weight: '3',
           mass_unit: 'oz',
         }],
         async: false,
@@ -246,7 +250,7 @@ class ShippoService {
         console.log('No rates in initial response, fetching via /rates/ endpoint...')
         // Try the rates endpoint directly first
         try {
-          const ratesRes = await this.shippoFetch('/rates/?shipment=' + shipment.object_id, 'GET', undefined)
+          const ratesRes = await this.shippoFetch('/rates/?shipment_object_id=' + shipment.object_id + '&currency=USD', 'GET', undefined)
           rates = ratesRes.results || []
           console.log('Rates endpoint returned:', rates.length)
         } catch(e) {
