@@ -178,10 +178,9 @@ class ShippoService {
    * Requires letterPdfBase64 for the letter content to be printed and mailed.
    */
   async createCertifiedMail(request: CertifiedMailRequest): Promise<CertifiedMailResponse> {
-    // Simulation mode — return realistic test data
+    // Simulation mode
     if (!this.apiKey) {
       const trackingNumber = 'SIM' + Date.now()
-      console.log('📮 [SIMULATION] Certified mail created:', trackingNumber)
       return {
         success: true,
         trackingNumber,
@@ -195,83 +194,78 @@ class ShippoService {
     }
 
     try {
-      // Step 1: Create addresses
-      const [fromAddr, toAddr] = await Promise.all([
-        this.shippoFetch('/addresses/', 'POST', {
-          name: request.sender.name,
-          company: request.sender.company || '',
-          street1: request.sender.street1,
-          street2: request.sender.street2 || '',
-          city: request.sender.city,
-          state: request.sender.state,
-          zip: request.sender.zip,
-          country: request.sender.country || 'US',
-          phone: request.sender.phone || '',
-          email: request.sender.email || '',
-        }),
-        this.shippoFetch('/addresses/', 'POST', {
-          name: request.recipient.name,
-          company: request.recipient.company || '',
-          street1: request.recipient.street1,
-          street2: request.recipient.street2 || '',
-          city: request.recipient.city,
-          state: request.recipient.state,
-          zip: request.recipient.zip,
-          country: request.recipient.country || 'US',
-        }),
-      ])
+      const { sender, recipient } = request
 
-      // Step 2: Create shipment
-      const shipment = await console.log('Shippo shipment request:', JSON.stringify({ from: fromAddr.object_id, to: toAddr.object_id }))
-      this.shippoFetch('/shipments/', 'POST', {
-        address_from: fromAddr.object_id,
-        address_to: toAddr.object_id,
+      // Create shipment with inline addresses (simpler than separate address objects)
+      const shipmentBody = {
+        address_from: {
+          name: sender.name,
+          company: sender.company || '',
+          street1: sender.street1,
+          street2: sender.street2 || '',
+          city: sender.city,
+          state: sender.state,
+          zip: sender.zip,
+          country: sender.country || 'US',
+          phone: sender.phone || '',
+          email: sender.email || '',
+        },
+        address_to: {
+          name: recipient.name,
+          company: recipient.company || '',
+          street1: recipient.street1,
+          street2: recipient.street2 || '',
+          city: recipient.city,
+          state: recipient.state,
+          zip: recipient.zip,
+          country: recipient.country || 'US',
+        },
         parcels: [{
-          length: '9', width: '6', height: '0.25',
-          distance_unit: 'in', weight: '1', mass_unit: 'oz',
+          length: '9.5',
+          width: '6.5',
+          height: '0.5',
+          distance_unit: 'in',
+          weight: '2',
+          mass_unit: 'oz',
         }],
         async: false,
-      })
-
-      // Step 3: Select USPS Certified Mail rate
-      // Log response for debugging
-      console.log('Shippo shipment response keys:', Object.keys(shipment || {}))
-      console.log('Shippo shipment status:', shipment?.status)
-      
-      if (!shipment || shipment.status === 'ERROR' || (!shipment.rates && !shipment.object_id)) {
-        const errDetail = shipment?.messages?.[0]?.text || JSON.stringify(shipment)
-        throw new Error('Shippo shipment creation failed: ' + errDetail)
       }
-      
+
+      console.log('Shippo shipment body:', JSON.stringify(shipmentBody))
+      const shipment = await this.shippoFetch('/shipments/', 'POST', shipmentBody)
+      console.log('Shippo shipment response:', JSON.stringify(shipment).substring(0, 500))
+
+      if (!shipment || !shipment.object_id) {
+        throw new Error('Shippo shipment creation failed: ' + JSON.stringify(shipment))
+      }
+
       const rates: any[] = shipment.rates || []
+      console.log('Rates count:', rates.length)
+
+      if (rates.length === 0) {
+        throw new Error('No shipping rates returned from Shippo. Shipment ID: ' + shipment.object_id)
+      }
+
+      // Prefer USPS Certified, then any USPS, then first available
       let certifiedRate = rates.find((r: any) =>
         r.provider === 'USPS' && r.servicelevel?.name?.toLowerCase().includes('certified')
       ) || rates.find((r: any) => r.provider === 'USPS') || rates[0]
 
-      if (!certifiedRate) {
-        console.log('Available rates:', rates.map((r: any) => r.provider + ' ' + r.servicelevel?.name).join(', '))
-        if (rates.length === 0) {
-          throw new Error('No shipping rates returned from Shippo. Check address validity and API key.')
-        }
-        // Fall back to first available rate if no certified mail rate found
-        certifiedRate = rates[0]
-        console.log('Falling back to first rate:', certifiedRate.provider, certifiedRate.servicelevel?.name)
-      }
+      console.log('Selected rate:', certifiedRate.provider, certifiedRate.servicelevel?.name, certifiedRate.amount)
 
-      // Step 4: Purchase the label (this triggers actual mailing)
+      // Purchase the label
       const transaction = await this.shippoFetch('/transactions/', 'POST', {
         rate: certifiedRate.object_id,
         label_file_type: 'PDF',
         async: false,
-        // Note: Shippo letter printing via their Print & Mail API requires separate setup
-        // For now we create the label; the letter PDF is stored for printing
       })
 
-      if (transaction.status !== 'SUCCESS') {
-        throw new Error('Label creation failed: ' + (transaction.messages?.[0]?.text || 'Unknown error'))
-      }
+      console.log('Shippo transaction:', JSON.stringify(transaction).substring(0, 300))
 
-      console.log('📮 Shippo certified mail created:', transaction.tracking_number)
+      if (transaction.status !== 'SUCCESS') {
+        const errMsg = transaction.messages?.[0]?.text || transaction.messages?.[0]?.message || JSON.stringify(transaction.messages || transaction)
+        throw new Error('Label creation failed: ' + errMsg)
+      }
 
       return {
         success: true,
@@ -284,13 +278,13 @@ class ShippoService {
           : undefined,
         cost: parseFloat(certifiedRate.amount),
         currency: certifiedRate.currency,
-        raw: transaction,
       }
     } catch (err: any) {
-      console.error('Shippo createCertifiedMail error:', err)
+      console.error('Shippo createCertifiedMail error:', err.message)
       return { success: false, error: err.message }
     }
   }
+
 
   /**
    * Gets live tracking information for a shipment.
