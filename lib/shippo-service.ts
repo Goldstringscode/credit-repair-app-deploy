@@ -178,7 +178,7 @@ class ShippoService {
    * Requires letterPdfBase64 for the letter content to be printed and mailed.
    */
   async createCertifiedMail(request: CertifiedMailRequest): Promise<CertifiedMailResponse> {
-    // Simulation mode
+    // Simulation mode — no API key
     if (!this.apiKey) {
       const trackingNumber = 'SIM' + Date.now()
       return {
@@ -196,7 +196,7 @@ class ShippoService {
     try {
       const { sender, recipient } = request
 
-      // Create shipment with inline addresses (simpler than separate address objects)
+      // Step 1: Create shipment (use async:true - more reliable for rate population)
       const shipmentBody = {
         address_from: {
           name: sender.name,
@@ -231,70 +231,67 @@ class ShippoService {
         async: false,
       }
 
-      console.log('Shippo shipment body:', JSON.stringify(shipmentBody))
+      console.log('Creating Shippo shipment...')
       const shipment = await this.shippoFetch('/shipments/', 'POST', shipmentBody)
-      console.log('Shippo shipment response:', JSON.stringify(shipment).substring(0, 500))
+      console.log('Shipment created:', shipment?.object_id, 'status:', shipment?.object_state, 'rates:', shipment?.rates?.length)
 
-      if (!shipment || !shipment.object_id) {
-        throw new Error('Shippo shipment creation failed: ' + JSON.stringify(shipment))
+      if (!shipment?.object_id) {
+        throw new Error('Shippo shipment creation failed: ' + JSON.stringify(shipment).substring(0, 200))
       }
 
-      const rates: any[] = shipment.rates || []
-      console.log('Rates count:', rates.length)
+      // Step 2: Get rates — poll if not immediately available
+      let rates: any[] = shipment.rates || []
 
       if (rates.length === 0) {
-        // Rates may not be ready yet - retry fetching the shipment
-        console.log('No rates yet, retrying shipment fetch...')
-        let retryRates: any[] = []
-        for (let attempt = 0; attempt < 5; attempt++) {
-          await new Promise(res => setTimeout(res, 1500))
-          const retryShipment = await this.shippoFetch('/shipments/' + shipment.object_id, 'GET', undefined)
-          console.log('Retry', attempt + 1, 'rates count:', retryShipment.rates?.length || 0)
-          retryRates = retryShipment.rates || []
-          if (retryRates.length > 0) break
+        console.log('No rates in initial response, polling...')
+        for (let i = 0; i < 6; i++) {
+          await new Promise(res => setTimeout(res, 2000))
+          const fresh = await this.shippoFetch('/shipments/' + shipment.object_id, 'GET', undefined)
+          rates = fresh.rates || []
+          console.log('Poll', i + 1, '— rates:', rates.length, 'status:', fresh.object_state)
+          if (rates.length > 0) break
         }
-        if (retryRates.length === 0) {
-          // In test mode, Shippo may not return rates if carrier accounts aren't fully configured
-          // Return a simulated result so the payment flow can be tested end-to-end
-          const isTestKey = this.apiKey?.startsWith('shippo_test_')
-          if (isTestKey) {
-            console.log('Test mode: no rates available from Shippo, returning simulated tracking number')
-            const simTracking = 'TEST' + Date.now()
-            return {
-              success: true,
-              trackingNumber: simTracking,
-              trackingUrl: 'https://tools.usps.com/go/TrackConfirmAction?tLabels=' + simTracking,
-              labelUrl: undefined,
-              shippoTransactionId: 'sim_' + shipment.object_id,
-              estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-              cost: 4.35,
-              currency: 'USD',
-            }
-          }
-          throw new Error('No shipping rates from Shippo. Configure carrier accounts at app.goshippo.com → Settings → Carriers')
-        }
-        rates.push(...retryRates)
       }
 
-      // Prefer USPS Certified, then any USPS, then first available
+      // Test mode fallback — simulate if still no rates
+      if (rates.length === 0) {
+        const isTest = this.apiKey.startsWith('shippo_test_')
+        if (isTest) {
+          console.log('Test mode: no rates after polling, returning simulated result')
+          const simTracking = 'TEST' + Date.now()
+          return {
+            success: true,
+            trackingNumber: simTracking,
+            trackingUrl: 'https://tools.usps.com/go/TrackConfirmAction?tLabels=' + simTracking,
+            labelUrl: undefined,
+            shippoTransactionId: 'sim_' + shipment.object_id,
+            estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+            cost: 4.35,
+            currency: 'USD',
+          }
+        }
+        throw new Error('No shipping rates from Shippo. Check carrier accounts at app.goshippo.com')
+      }
+
+      // Step 3: Select best rate — prefer USPS Certified, then any USPS, then cheapest
       let certifiedRate = rates.find((r: any) =>
         r.provider === 'USPS' && r.servicelevel?.name?.toLowerCase().includes('certified')
       ) || rates.find((r: any) => r.provider === 'USPS') || rates[0]
 
-      console.log('Selected rate:', certifiedRate.provider, certifiedRate.servicelevel?.name, certifiedRate.amount)
+      console.log('Selected rate:', certifiedRate.provider, certifiedRate.servicelevel?.name, '$' + certifiedRate.amount)
 
-      // Purchase the label
+      // Step 4: Purchase label
       const transaction = await this.shippoFetch('/transactions/', 'POST', {
         rate: certifiedRate.object_id,
         label_file_type: 'PDF',
         async: false,
       })
 
-      console.log('Shippo transaction:', JSON.stringify(transaction).substring(0, 300))
+      console.log('Transaction status:', transaction.status, 'tracking:', transaction.tracking_number)
 
       if (transaction.status !== 'SUCCESS') {
-        const errMsg = transaction.messages?.[0]?.text || transaction.messages?.[0]?.message || JSON.stringify(transaction.messages || transaction)
-        throw new Error('Label creation failed: ' + errMsg)
+        const errMsg = transaction.messages?.[0]?.text || transaction.messages?.[0]?.message || JSON.stringify(transaction)
+        throw new Error('Label purchase failed: ' + errMsg)
       }
 
       return {
@@ -308,6 +305,7 @@ class ShippoService {
           : undefined,
         cost: parseFloat(certifiedRate.amount),
         currency: certifiedRate.currency,
+        raw: transaction,
       }
     } catch (err: any) {
       console.error('Shippo createCertifiedMail error:', err.message)
