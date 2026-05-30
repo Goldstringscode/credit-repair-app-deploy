@@ -243,13 +243,24 @@ class ShippoService {
       let rates: any[] = shipment.rates || []
 
       if (rates.length === 0) {
-        console.log('No rates in initial response, polling...')
-        for (let i = 0; i < 6; i++) {
-          await new Promise(res => setTimeout(res, 2000))
-          const fresh = await this.shippoFetch('/shipments/' + shipment.object_id, 'GET', undefined)
-          rates = fresh.rates || []
-          console.log('Poll', i + 1, '— rates:', rates.length, 'status:', fresh.object_state)
-          if (rates.length > 0) break
+        console.log('No rates in initial response, fetching via /rates/ endpoint...')
+        // Try the rates endpoint directly first
+        try {
+          const ratesRes = await this.shippoFetch('/rates/?shipment=' + shipment.object_id, 'GET', undefined)
+          rates = ratesRes.results || []
+          console.log('Rates endpoint returned:', rates.length)
+        } catch(e) {
+          console.log('Rates endpoint failed:', e.message)
+        }
+        // If still empty, poll the shipment
+        if (rates.length === 0) {
+          for (let i = 0; i < 4; i++) {
+            await new Promise(res => setTimeout(res, 1500))
+            const fresh = await this.shippoFetch('/shipments/' + shipment.object_id, 'GET', undefined)
+            rates = fresh.rates || []
+            console.log('Poll', i + 1, '— rates:', rates.length, 'state:', fresh.object_state)
+            if (rates.length > 0) break
+          }
         }
       }
 
