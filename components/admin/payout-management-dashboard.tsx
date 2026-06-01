@@ -216,7 +216,7 @@ export function PayoutManagementDashboard() {
       </div>
 
       {/* System Alerts */}
-      {systemHealth.alerts.length > 0 && (
+      {(systemHealth.alerts||[]).length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -226,7 +226,7 @@ export function PayoutManagementDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {systemHealth.alerts.map((alert) => (
+              {(systemHealth.alerts||[]).map((alert) => (
                 <div
                   key={alert.id}
                   className={`p-3 rounded-lg border-l-4 ${
@@ -376,8 +376,8 @@ export function PayoutManagementDashboard() {
                     </div>
 
                     <div>
-                      <Badge className={getRiskColor(request.riskScore)}>{request.riskScore}/100</Badge>
-                      {request.flags.length > 0 && (
+                      <Badge className={getRiskColor(request.riskScore)}>{request.riskScore||0}/100</Badge>
+                      {(request.flags||[]).length > 0 && (
                         <div className="mt-1">
                           <AlertTriangle className="h-3 w-3 text-yellow-600" />
                         </div>
@@ -786,14 +786,14 @@ function PayoutRequestDetails({ request }: { request: PayoutRequest }) {
                 <span className="text-gray-600">Amount:</span> {formatCurrency(request.amount)}
               </p>
               <p>
-                <span className="text-gray-600">Platform Fee:</span> {formatCurrency(request.fees.platformFee)}
+                <span className="text-gray-600">Platform Fee:</span> {formatCurrency((request.fees?.platformFee ?? 0))}
               </p>
               <p>
                 <span className="text-gray-600">Processing Fee:</span> {formatCurrency(request.fees.processingFee)}
               </p>
               <p>
                 <span className="text-gray-600">Net Amount:</span>{" "}
-                <span className="font-medium text-green-600">{formatCurrency(request.fees.netAmount)}</span>
+                <span className="font-medium text-green-600">{formatCurrency((request.fees?.netAmount ?? request.amount))}</span>
               </p>
             </div>
           </div>
@@ -841,14 +841,14 @@ function PayoutRequestDetails({ request }: { request: PayoutRequest }) {
                         : "bg-green-100 text-green-800"
                   }
                 >
-                  {request.riskScore}/100
+                  {request.riskScore||0}/100
                 </Badge>
               </div>
-              {request.flags.length > 0 && (
+              {(request.flags||[]).length > 0 && (
                 <div>
                   <p className="text-gray-600 text-sm">Flags:</p>
                   <div className="space-y-1">
-                    {request.flags.map((flag, index) => (
+                    {(request.flags||[]).map((flag, index) => (
                       <div key={index} className="flex items-center space-x-2">
                         <AlertTriangle className="h-3 w-3 text-yellow-600" />
                         <span className="text-sm">{flag.message}</span>
