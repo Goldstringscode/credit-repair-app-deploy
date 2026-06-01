@@ -13,59 +13,84 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = db()
 
-    // Get all certified mail requests with user info
-    const { data: mailData, error: mailError } = await supabase
-      .from('certified_mail_requests')
-      .select('*')
-      .order('created_at', { ascending: false })
+    // Fetch all payment sources in parallel
+    const [usersRes, paymentsRes, certMailRes] = await Promise.all([
+      supabase.from('users').select('id, email, first_name, last_name'),
+      supabase.from('payments').select('*').order('created_at', { ascending: false }),
+      supabase.from('certified_mail_requests').select('*').order('created_at', { ascending: false }),
+    ])
 
-    if (mailError) console.error('payouts mail error:', JSON.stringify(mailError))
+    if (paymentsRes.error) console.error('payments error:', JSON.stringify(paymentsRes.error))
+    if (certMailRes.error) console.error('certMail error:', JSON.stringify(certMailRes.error))
 
-    // Get users for cross-referencing
-    const { data: usersData } = await supabase
-      .from('users')
-      .select('id, email, first_name, last_name, stripe_customer_id')
-
+    // Build user lookup map
     const usersMap: Record<string, any> = {}
-    for (const u of (usersData || [])) {
-      usersMap[u.id] = u
+    for (const u of (usersRes.data || [])) usersMap[u.id] = u
+
+    const getUserName = (userId: string) => {
+      const u = usersMap[userId]
+      if (!u) return 'Unknown'
+      return ((u.first_name || '') + ' ' + (u.last_name || '')).trim() || u.email?.split('@')[0] || 'User'
     }
 
-    const mail = mailData || []
-    const paidMail = mail.filter((m: any) => ['sent', 'delivered', 'completed'].includes(m.status))
+    // 1. Subscription / plan payments (from Stripe webhook -> payments table)
+    const planTransactions = (paymentsRes.data || []).map((p: any) => ({
+      id: p.id,
+      type: 'subscription',
+      category: 'Subscription',
+      userId: p.user_id,
+      userName: getUserName(p.user_id),
+      userEmail: usersMap[p.user_id]?.email || '',
+      description: p.plan_type ? 'Plan: ' + p.plan_type.charAt(0).toUpperCase() + p.plan_type.slice(1) : 'Subscription Payment',
+      status: p.status || 'succeeded',
+      amount: parseFloat(p.amount) || 0,
+      currency: p.currency || 'usd',
+      stripePaymentIntentId: p.stripe_payment_intent_id || '',
+      trackingNumber: '',
+      bureauName: '',
+      createdAt: p.created_at,
+      sentAt: null,
+    }))
 
+    // 2. Certified mail payments (letter delivery fees)
+    const certMailTransactions = (certMailRes.data || []).map((m: any) => ({
+      id: m.id,
+      type: 'certified_mail',
+      category: 'Certified Mail',
+      userId: m.user_id,
+      userName: getUserName(m.user_id),
+      userEmail: usersMap[m.user_id]?.email || '',
+      description: (m.dispute_type ? m.dispute_type.replace(/_/g,' ') + ' Letter' : 'Dispute Letter') + (m.bureau_name ? ' → ' + m.bureau_name : ''),
+      status: m.status || 'unknown',
+      amount: (m.amount_cents || 0) / 100,
+      currency: 'usd',
+      stripePaymentIntentId: m.stripe_payment_intent_id || '',
+      trackingNumber: m.tracking_number || '',
+      bureauName: m.bureau_name || '',
+      serviceTier: m.service_tier || 'certified',
+      createdAt: m.created_at,
+      sentAt: m.sent_at,
+    }))
+
+    // Merge and sort by date descending
+    const allTransactions = [...planTransactions, ...certMailTransactions]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+    // Summary stats
     const now = new Date()
     const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
     const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
 
-    const totalRevenue = paidMail.reduce((s: number, m: any) => s + (m.amount_cents || 0), 0) / 100
-    const monthlyRevenue = paidMail.filter((m: any) => new Date(m.created_at) >= thisMonth)
-      .reduce((s: number, m: any) => s + (m.amount_cents || 0), 0) / 100
-    const lastMonthRevenue = paidMail.filter((m: any) => {
-      const d = new Date(m.created_at)
-      return d >= lastMonth && d < thisMonth
-    }).reduce((s: number, m: any) => s + (m.amount_cents || 0), 0) / 100
+    const paidStatuses = ['succeeded', 'sent', 'delivered', 'completed']
+    const paid = allTransactions.filter(t => paidStatuses.includes(t.status))
+    const totalRevenue = paid.reduce((s, t) => s + t.amount, 0)
+    const monthlyRevenue = paid.filter(t => new Date(t.createdAt) >= thisMonth).reduce((s, t) => s + t.amount, 0)
+    const lastMonthRevenue = paid.filter(t => {
+      const d = new Date(t.createdAt); return d >= lastMonth && d < thisMonth
+    }).reduce((s, t) => s + t.amount, 0)
 
-    // Build transaction list
-    const transactions = mail.slice(0, 100).map((m: any) => {
-      const user = usersMap[m.user_id] || {}
-      const userName = ((user.first_name || '') + ' ' + (user.last_name || '')).trim() || user.email?.split('@')[0] || 'Unknown'
-      return {
-        id: m.id,
-        userId: m.user_id,
-        userName,
-        userEmail: user.email || '',
-        bureauName: m.bureau_name || 'Unknown Bureau',
-        serviceTier: m.service_tier || 'certified',
-        status: m.status,
-        amountCents: m.amount_cents || 0,
-        amount: (m.amount_cents || 0) / 100,
-        trackingNumber: m.tracking_number || '',
-        stripePaymentIntentId: m.stripe_payment_intent_id || '',
-        createdAt: m.created_at,
-        sentAt: m.sent_at,
-      }
-    })
+    const subscriptionRevenue = planTransactions.filter(t=>paidStatuses.includes(t.status)).reduce((s,t)=>s+t.amount,0)
+    const certMailRevenue = certMailTransactions.filter(t=>paidStatuses.includes(t.status)).reduce((s,t)=>s+t.amount,0)
 
     return NextResponse.json({
       success: true,
@@ -73,12 +98,16 @@ export async function GET(request: NextRequest) {
         totalRevenue,
         monthlyRevenue,
         lastMonthRevenue,
-        totalTransactions: mail.length,
-        paidTransactions: paidMail.length,
-        pendingTransactions: mail.filter((m: any) => m.status === 'pending_payment').length,
-        failedTransactions: mail.filter((m: any) => m.status === 'failed').length,
+        subscriptionRevenue,
+        certMailRevenue,
+        totalTransactions: allTransactions.length,
+        paidTransactions: paid.length,
+        pendingTransactions: allTransactions.filter(t => t.status === 'pending_payment').length,
+        failedTransactions: allTransactions.filter(t => t.status === 'failed').length,
+        subscriptionCount: planTransactions.length,
+        certMailCount: certMailTransactions.length,
       },
-      transactions,
+      transactions: allTransactions,
     })
   } catch (err: any) {
     console.error('Admin payouts error:', err.message)
