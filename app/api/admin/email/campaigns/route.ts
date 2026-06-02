@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, subject, content, recipientFilter, recipientMode, selectedUserIds, externalEmails, scheduledFor, status, estimatedRecipients } = body
+    const { name, subject, content, recipientFilter, recipientFilters, recipientMode, selectedUserIds, externalEmails, scheduledFor, status, estimatedRecipients } = body
 
     if (!name || !subject || !content) {
       return NextResponse.json({ success: false, error: 'name, subject, and content are required' }, { status: 400 })
@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
     const campaign = {
       name, subject, content,
       recipient_filter: recipientFilter || 'all',
+      recipient_filters: recipientFilters || null,
       recipient_mode: recipientMode || 'filter',
       selected_user_ids: selectedUserIds || [],
       external_emails: externalEmails || [],
@@ -133,7 +134,16 @@ export async function PUT(request: NextRequest) {
 
       // Build recipient list based on mode
       const recipientMode = campaign.recipient_mode || 'filter'
-      const filter = campaign.recipient_filter || 'all'
+      // Derive simple filter from stored recipientFilters object if available
+      let filter = campaign.recipient_filter || 'all'
+      const storedFilters = campaign.recipient_filters
+      if (storedFilters) {
+        const statuses = storedFilters.subscriptionStatus || []
+        const types = storedFilters.userTypes || []
+        if (statuses.includes('active') || types.includes('active')) filter = 'active'
+        else if (types.includes('basic') || types.includes('trial')) filter = 'free'
+        else if (statuses.includes('cancelled')) filter = 'all'
+      }
       let emailList: any[] = []
 
       if (recipientMode === 'custom' && (campaign.selected_user_ids || []).length > 0) {
