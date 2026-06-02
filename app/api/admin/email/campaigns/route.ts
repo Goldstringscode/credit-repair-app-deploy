@@ -127,10 +127,23 @@ export async function PUT(request: NextRequest) {
     // If sending/resending - actually send emails to recipients
     if (status === 'sending' || status === 'sent') {
       // Get the campaign details
-      const { data: campaign, error: campErr } = await supabase
-        .from('email_campaigns').select('*').eq('id', id).single()
+      // Try to get campaign from DB, fall back to using body data
+      const { data: dbCampaign } = await supabase
+        .from('email_campaigns').select('*').eq('id', id).maybeSingle()
       
-      if (campErr) throw campErr
+      // Use DB data if available, otherwise use data from the request body (for mock/legacy campaigns)
+      const campaign = dbCampaign || {
+        id,
+        subject: updateData.subject || updateData.name || 'Campaign',
+        content: updateData.content || updateData.body || '',
+        recipient_filter: updateData.recipientFilter || 'all',
+        recipient_mode: updateData.recipientMode || 'filter',
+        selected_user_ids: updateData.selectedUserIds || [],
+        external_emails: updateData.externalEmails || [],
+        recipient_filters: updateData.recipientFilters || null,
+      }
+      
+      console.log('Campaign source:', dbCampaign ? 'database' : 'request body')
 
       // Build recipient list based on mode
       const recipientMode = campaign.recipient_mode || 'filter'
