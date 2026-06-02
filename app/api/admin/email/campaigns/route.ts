@@ -1,204 +1,180 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
-// Mock data storage (in production, this would be a database)
-// This needs to be outside the function to persist across requests
-let campaigns = [
-  {
-    id: '1',
-    name: 'Welcome Series - Day 1',
-    subject: 'Welcome to CreditRepair Pro!',
-    status: 'sent',
-    recipients: 150,
-    sent: 150,
-    opened: 89,
-    clicked: 23,
-    createdAt: '2024-01-15',
-    template: 'welcome-1',
-    content: 'Welcome to our platform...',
-    scheduledFor: null
-  },
-  {
-    id: '2',
-    name: 'Monthly Newsletter - January',
-    subject: 'Your Credit Score Update & Tips',
-    status: 'scheduled',
-    recipients: 1200,
-    sent: 0,
-    opened: 0,
-    clicked: 0,
-    createdAt: '2024-01-20',
-    scheduledFor: '2024-02-01T09:00:00Z',
-    template: 'newsletter-jan',
-    content: 'Here are this month\'s updates...'
-  },
-  {
-    id: '3',
-    name: 'Promotional - Premium Upgrade',
-    subject: 'Unlock Advanced Features Today!',
-    status: 'draft',
-    recipients: 0,
-    sent: 0,
-    opened: 0,
-    clicked: 0,
-    createdAt: '2024-01-25',
-    template: 'premium-upgrade',
-    content: 'Upgrade to premium for...',
-    scheduledFor: null
+const db = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+)
+
+// Send a single email via Resend API directly
+async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) { console.error('RESEND_API_KEY not set'); return false }
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: process.env.EMAIL_FROM || 'Credit Repair AI <noreply@creditrepairai.com>',
+        to: [to],
+        subject,
+        html,
+      })
+    })
+    const data = await res.json()
+    if (!res.ok) { console.error('Resend error for', to, ':', JSON.stringify(data)); return false }
+    console.log('Sent to', to, '- id:', data.id)
+    return true
+  } catch (err: any) {
+    console.error('sendEmail error for', to, ':', err.message)
+    return false
   }
-]
+}
+
+// Build simple HTML email from plain text content
+function buildHtml(subject: string, content: string): string {
+  const escaped = content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${subject}</title></head>
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
+<div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:24px;border-radius:8px 8px 0 0;text-align:center">
+  <h1 style="color:#fff;margin:0;font-size:22px">Credit Repair AI</h1>
+</div>
+<div style="background:#fff;padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
+  <h2 style="color:#1f2937;margin-top:0">${subject}</h2>
+  <div style="color:#4b5563;line-height:1.7">${escaped}</div>
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
+  <p style="font-size:12px;color:#9ca3af;text-align:center">Credit Repair AI — Helping you achieve financial freedom</p>
+</div>
+</body></html>`
+}
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status')
-    const search = searchParams.get('search')
-
-    console.log('GET campaigns - current campaigns:', campaigns.length)
-    console.log('Campaign IDs:', campaigns.map(c => c.id))
-
-    let filteredCampaigns = campaigns
-
-    if (status && status !== 'all') {
-      filteredCampaigns = campaigns.filter(campaign => campaign.status === status)
-    }
-
-    if (search) {
-      filteredCampaigns = filteredCampaigns.filter(campaign =>
-        campaign.name.toLowerCase().includes(search.toLowerCase()) ||
-        campaign.subject.toLowerCase().includes(search.toLowerCase())
-      )
-    }
-
-    // Calculate metrics
-    const totalCampaigns = campaigns.length
-    const activeCampaigns = campaigns.filter(c => c.status === 'sent' || c.status === 'sending').length
-    const draftCampaigns = campaigns.filter(c => c.status === 'draft').length
-    const scheduledCampaigns = campaigns.filter(c => c.status === 'scheduled').length
-
-    const totalRecipients = campaigns.reduce((sum, c) => sum + c.recipients, 0)
-    const totalSent = campaigns.reduce((sum, c) => sum + c.sent, 0)
-    const totalOpened = campaigns.reduce((sum, c) => sum + c.opened, 0)
-    const totalClicked = campaigns.reduce((sum, c) => sum + c.clicked, 0)
-
-    const openRate = totalSent > 0 ? (totalOpened / totalSent) * 100 : 0
-    const clickRate = totalSent > 0 ? (totalClicked / totalSent) * 100 : 0
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        campaigns: filteredCampaigns,
-        metrics: {
-          totalCampaigns,
-          activeCampaigns,
-          draftCampaigns,
-          scheduledCampaigns,
-          totalRecipients,
-          totalSent,
-          totalOpened,
-          totalClicked,
-          openRate: Math.round(openRate * 100) / 100,
-          clickRate: Math.round(clickRate * 100) / 100
-        }
-      }
-    })
-  } catch (error) {
-    console.error('Error fetching campaigns:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch campaigns' },
-      { status: 500 }
-    )
+    const supabase = db()
+    const { data, error } = await supabase
+      .from('email_campaigns')
+      .select('*')
+      .order('created_at', { ascending: false })
+    
+    if (error && error.code !== '42P01') throw error // ignore "table not found" 
+    
+    return NextResponse.json({ success: true, data: { campaigns: data || [] } })
+  } catch (err: any) {
+    console.error('GET campaigns error:', err.message)
+    return NextResponse.json({ success: true, data: { campaigns: [] } })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, subject, content, template, recipients, scheduledFor, status = 'draft' } = body
+    const { name, subject, content, recipientFilter, scheduledFor, status } = body
 
     if (!name || !subject || !content) {
-      return NextResponse.json(
-        { success: false, error: 'Name, subject, and content are required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: 'name, subject, and content are required' }, { status: 400 })
     }
 
-    const newCampaign = {
-      id: `campaign_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      name,
-      subject,
-      content,
-      template: template || 'custom',
-      status,
-      recipients: recipients || 0,
-      sent: 0,
-      opened: 0,
-      clicked: 0,
-      createdAt: new Date().toISOString().split('T')[0],
-      scheduledFor: scheduledFor || null
+    const supabase = db()
+    const campaign = {
+      name, subject, content,
+      recipient_filter: recipientFilter || 'all',
+      scheduled_for: scheduledFor || null,
+      status: status || 'draft',
+      sent_count: 0, opened_count: 0, clicked_count: 0,
     }
 
-    campaigns.push(newCampaign)
+    const { data, error } = await supabase.from('email_campaigns').insert(campaign).select().single()
+    if (error) throw error
 
-    return NextResponse.json({
-      success: true,
-      data: { campaign: newCampaign }
-    })
-  } catch (error) {
-    console.error('Error creating campaign:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to create campaign' },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: true, data: { campaign: data } })
+  } catch (err: any) {
+    console.error('POST campaign error:', err.message)
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, ...updateData } = body
+    const { id, status, ...updateData } = body
 
-    console.log('PUT campaign - ID:', id, 'Update data:', updateData)
+    if (!id) return NextResponse.json({ success: false, error: 'Campaign ID required' }, { status: 400 })
 
-    if (!id) {
-      return NextResponse.json(
-        { success: false, error: 'Campaign ID is required' },
-        { status: 400 }
-      )
+    const supabase = db()
+
+    // If sending/resending - actually send emails to recipients
+    if (status === 'sending' || status === 'sent') {
+      // Get the campaign details
+      const { data: campaign, error: campErr } = await supabase
+        .from('email_campaigns').select('*').eq('id', id).single()
+      
+      if (campErr) throw campErr
+
+      // Get recipients from users table
+      let usersQuery = supabase.from('users').select('id, email, first_name, last_name, subscription_status, subscription_tier')
+      const filter = campaign.recipient_filter || updateData.recipientFilter || 'all'
+      if (filter === 'active') usersQuery = usersQuery.eq('subscription_status', 'active')
+      else if (filter === 'free') usersQuery = usersQuery.or('subscription_tier.is.null,subscription_tier.eq.free')
+      else if (filter === 'paid') usersQuery = usersQuery.neq('subscription_tier', 'free').not('subscription_tier', 'is', null)
+
+      const { data: recipients } = await usersQuery
+      const emailList = (recipients || []).filter((u: any) => u.email?.includes('@'))
+      
+      console.log('Sending campaign', id, 'to', emailList.length, 'recipients')
+
+      const subject = updateData.subject || campaign.subject
+      const content = updateData.content || campaign.content
+      const html = buildHtml(subject, content)
+
+      let sentCount = 0
+      // Send in batches to avoid rate limits
+      for (let i = 0; i < emailList.length; i++) {
+        const user = emailList[i]
+        const personalizedHtml = html
+          .replace(/\{firstName\}/g, user.first_name || 'there')
+          .replace(/\{lastName\}/g, user.last_name || '')
+          .replace(/\{email\}/g, user.email)
+        
+        const ok = await sendEmail(user.email, subject, personalizedHtml)
+        if (ok) sentCount++
+        
+        // Small delay between sends to avoid rate limiting
+        if (i < emailList.length - 1) await new Promise(r => setTimeout(r, 100))
+      }
+
+      // Update campaign status and stats
+      const { data: updated, error: updateErr } = await supabase
+        .from('email_campaigns')
+        .update({ status: 'sent', sent_count: sentCount, sent_at: new Date().toISOString(), ...updateData })
+        .eq('id', id).select().single()
+
+      if (updateErr) console.error('Update error:', updateErr)
+
+      return NextResponse.json({
+        success: true,
+        data: { campaign: updated || { id, status: 'sent', sent_count: sentCount } },
+        sentCount,
+        recipientCount: emailList.length,
+        message: 'Sent to ' + sentCount + ' of ' + emailList.length + ' recipients'
+      })
     }
 
-    const campaignIndex = campaigns.findIndex(c => c.id === id)
-    console.log('Campaign index found:', campaignIndex)
-    
-    if (campaignIndex === -1) {
-      return NextResponse.json(
-        { success: false, error: 'Campaign not found' },
-        { status: 404 }
-      )
-    }
+    // Regular update (status change, edit, etc.)
+    const { data, error } = await supabase
+      .from('email_campaigns')
+      .update({ status, ...updateData, updated_at: new Date().toISOString() })
+      .eq('id', id).select().single()
 
-    // Handle resend - reset metrics if status is changing to sending
-    if (updateData.status === 'sending' && campaigns[campaignIndex].status === 'sent') {
-      updateData.sent = 0
-      updateData.opened = 0
-      updateData.clicked = 0
-      console.log('Resending campaign - resetting metrics')
-    }
-
-    campaigns[campaignIndex] = { ...campaigns[campaignIndex], ...updateData }
-    console.log('Updated campaign:', campaigns[campaignIndex])
-
-    return NextResponse.json({
-      success: true,
-      data: { campaign: campaigns[campaignIndex] }
-    })
-  } catch (error) {
-    console.error('Error updating campaign:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to update campaign' },
-      { status: 500 }
-    )
+    if (error) throw error
+    return NextResponse.json({ success: true, data: { campaign: data } })
+  } catch (err: any) {
+    console.error('PUT campaign error:', err.message)
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
   }
 }
 
@@ -206,40 +182,13 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
-
-    console.log('DELETE campaign - ID:', id)
-    console.log('Current campaigns:', campaigns.length)
-    console.log('Campaign IDs:', campaigns.map(c => c.id))
-
-    if (!id) {
-      return NextResponse.json(
-        { success: false, error: 'Campaign ID is required' },
-        { status: 400 }
-      )
-    }
-
-    const campaignIndex = campaigns.findIndex(c => c.id === id)
-    console.log('Campaign index found:', campaignIndex)
+    if (!id) return NextResponse.json({ success: false, error: 'ID required' }, { status: 400 })
     
-    if (campaignIndex === -1) {
-      return NextResponse.json(
-        { success: false, error: 'Campaign not found' },
-        { status: 404 }
-      )
-    }
-
-    const deletedCampaign = campaigns.splice(campaignIndex, 1)[0]
-    console.log('Deleted campaign:', deletedCampaign)
-
-    return NextResponse.json({
-      success: true,
-      message: 'Campaign deleted successfully'
-    })
-  } catch (error) {
-    console.error('Error deleting campaign:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to delete campaign' },
-      { status: 500 }
-    )
+    const supabase = db()
+    const { error } = await supabase.from('email_campaigns').delete().eq('id', id)
+    if (error) throw error
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
   }
 }
