@@ -89,6 +89,7 @@ const ACCOUNT_STATUSES = [
 ]
 
 export default function RecipientFilterModal({
+ isOpen, onClose, onApply, currentRecipients = 0 }: RecipientFilterModalProps) {
   // External (non-registered) email addresses
   const [externalEmails, setExternalEmails] = React.useState<string[]>([])
   const [externalInput, setExternalInput] = React.useState('')
@@ -113,7 +114,7 @@ export default function RecipientFilterModal({
       })
       .catch(() => {})
   }, [])
- isOpen, onClose, onApply, currentRecipients = 0 }: RecipientFilterModalProps) {
+
   const [filters, setFilters] = useState<RecipientFilters>({
     userTypes: [],
     subscriptionStatus: [],
