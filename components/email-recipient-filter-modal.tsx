@@ -88,7 +88,32 @@ const ACCOUNT_STATUSES = [
   { id: 'pending', label: 'Pending', color: 'blue' }
 ]
 
-export default function RecipientFilterModal({ isOpen, onClose, onApply, currentRecipients = 0 }: RecipientFilterModalProps) {
+export default function RecipientFilterModal({
+  // External (non-registered) email addresses
+  const [externalEmails, setExternalEmails] = React.useState<string[]>([])
+  const [externalInput, setExternalInput] = React.useState('')
+  const [externalError, setExternalError] = React.useState('')
+
+  // Real user counts from API
+  const [realUserCounts, setRealUserCounts] = React.useState({ total: 0, active: 0, free: 0, paid: 0, admin: 0 })
+  React.useEffect(() => {
+    fetch('/api/admin/users?limit=1000')
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.users) {
+          const users = d.users
+          setRealUserCounts({
+            total: users.length,
+            active: users.filter((u: any) => u.status === 'active').length,
+            free: users.filter((u: any) => !u.plan || u.plan === 'free').length,
+            paid: users.filter((u: any) => u.plan && u.plan !== 'free').length,
+            admin: users.filter((u: any) => u.role === 'admin').length,
+          })
+        }
+      })
+      .catch(() => {})
+  }, [])
+ isOpen, onClose, onApply, currentRecipients = 0 }: RecipientFilterModalProps) {
   const [filters, setFilters] = useState<RecipientFilters>({
     userTypes: [],
     subscriptionStatus: [],
@@ -130,7 +155,7 @@ export default function RecipientFilterModal({ isOpen, onClose, onApply, current
         count = 9999 // All users
       } else {
         // Simulate count based on selected filters
-        count = Math.floor(Math.random() * 500) + 50
+        count = realUserCounts.total
       }
       
       setRecipientCount(count)
@@ -274,10 +299,11 @@ export default function RecipientFilterModal({ isOpen, onClose, onApply, current
           </Card>
 
           <Tabs defaultValue="user-types" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="user-types">User Types</TabsTrigger>
               <TabsTrigger value="subscription">Subscription</TabsTrigger>
               <TabsTrigger value="dates">Date Ranges</TabsTrigger>
+              <TabsTrigger value="external">External</TabsTrigger>
               <TabsTrigger value="advanced">Advanced</TabsTrigger>
             </TabsList>
 
@@ -511,6 +537,57 @@ export default function RecipientFilterModal({ isOpen, onClose, onApply, current
                 </div>
               </div>
             </TabsContent>
+          <TabsContent value="external" className="space-y-4">
+            <div>
+              <h3 className="font-semibold mb-1">External Recipients</h3>
+              <p className="text-sm text-gray-500 mb-3">Add email addresses for people not in your user database.</p>
+              <div className="flex gap-2">
+                <Input
+                  value={externalInput}
+                  onChange={e => setExternalInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      const email = externalInput.trim().toLowerCase()
+                      if (!email) return
+                      if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) { setExternalError('Invalid email'); return }
+                      if (externalEmails.includes(email)) { setExternalError('Already added'); return }
+                      setExternalEmails(prev => [...prev, email])
+                      setExternalInput('')
+                      setExternalError('')
+                    }
+                  }}
+                  placeholder="Enter email address and press Enter..."
+                  className={externalError ? 'border-red-400' : ''}
+                />
+                <Button type="button" variant="outline" onClick={() => {
+                  // Support pasting comma/newline separated list
+                  const emails = externalInput.split(/[,\n\s;]+/).map(e => e.trim().toLowerCase()).filter(e => /^[^@]+@[^@]+\.[^@]+$/.test(e))
+                  const newEmails = emails.filter(e => !externalEmails.includes(e))
+                  setExternalEmails(prev => [...prev, ...newEmails])
+                  setExternalInput('')
+                  setExternalError('')
+                }}>Add</Button>
+              </div>
+              {externalError && <p className="text-xs text-red-500 mt-1">{externalError}</p>}
+              <p className="text-xs text-gray-400 mt-1">Tip: paste a comma-separated list and click Add to import multiple at once</p>
+              {externalEmails.length > 0 && (
+                <div className="mt-3 space-y-1.5 max-h-48 overflow-y-auto">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">{externalEmails.length} external email{externalEmails.length !== 1 ? 's' : ''}</span>
+                    <button onClick={() => setExternalEmails([])} className="text-xs text-gray-400 hover:text-red-500">Clear all</button>
+                  </div>
+                  {externalEmails.map(e => (
+                    <div key={e} className="flex items-center justify-between bg-gray-50 rounded px-3 py-1.5 text-sm">
+                      <span className="font-mono text-gray-700">{e}</span>
+                      <button onClick={() => setExternalEmails(prev => prev.filter(x => x !== e))} className="text-gray-400 hover:text-red-500 ml-2">✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
           </Tabs>
 
           {/* Action Buttons */}
