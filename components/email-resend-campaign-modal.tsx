@@ -108,8 +108,9 @@ export default function ResendCampaignModal({ isOpen, onClose, onSuccess, campai
       const data = await response.json()
 
       if (data.success) {
+        console.log('Campaign sent:', data.sentCount, '/', data.recipientCount, 'recipients')
         if (onSuccess) {
-          onSuccess(data.data.campaign)
+          onSuccess(data.data?.campaign || { id: campaign.id, status: 'sent' })
         }
         
         // Reset form
