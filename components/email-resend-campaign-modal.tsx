@@ -78,7 +78,12 @@ export default function ResendCampaignModal({ isOpen, onClose, onSuccess, campai
     
     try {
       let updateData: any = {
-        status: 'sending'
+        status: 'sending',
+        // Include campaign details for server fallback when campaign not yet in DB
+        subject: campaign.subject,
+        content: campaign.content || campaign.body || '',
+        name: campaign.name,
+        recipientFilter: campaign.recipientFilter || campaign.recipient_filter || 'all',
       }
 
       // Handle different resend types
