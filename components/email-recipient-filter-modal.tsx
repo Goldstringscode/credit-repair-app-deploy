@@ -110,10 +110,19 @@ export default function RecipientFilterModal({
             paid: users.filter((u: any) => u.plan && u.plan !== 'free').length,
             admin: users.filter((u: any) => u.role === 'admin').length,
           })
+          // Immediately show real count for "no filters" state
+          setRecipientCount(users.length)
         }
       })
       .catch(() => {})
   }, [])
+
+  // Auto-calculate when filter modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      calculateRecipientCount()
+    }
+  }, [isOpen])
 
   const [filters, setFilters] = useState<RecipientFilters>({
     userTypes: [],
