@@ -110,19 +110,10 @@ export default function RecipientFilterModal({
             paid: users.filter((u: any) => u.plan && u.plan !== 'free').length,
             admin: users.filter((u: any) => u.role === 'admin').length,
           })
-          // Immediately show real count for "no filters" state
-          setRecipientCount(users.length)
         }
       })
       .catch(() => {})
   }, [])
-
-  // Auto-calculate when filter modal opens
-  React.useEffect(() => {
-    if (isOpen) {
-      calculateRecipientCount()
-    }
-  }, [isOpen])
 
   const [filters, setFilters] = useState<RecipientFilters>({
     userTypes: [],
@@ -154,64 +145,86 @@ export default function RecipientFilterModal({
   const calculateRecipientCount = async () => {
     setLoading(true)
     try {
-      // Fetch all users and filter client-side based on selected criteria
       const res = await fetch('/api/admin/users?limit=1000')
       const data = await res.json()
-      const allUsers = data.success ? (data.users || []) : []
+      const allUsers: any[] = data.success ? (data.users || []) : []
 
-      // Start with all users
       let filtered = [...allUsers]
 
-      // Filter by user types
+      // Filter by user types - matches fields returned by /api/admin/users
       if (filters.userTypes && filters.userTypes.length > 0) {
-        filtered = filtered.filter((u: any) => {
-          return filters.userTypes.some((t: string) => {
-            if (t === 'active') return u.status === 'active'
-            if (t === 'inactive') return u.status !== 'active'
-            if (t === 'admin') return u.role === 'admin'
+        filtered = filtered.filter(u =>
+          filters.userTypes.some((t: string) => {
+            if (t === 'premium')   return u.plan === 'premium' || u.plan === 'professional'
+            if (t === 'executive') return u.plan === 'enterprise' || u.role === 'admin'
+            if (t === 'admin')     return u.role === 'admin'
             if (t === 'new') {
-              const d = new Date(u.createdAt||u.joinDate)
-              return (Date.now()-d.getTime()) < 30*24*60*60*1000
+              const joined = new Date(u.joinDate || u.createdAt || 0)
+              return (Date.now() - joined.getTime()) < 30 * 24 * 60 * 60 * 1000
             }
-            if (t === 'trial') return !u.plan || u.plan === 'free'
-            if (t === 'basic') return u.plan === 'basic'
+            if (t === 'trial' || t === 'basic') return !u.plan || u.plan === 'free' || u.plan === 'basic'
+            if (t === 'active')   return u.status === 'active'
+            if (t === 'inactive') return !u.status || u.status !== 'active'
             return true
           })
-        })
+        )
       }
 
       // Filter by subscription status
       if (filters.subscriptionStatus && filters.subscriptionStatus.length > 0) {
-        filtered = filtered.filter((u: any) =>
-          filters.subscriptionStatus.includes(u.status)
+        filtered = filtered.filter(u =>
+          filters.subscriptionStatus.some((s: string) => {
+            if (s === 'active')    return u.status === 'active'
+            if (s === 'inactive')  return !u.status || u.status === 'inactive'
+            if (s === 'cancelled') return u.status === 'cancelled'
+            if (s === 'trialing')  return u.status === 'trialing'
+            if (s === 'past_due')  return u.status === 'past_due'
+            return u.status === s
+          })
         )
       }
 
       // Filter by subscription plans
       if (filters.subscriptionPlans && filters.subscriptionPlans.length > 0) {
-        filtered = filtered.filter((u: any) =>
-          filters.subscriptionPlans.includes(u.plan||'free')
+        filtered = filtered.filter(u =>
+          filters.subscriptionPlans.includes(u.plan || 'free')
         )
       }
 
-      // Filter by custom filters
-      if (filters.customFilters?.hasActiveSubscription) {
-        filtered = filtered.filter((u: any) => u.status === 'active')
+      // Filter by account status
+      if (filters.accountStatus && filters.accountStatus.length > 0) {
+        filtered = filtered.filter(u =>
+          filters.accountStatus.some((s: string) => {
+            if (s === 'verified')   return u.isVerified === true
+            if (s === 'unverified') return !u.isVerified
+            if (s === 'active')     return u.status === 'active'
+            if (s === 'suspended')  return u.status === 'suspended'
+            return true
+          })
+        )
       }
 
-      // Search query filter
-      if (filters.searchQuery) {
+      // Custom filters
+      if (filters.customFilters?.hasActiveSubscription) {
+        filtered = filtered.filter(u => u.status === 'active')
+      }
+      if (filters.customFilters?.hasMadePayment) {
+        filtered = filtered.filter(u => u.plan && u.plan !== 'free')
+      }
+
+      // Search query
+      if (filters.searchQuery?.trim()) {
         const q = filters.searchQuery.toLowerCase()
-        filtered = filtered.filter((u: any) =>
+        filtered = filtered.filter(u =>
           u.email?.toLowerCase().includes(q) || u.name?.toLowerCase().includes(q)
         )
       }
 
-      // Add external emails count
-      const count = filtered.length + (externalEmails?.length || 0)
-      setRecipientCount(count)
-    } catch (error) {
-      console.error('Error calculating recipient count:', error)
+      // Add external emails count on top of filtered users
+      const total = filtered.length + (externalEmails?.length || 0)
+      setRecipientCount(total)
+    } catch (err) {
+      console.error('Error calculating count:', err)
       setRecipientCount(realUserCounts.total)
     } finally {
       setLoading(false)
