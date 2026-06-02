@@ -1,26 +1,13 @@
 'use client'
-
 import React, { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Mail, 
-  Send, 
-  Calendar,
-  Users,
-  Loader2,
-  AlertCircle,
-  CheckCircle,
-  Filter
-} from 'lucide-react'
-import RecipientFilterModal from './email-recipient-filter-modal'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Users, Mail, Send, Loader2, CheckCircle, X, Plus, Search, AlertCircle } from 'lucide-react'
 
 interface CreateCampaignModalProps {
   isOpen: boolean
@@ -28,452 +15,356 @@ interface CreateCampaignModalProps {
   onSuccess?: (campaign: any) => void
 }
 
-interface CampaignFormData {
-  name: string
-  subject: string
-  content: string
-  template: string
-  recipients: number
-  scheduledFor: string
-  status: 'draft' | 'scheduled'
-}
-
-interface RecipientFilters {
-  userTypes: string[]
-  subscriptionStatus: string[]
-  joinDateRange: {
-    start: string
-    end: string
-  }
-  lastLoginRange: {
-    start: string
-    end: string
-  }
-  subscriptionPlans: string[]
-  accountStatus: string[]
-  customFilters: {
-    hasActiveSubscription: boolean
-    hasCompletedOnboarding: boolean
-    hasMadePayment: boolean
-    isEmailVerified: boolean
-  }
-  searchQuery: string
-}
-
-const TEMPLATE_TYPES = [
-  { id: 'welcome', name: 'Welcome Series' },
-  { id: 'newsletter', name: 'Newsletter' },
-  { id: 'promotional', name: 'Promotional' },
-  { id: 'transactional', name: 'Transactional' },
-  { id: 'custom', name: 'Custom' }
+const PLAN_FILTERS = [
+  { value: 'all',          label: 'All Users',          desc: 'Everyone in the system' },
+  { value: 'active',       label: 'Active Subscribers', desc: 'Users with active subscription' },
+  { value: 'free',         label: 'Free Users',         desc: 'Users on free plan' },
+  { value: 'paid',         label: 'Paid Users',         desc: 'Users on any paid plan' },
+  { value: 'custom',       label: 'Custom Selection',   desc: 'Choose specific users' },
+  { value: 'external',     label: 'External Only',      desc: 'Non-registered email addresses' },
 ]
 
 export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: CreateCampaignModalProps) {
-  const [formData, setFormData] = useState<CampaignFormData>({
-    name: '',
-    subject: '',
-    content: '',
-    template: '',
-    recipients: 0,
-    scheduledFor: '',
-    status: 'draft'
-  })
-  
+  const [step, setStep] = useState<'details' | 'recipients' | 'preview'>('details')
   const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const [step, setStep] = useState(1)
-  const [templates, setTemplates] = useState<any[]>([])
-  const [isRecipientFilterModalOpen, setIsRecipientFilterModalOpen] = useState(false)
-  const [recipientFilters, setRecipientFilters] = useState<RecipientFilters | null>(null)
+  const [usersLoading, setUsersLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // Load templates when modal opens
+  // Form data
+  const [name, setName] = useState('')
+  const [subject, setSubject] = useState('')
+  const [content, setContent] = useState('')
+  const [scheduleType, setScheduleType] = useState<'now' | 'schedule'>('now')
+  const [scheduledFor, setScheduledFor] = useState('')
+
+  // Recipient management
+  const [recipientMode, setRecipientMode] = useState<'filter' | 'custom'>('filter')
+  const [filterType, setFilterType] = useState('all')
+  const [allUsers, setAllUsers] = useState<any[]>([])
+  const [userSearch, setUserSearch] = useState('')
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
+
+  // External (non-registered) emails
+  const [externalEmails, setExternalEmails] = useState<string[]>([])
+  const [externalInput, setExternalInput] = useState('')
+  const [externalError, setExternalError] = useState('')
+
+  // Load users when modal opens
   useEffect(() => {
-    if (isOpen) {
-      loadTemplates()
-    }
+    if (!isOpen) return
+    setUsersLoading(true)
+    fetch('/api/admin/users?limit=500')
+      .then(r => r.json())
+      .then(d => { if (d.success) setAllUsers(d.users || []) })
+      .catch(e => console.error('Failed to load users:', e))
+      .finally(() => setUsersLoading(false))
   }, [isOpen])
 
-  const loadTemplates = async () => {
-    try {
-      const response = await fetch('/api/admin/email/templates')
-      const data = await response.json()
-      if (data.success) {
-        setTemplates(data.data.templates)
-      }
-    } catch (error) {
-      console.error('Error loading templates:', error)
-    }
+  const reset = () => {
+    setStep('details'); setName(''); setSubject(''); setContent('')
+    setScheduleType('now'); setScheduledFor(''); setRecipientMode('filter')
+    setFilterType('all'); setUserSearch(''); setSelectedUserIds(new Set())
+    setExternalEmails([]); setExternalInput(''); setError(null)
   }
 
-  const handleInputChange = (field: keyof CampaignFormData, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-    
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }))
-    }
+  // Compute recipient list based on current filters
+  const filteredUsers = allUsers.filter(u => {
+    const q = userSearch.toLowerCase()
+    const matchSearch = !userSearch || u.email?.toLowerCase().includes(q) || u.name?.toLowerCase().includes(q)
+    if (recipientMode === 'custom') return matchSearch
+    // For filter mode, apply plan filter
+    if (filterType === 'all') return matchSearch
+    if (filterType === 'active') return matchSearch && u.status === 'active'
+    if (filterType === 'free') return matchSearch && (!u.plan || u.plan === 'free')
+    if (filterType === 'paid') return matchSearch && u.plan && u.plan !== 'free'
+    return matchSearch
+  })
+
+  const recipientCount = recipientMode === 'filter'
+    ? filteredUsers.length + externalEmails.length
+    : selectedUserIds.size + externalEmails.length
+
+  // Add external email
+  const addExternalEmail = () => {
+    const email = externalInput.trim().toLowerCase()
+    if (!email) return
+    if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) { setExternalError('Invalid email address'); return }
+    if (externalEmails.includes(email)) { setExternalError('Already added'); return }
+    setExternalEmails(prev => [...prev, email])
+    setExternalInput('')
+    setExternalError('')
   }
 
-  const handleRecipientFiltersApplied = (filters: RecipientFilters, recipientCount: number) => {
-    console.log('Recipient filters applied:', filters, recipientCount)
-    setRecipientFilters(filters)
-    setFormData(prev => ({ ...prev, recipients: recipientCount }))
-    setIsRecipientFilterModalOpen(false)
-  }
-
-  const getRecipientFilterSummary = () => {
-    if (!recipientFilters) return 'All Users'
-    
-    const activeFilters = []
-    if (recipientFilters.userTypes.length > 0) {
-      activeFilters.push(`${recipientFilters.userTypes.length} user type(s)`)
-    }
-    if (recipientFilters.subscriptionStatus.length > 0) {
-      activeFilters.push(`${recipientFilters.subscriptionStatus.length} status(es)`)
-    }
-    if (recipientFilters.subscriptionPlans.length > 0) {
-      activeFilters.push(`${recipientFilters.subscriptionPlans.length} plan(s)`)
-    }
-    if (recipientFilters.searchQuery) {
-      activeFilters.push('search filter')
-    }
-    
-    return activeFilters.length > 0 ? activeFilters.join(', ') : 'All Users'
-  }
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {}
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'Campaign name is required'
-    }
-
-    if (!formData.subject.trim()) {
-      newErrors.subject = 'Subject is required'
-    }
-
-    if (!formData.content.trim()) {
-      newErrors.content = 'Content is required'
-    }
-
-    if (formData.recipients <= 0) {
-      newErrors.recipients = 'Recipients must be greater than 0'
-    }
-
-    if (formData.status === 'scheduled' && !formData.scheduledFor) {
-      newErrors.scheduledFor = 'Scheduled date is required for scheduled campaigns'
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+  // Add multiple external emails (paste/import)
+  const addMultipleEmails = (text: string) => {
+    const emails = text.split(/[,\n\s;]+/).map(e => e.trim().toLowerCase()).filter(e => /^[^@]+@[^@]+\.[^@]+$/.test(e))
+    const newEmails = emails.filter(e => !externalEmails.includes(e))
+    setExternalEmails(prev => [...prev, ...newEmails])
+    setExternalInput('')
+    if (newEmails.length > 0) setExternalError('')
   }
 
   const handleSubmit = async () => {
-    if (!validateForm()) {
+    if (!name.trim() || !subject.trim() || !content.trim()) {
+      setError('Name, subject and content are required')
+      return
+    }
+    if (recipientCount === 0) {
+      setError('Please select at least one recipient')
       return
     }
 
-    setLoading(true)
-    
+    setLoading(true); setError(null)
     try {
-      const response = await fetch('/api/admin/email/campaigns', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        if (onSuccess) {
-          onSuccess(data.data.campaign)
-        }
-        
-        // Reset form and close modal
-        setFormData({
-          name: '',
-          subject: '',
-          content: '',
-          template: '',
-          recipients: 0,
-          scheduledFor: '',
-          status: 'draft'
-        })
-        setStep(1)
-        setErrors({})
-        onClose()
-      } else {
-        setErrors({ submit: data.error || 'Failed to create campaign' })
+      const body: any = {
+        name: name.trim(),
+        subject: subject.trim(),
+        content: content.trim(),
+        status: scheduleType === 'schedule' ? 'scheduled' : 'draft',
+        scheduledFor: scheduleType === 'schedule' ? scheduledFor : null,
+        recipientMode,
+        recipientFilter: recipientMode === 'filter' ? filterType : 'custom',
+        selectedUserIds: recipientMode === 'custom' ? [...selectedUserIds] : [],
+        externalEmails,
+        estimatedRecipients: recipientCount,
       }
-    } catch (error) {
-      console.error('Error creating campaign:', error)
-      setErrors({ submit: 'An error occurred while creating the campaign' })
+
+      const res = await fetch('/api/admin/email/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+
+      if (!data.success) throw new Error(data.error || 'Failed to create campaign')
+
+      onSuccess?.(data.data?.campaign)
+      reset()
+      onClose()
+    } catch (err: any) {
+      setError(err.message)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleTemplateSelect = (templateId: string) => {
-    const template = templates.find(t => t.id === templateId)
-    if (template) {
-      setFormData(prev => ({
-        ...prev,
-        template: templateId,
-        subject: template.subject,
-        content: template.content
-      }))
-    }
-  }
-
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={o => { if (!o) { reset(); onClose() } }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
-            Create Email Campaign
-          </DialogTitle>
-          <DialogDescription>
-            Create a new email campaign to engage with your audience
-          </DialogDescription>
+          <DialogTitle className="flex items-center gap-2"><Mail className="h-5 w-5 text-purple-600" />Create Email Campaign</DialogTitle>
+          <DialogDescription>Send an email campaign to your users or any email address</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Step 1: Basic Information */}
-          {step === 1 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Campaign Details</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Campaign Name *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
-                    placeholder="e.g., Welcome Series - Day 1"
-                    className={errors.name ? 'border-red-500' : ''}
-                  />
-                  {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="template">Template</Label>
-                  <Select onValueChange={handleTemplateSelect}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a template (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {templates.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>
-                          {template.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="subject">Email Subject *</Label>
-                <Input
-                  id="subject"
-                  value={formData.subject}
-                  onChange={(e) => handleInputChange('subject', e.target.value)}
-                  placeholder="e.g., Welcome to CreditRepair Pro!"
-                  className={errors.subject ? 'border-red-500' : ''}
-                />
-                {errors.subject && <p className="text-sm text-red-500">{errors.subject}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="content">Email Content *</Label>
-                <Textarea
-                  id="content"
-                  value={formData.content}
-                  onChange={(e) => handleInputChange('content', e.target.value)}
-                  placeholder="Enter your email content here..."
-                  rows={8}
-                  className={errors.content ? 'border-red-500' : ''}
-                />
-                {errors.content && <p className="text-sm text-red-500">{errors.content}</p>}
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Audience & Scheduling */}
-          {step === 2 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Audience & Scheduling</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Recipients *</Label>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
-                      <div className="flex items-center space-x-2">
-                        <Users className="h-4 w-4" />
-                        <div>
-                          <p className="text-sm font-medium">{formData.recipients.toLocaleString()} recipients</p>
-                          <p className="text-xs text-gray-500">{getRecipientFilterSummary()}</p>
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          console.log('Filter Recipients button clicked!')
-                          setIsRecipientFilterModalOpen(true)
-                        }}
-                        className="bg-blue-500 text-white hover:bg-blue-600"
-                      >
-                        <Filter className="h-4 w-4 mr-1" />
-                        Filter Recipients
-                      </Button>
-                    </div>
-                    
-                    <div className="flex space-x-2">
-                      <Input
-                        type="number"
-                        value={formData.recipients}
-                        onChange={(e) => handleInputChange('recipients', parseInt(e.target.value) || 0)}
-                        placeholder="0"
-                        min="0"
-                        className={errors.recipients ? 'border-red-500' : ''}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => handleInputChange('recipients', 9999)}
-                        className="whitespace-nowrap"
-                      >
-                        All Users
-                      </Button>
-                    </div>
-                  </div>
-                  {errors.recipients && <p className="text-sm text-red-500">{errors.recipients}</p>}
-                  <p className="text-xs text-gray-500">
-                    Use advanced filtering to target specific user groups, or enter a number manually
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="status">Campaign Status</Label>
-                  <Select 
-                    value={formData.status} 
-                    onValueChange={(value: 'draft' | 'scheduled') => handleInputChange('status', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="scheduled">Scheduled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {formData.status === 'scheduled' && (
-                <div className="space-y-2">
-                  <Label htmlFor="scheduledFor">Schedule Date & Time</Label>
-                  <Input
-                    id="scheduledFor"
-                    type="datetime-local"
-                    value={formData.scheduledFor}
-                    onChange={(e) => handleInputChange('scheduledFor', e.target.value)}
-                    className={errors.scheduledFor ? 'border-red-500' : ''}
-                  />
-                  {errors.scheduledFor && <p className="text-sm text-red-500">{errors.scheduledFor}</p>}
-                </div>
-              )}
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Campaign Preview</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <p className="font-semibold">{formData.subject || 'Email Subject'}</p>
-                    <div className="text-sm text-gray-600 max-h-32 overflow-y-auto">
-                      {formData.content || 'Email content will appear here...'}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Error Display */}
-          {errors.submit && (
-            <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-md">
-              <AlertCircle className="h-4 w-4 text-red-500" />
-              <p className="text-sm text-red-700">{errors.submit}</p>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex items-center justify-between pt-4 border-t">
-            <div className="flex space-x-2">
-              {step > 1 ? (
-                <Button variant="outline" onClick={() => setStep(step - 1)}>
-                  Previous
-                </Button>
-              ) : (
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-              )}
-            </div>
-            
-            <div className="flex space-x-2">
-              {step < 2 ? (
-                <Button onClick={() => setStep(step + 1)}>
-                  Next
-                </Button>
-              ) : (
-                <Button onClick={handleSubmit} disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    'Create Campaign'
-                  )}
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Progress Indicator */}
-          <div className="flex items-center justify-center space-x-2">
-            {[1, 2].map((stepNumber) => (
-              <div
-                key={stepNumber}
-                className={`w-3 h-3 rounded-full ${
-                  stepNumber <= step ? 'bg-blue-500' : 'bg-gray-300'
-                }`}
-              />
-            ))}
-          </div>
+        {/* Step indicator */}
+        <div className="flex items-center gap-2 text-xs text-gray-500 mb-4">
+          {['details','recipients','preview'].map((s,i) => (
+            <React.Fragment key={s}>
+              <button onClick={() => step !== 'details' || s === 'details' ? setStep(s as any) : null}
+                className={"px-3 py-1 rounded-full font-medium " + (step === s ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-500')}>
+                {i+1}. {s.charAt(0).toUpperCase()+s.slice(1)}
+              </button>
+              {i < 2 && <span>→</span>}
+            </React.Fragment>
+          ))}
         </div>
-      </DialogContent>
 
-      {/* Recipient Filter Modal */}
-      {console.log('RecipientFilterModal state:', isRecipientFilterModalOpen)}
-      <RecipientFilterModal
-        isOpen={isRecipientFilterModalOpen}
-        onClose={() => {
-          console.log('Closing RecipientFilterModal')
-          setIsRecipientFilterModalOpen(false)
-        }}
-        onApply={handleRecipientFiltersApplied}
-        currentRecipients={formData.recipients}
-      />
+        {error && (
+          <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded-lg p-3 text-sm">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" />{error}
+          </div>
+        )}
+
+        {/* Step 1: Campaign Details */}
+        {step === 'details' && (
+          <div className="space-y-4">
+            <div>
+              <Label>Campaign Name *</Label>
+              <Input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Monthly Newsletter – June 2025" className="mt-1"/>
+            </div>
+            <div>
+              <Label>Subject Line *</Label>
+              <Input value={subject} onChange={e=>setSubject(e.target.value)} placeholder="Your credit report has new updates" className="mt-1"/>
+            </div>
+            <div>
+              <Label>Email Content *</Label>
+              <p className="text-xs text-gray-400 mb-1">Use {'{firstName}'} and {'{email}'} for personalization</p>
+              <Textarea value={content} onChange={e=>setContent(e.target.value)}
+                placeholder={"Hi {firstName},\n\nWe wanted to share some important updates about your credit repair journey...\n\nBest regards,\nThe Credit Repair AI Team"}
+                rows={8} className="mt-1 font-mono text-sm"/>
+            </div>
+            <div>
+              <Label>Send Time</Label>
+              <div className="flex gap-3 mt-2">
+                <label className={"flex items-center gap-2 px-4 py-2 rounded-lg border-2 cursor-pointer " + (scheduleType==='now'?'border-purple-500 bg-purple-50':'border-gray-200')}>
+                  <input type="radio" name="scheduleType" value="now" checked={scheduleType==='now'} onChange={()=>setScheduleType('now')} className="sr-only"/>
+                  <Send className="h-4 w-4"/><span className="text-sm font-medium">Send when ready</span>
+                </label>
+                <label className={"flex items-center gap-2 px-4 py-2 rounded-lg border-2 cursor-pointer " + (scheduleType==='schedule'?'border-purple-500 bg-purple-50':'border-gray-200')}>
+                  <input type="radio" name="scheduleType" value="schedule" checked={scheduleType==='schedule'} onChange={()=>setScheduleType('schedule')} className="sr-only"/>
+                  <span className="text-sm font-medium">Schedule</span>
+                </label>
+              </div>
+              {scheduleType === 'schedule' && (
+                <Input type="datetime-local" value={scheduledFor} onChange={e=>setScheduledFor(e.target.value)} className="mt-2"/>
+              )}
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={()=>{if(!name||!subject||!content){setError('Fill in all fields');return}setError(null);setStep('recipients')}}
+                className="bg-purple-600 hover:bg-purple-700 text-white">
+                Next: Choose Recipients →
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Recipients */}
+        {step === 'recipients' && (
+          <div className="space-y-4">
+            <Tabs value={recipientMode} onValueChange={v=>setRecipientMode(v as any)}>
+              <TabsList className="w-full">
+                <TabsTrigger value="filter" className="flex-1"><Users className="h-4 w-4 mr-1.5"/>Filter Users ({allUsers.length} total)</TabsTrigger>
+                <TabsTrigger value="custom" className="flex-1"><CheckCircle className="h-4 w-4 mr-1.5"/>Pick Users</TabsTrigger>
+              </TabsList>
+
+              {/* Filter tab - filter existing users by plan/status */}
+              <TabsContent value="filter" className="space-y-3 pt-3">
+                <div className="grid grid-cols-2 gap-2">
+                  {PLAN_FILTERS.filter(f=>f.value!=='custom'&&f.value!=='external').map(f=>{
+                    const count = f.value==='all' ? allUsers.length
+                      : f.value==='active' ? allUsers.filter(u=>u.status==='active').length
+                      : f.value==='free' ? allUsers.filter(u=>!u.plan||u.plan==='free').length
+                      : f.value==='paid' ? allUsers.filter(u=>u.plan&&u.plan!=='free').length : 0
+                    return (
+                      <label key={f.value} className={"flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer " + (filterType===f.value?'border-purple-500 bg-purple-50':'border-gray-200 hover:border-gray-300')}>
+                        <input type="radio" name="filterType" value={f.value} checked={filterType===f.value} onChange={()=>setFilterType(f.value)} className="sr-only"/>
+                        <div className={"w-4 h-4 rounded-full border-2 flex-shrink-0 "+(filterType===f.value?'border-purple-500 bg-purple-500':'border-gray-300')}/>
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm text-gray-900">{f.label}</p>
+                          <p className="text-xs text-gray-400">{f.desc}</p>
+                        </div>
+                        <Badge className="ml-auto bg-gray-100 text-gray-600 flex-shrink-0">{count}</Badge>
+                      </label>
+                    )
+                  })}
+                </div>
+                {usersLoading && <p className="text-xs text-gray-400 text-center py-2">Loading users...</p>}
+              </TabsContent>
+
+              {/* Custom pick tab - search and select individual users */}
+              <TabsContent value="custom" className="space-y-3 pt-3">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400"/>
+                  <Input placeholder="Search users by name or email..." className="pl-9" value={userSearch} onChange={e=>setUserSearch(e.target.value)}/>
+                </div>
+                <div className="border rounded-lg divide-y max-h-48 overflow-y-auto">
+                  {filteredUsers.length === 0 ? (
+                    <p className="text-center py-4 text-sm text-gray-400">No users found</p>
+                  ) : filteredUsers.map(u=>(
+                    <label key={u.id} className={"flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50 "+(selectedUserIds.has(u.id)?'bg-purple-50':'')}>
+                      <input type="checkbox" checked={selectedUserIds.has(u.id)}
+                        onChange={e=>{const s=new Set(selectedUserIds); e.target.checked?s.add(u.id):s.delete(u.id); setSelectedUserIds(s)}}
+                        className="rounded border-gray-300 text-purple-600"/>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900 truncate">{u.name||u.email?.split('@')[0]}</p>
+                        <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                      </div>
+                      <Badge className="text-xs bg-gray-100 text-gray-600 flex-shrink-0">{u.plan||'free'}</Badge>
+                    </label>
+                  ))}
+                </div>
+                {selectedUserIds.size > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-purple-600 font-medium">{selectedUserIds.size} user{selectedUserIds.size!==1?'s':''} selected</span>
+                    <button onClick={()=>setSelectedUserIds(new Set())} className="text-xs text-gray-400 hover:text-gray-600">Clear all</button>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+
+            {/* External emails - always shown */}
+            <div className="border-t pt-4">
+              <Label className="flex items-center gap-2 mb-2">
+                <Mail className="h-4 w-4 text-blue-500"/>
+                External Recipients (non-registered emails)
+              </Label>
+              <p className="text-xs text-gray-400 mb-2">Send to people who are not in your user database. Enter one email or paste a comma-separated list.</p>
+              <div className="flex gap-2">
+                <Input value={externalInput} onChange={e=>setExternalInput(e.target.value)}
+                  onKeyDown={e=>{ if(e.key==='Enter'){e.preventDefault();addExternalEmail()} }}
+                  placeholder="email@example.com or paste multiple separated by commas..."
+                  className={"flex-1 "+(externalError?'border-red-400':'')}/>
+                <Button type="button" variant="outline" onClick={()=>addMultipleEmails(externalInput)} className="flex-shrink-0">
+                  <Plus className="h-4 w-4 mr-1"/>Add
+                </Button>
+              </div>
+              {externalError && <p className="text-xs text-red-500 mt-1">{externalError}</p>}
+              {externalEmails.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2 max-h-24 overflow-y-auto">
+                  {externalEmails.map(e=>(
+                    <span key={e} className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded px-2 py-0.5">
+                      {e}<button onClick={()=>setExternalEmails(prev=>prev.filter(x=>x!==e))} className="hover:text-red-500"><X className="h-3 w-3"/></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Recipient summary */}
+            <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">Total recipients:</span>
+              <Badge className="bg-purple-100 text-purple-800 text-sm font-bold">{recipientCount}</Badge>
+            </div>
+
+            <div className="flex justify-between">
+              <Button variant="outline" onClick={()=>setStep('details')}>← Back</Button>
+              <Button onClick={()=>{if(recipientCount===0){setError('Add at least one recipient');return}setError(null);setStep('preview')}}
+                className="bg-purple-600 hover:bg-purple-700 text-white">
+                Next: Preview →
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Preview & Send */}
+        {step === 'preview' && (
+          <div className="space-y-4">
+            <div className="bg-gray-50 rounded-lg p-4 space-y-3 text-sm">
+              <div className="flex justify-between"><span className="text-gray-500">Campaign:</span><span className="font-medium">{name}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Subject:</span><span className="font-medium">{subject}</span></div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Recipients:</span>
+                <span className="font-medium text-purple-600">{recipientCount} {recipientCount===1?'person':'people'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Send time:</span>
+                <span className="font-medium">{scheduleType==='now'?'When manually sent':'Scheduled: '+scheduledFor}</span>
+              </div>
+              {externalEmails.length > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">External:</span>
+                  <span className="font-medium">{externalEmails.length} external email{externalEmails.length!==1?'s':''}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-gray-100 px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">Email Preview</div>
+              <div className="p-4">
+                <p className="font-semibold text-gray-900 mb-2">{subject}</p>
+                <div className="text-sm text-gray-700 whitespace-pre-wrap border-t pt-2">{content.replace(/\{firstName\}/g,'[FirstName]').replace(/\{email\}/g,'[Email]')}</div>
+              </div>
+            </div>
+
+            <div className="flex justify-between">
+              <Button variant="outline" onClick={()=>setStep('recipients')}>← Back</Button>
+              <Button onClick={handleSubmit} disabled={loading} className="bg-purple-600 hover:bg-purple-700 text-white min-w-[140px]">
+                {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin"/>Creating...</> : <><CheckCircle className="h-4 w-4 mr-2"/>Create Campaign</>}
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
     </Dialog>
   )
 }
