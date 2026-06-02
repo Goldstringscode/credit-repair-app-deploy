@@ -84,6 +84,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
   const [step, setStep] = useState(1)
   const [templates, setTemplates] = useState<any[]>([])
   const [isRecipientFilterModalOpen, setIsRecipientFilterModalOpen] = useState(false)
+  const [externalEmails, setExternalEmails] = useState<string[]>([])
   const [recipientFilters, setRecipientFilters] = useState<RecipientFilters | null>(null)
 
   // Load templates when modal opens
@@ -114,10 +115,11 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
     }
   }
 
-  const handleRecipientFiltersApplied = (filters: RecipientFilters, recipientCount: number) => {
-    console.log('Recipient filters applied:', filters, recipientCount)
+  const handleRecipientFiltersApplied = (filters: RecipientFilters, recipientCount: number, external?: string[]) => {
+    console.log('Recipient filters applied:', filters, recipientCount, 'external:', external?.length)
     setRecipientFilters(filters)
-    setFormData(prev => ({ ...prev, recipients: recipientCount }))
+    setExternalEmails(external || [])
+    setFormData(prev => ({ ...prev, recipients: recipientCount + (external?.length || 0) }))
     setIsRecipientFilterModalOpen(false)
   }
 
@@ -181,7 +183,12 @@ export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: Crea
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+            ...formData,
+            recipientFilters,
+            externalEmails,
+            recipientMode: 'filter',
+          })
       })
 
       const data = await response.json()
