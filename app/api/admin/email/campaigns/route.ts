@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, subject, content, recipientFilter, scheduledFor, status } = body
+    const { name, subject, content, recipientFilter, recipientMode, selectedUserIds, externalEmails, scheduledFor, status, estimatedRecipients } = body
 
     if (!name || !subject || !content) {
       return NextResponse.json({ success: false, error: 'name, subject, and content are required' }, { status: 400 })
@@ -95,8 +95,12 @@ export async function POST(request: NextRequest) {
     const campaign = {
       name, subject, content,
       recipient_filter: recipientFilter || 'all',
+      recipient_mode: recipientMode || 'filter',
+      selected_user_ids: selectedUserIds || [],
+      external_emails: externalEmails || [],
       scheduled_for: scheduledFor || null,
       status: status || 'draft',
+      estimated_recipients: estimatedRecipients || 0,
       sent_count: 0, opened_count: 0, clicked_count: 0,
     }
 
@@ -127,15 +131,33 @@ export async function PUT(request: NextRequest) {
       
       if (campErr) throw campErr
 
-      // Get recipients from users table
-      let usersQuery = supabase.from('users').select('id, email, first_name, last_name, subscription_status, subscription_tier')
-      const filter = campaign.recipient_filter || updateData.recipientFilter || 'all'
-      if (filter === 'active') usersQuery = usersQuery.eq('subscription_status', 'active')
-      else if (filter === 'free') usersQuery = usersQuery.or('subscription_tier.is.null,subscription_tier.eq.free')
-      else if (filter === 'paid') usersQuery = usersQuery.neq('subscription_tier', 'free').not('subscription_tier', 'is', null)
+      // Build recipient list based on mode
+      const recipientMode = campaign.recipient_mode || 'filter'
+      const filter = campaign.recipient_filter || 'all'
+      let emailList: any[] = []
 
-      const { data: recipients } = await usersQuery
-      const emailList = (recipients || []).filter((u: any) => u.email?.includes('@'))
+      if (recipientMode === 'custom' && (campaign.selected_user_ids || []).length > 0) {
+        // Fetch only selected users
+        const { data: selectedUsers } = await supabase
+          .from('users').select('id, email, first_name, last_name')
+          .in('id', campaign.selected_user_ids)
+        emailList = (selectedUsers || []).filter((u: any) => u.email?.includes('@'))
+      } else if (recipientMode !== 'custom') {
+        // Fetch users by filter
+        let usersQuery = supabase.from('users').select('id, email, first_name, last_name, subscription_status, subscription_tier')
+        if (filter === 'active') usersQuery = usersQuery.eq('subscription_status', 'active')
+        else if (filter === 'free') usersQuery = usersQuery.or('subscription_tier.is.null,subscription_tier.eq.free')
+        else if (filter === 'paid') usersQuery = usersQuery.neq('subscription_tier', 'free').not('subscription_tier', 'is', null)
+        const { data: recipients } = await usersQuery
+        emailList = (recipients || []).filter((u: any) => u.email?.includes('@'))
+      }
+
+      // Add external (non-registered) email addresses
+      const externalEmailsList = campaign.external_emails || []
+      const externalRecipients = externalEmailsList.map((email: string) => ({
+        id: 'external', email, first_name: '', last_name: '',
+      }))
+      emailList = [...emailList, ...externalRecipients]
       
       console.log('Sending campaign', id, 'to', emailList.length, 'recipients')
 
