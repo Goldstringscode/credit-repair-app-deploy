@@ -151,6 +151,8 @@ export default function AdminPage() {
   // Real stats from /api/admin/overview
   const [overview, setOverview] = useState<any>(null)
   const [overviewLoading, setOverviewLoading] = useState(true)
+  const [billingData, setBillingData] = useState<any>(null)
+  const [billingLoading, setBillingLoading] = useState(true)
 
   useEffect(() => {
     fetch('/api/admin/overview')
@@ -160,6 +162,14 @@ export default function AdminPage() {
       })
       .catch(err => console.error('Overview fetch error:', err))
       .finally(() => setOverviewLoading(false))
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/admin/billing')
+      .then(r => r.json())
+      .then(data => { if (data.success) setBillingData(data) })
+      .catch(err => console.error('Billing fetch error:', err))
+      .finally(() => setBillingLoading(false))
   }, [])
 
   const systemStats = {
@@ -1273,252 +1283,151 @@ export default function AdminPage() {
         </TabsContent>
 
         <TabsContent value="billing" className="space-y-6">
-          {/* Billing Management */}
-          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-medium text-blue-900">Full Subscription Management</h3>
-                <p className="text-sm text-blue-700">Access the complete subscription management system with advanced features</p>
-              </div>
-              <Link href="/admin/billing/subscriptions">
-                <Button className="bg-blue-600 hover:bg-blue-700">
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Go to Subscriptions Page
-                </Button>
-              </Link>
-            </div>
-          </div>
-          
+          {/* Load billing data from real API */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${subscriptions.filter(sub => sub.status === 'active').reduce((sum, sub) => sum + (sub.amount || 0), 0).toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground">+3.2% from last month</p>
+                <div className="text-2xl font-bold">${(billingData?.summary?.totalRevenue||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                <p className="text-xs text-muted-foreground">All time</p>
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">This Month</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{subscriptions.filter(sub => sub.status === 'active').length}</div>
-                <p className="text-xs text-muted-foreground">{systemStats.newUsersThisMonth > 0 ? "+" + systemStats.newUsersThisMonth + " this month" : "0 this month"} from last month</p>
+                <div className="text-2xl font-bold">${(billingData?.summary?.monthlyRevenue||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                <p className="text-xs text-muted-foreground">Last month: ${(billingData?.summary?.lastMonthRevenue||0).toFixed(2)}</p>
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Payment Success Rate</CardTitle>
-                <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Active Subscribers</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">99.0%</div>
-                <p className="text-xs text-muted-foreground">+0.1% from last month</p>
+                <div className="text-2xl font-bold">{billingData?.summary?.activeSubscribers||0}</div>
+                <p className="text-xs text-muted-foreground">{billingData?.summary?.freeUsers||0} on free plan</p>
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Churn Rate</CardTitle>
-                <TrendingDown className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">New This Month</CardTitle>
+                <UserCheck className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">0.86%</div>
-                <p className="text-xs text-muted-foreground">-0.2% from last month</p>
+                <div className="text-2xl font-bold">{billingData?.summary?.newThisMonth||0}</div>
+                <p className="text-xs text-muted-foreground">Total: {billingData?.summary?.totalUsers||0} users</p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Billing Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Plan breakdown */}
+          {billingData?.summary?.planCounts && Object.keys(billingData.summary.planCounts).length > 0 && (
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  Subscription Management
-                </CardTitle>
-                <CardDescription>Manage customer subscriptions and billing cycles</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Link href="/admin/billing/subscriptions">
-                  <Button className="w-full justify-start">
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    View All Subscriptions
-                  </Button>
-                </Link>
-                <Link href="/admin/billing/payments">
-                  <Button className="w-full justify-start" variant="outline">
-                    <DollarSign className="h-4 w-4 mr-2" />
-                    Payment Management
-                  </Button>
-                </Link>
-                <Link href="/admin/billing/analytics">
-                  <Button className="w-full justify-start" variant="outline">
-                    <BarChart3 className="h-4 w-4 mr-2" />
-                    Billing Analytics
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5" />
-                  Recent Activity
-                </CardTitle>
-                <CardDescription>Latest billing events and transactions</CardDescription>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-sm">Users by Plan</CardTitle></CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {subscriptions.slice(0, 3).map((subscription, index) => (
-                    <div key={subscription.id} className="flex items-center justify-between text-sm">
-                      <div>
-                        <p className="font-medium">Subscription {subscription.status}</p>
-                        <p className="text-gray-600">{subscription.planName} - {subscription.customerName}</p>
-                      </div>
-                      <span className="text-xs text-gray-500">{index === 0 ? '2 min ago' : index === 1 ? '5 min ago' : '1 hour ago'}</span>
+                <div className="flex flex-wrap gap-3">
+                  {Object.entries(billingData.summary.planCounts).map(([plan, count]: any) => (
+                    <div key={plan} className="flex items-center gap-2 bg-gray-50 rounded-lg px-4 py-3 border">
+                      <Badge variant="outline" className="capitalize">{plan}</Badge>
+                      <span className="font-bold text-gray-900">{count}</span>
+                      <span className="text-xs text-gray-400">users</span>
+                      {billingData.summary.planRevenue?.[plan] > 0 && (
+                        <span className="text-xs text-green-600 font-medium">${billingData.summary.planRevenue[plan].toFixed(2)}</span>
+                      )}
                     </div>
                   ))}
-                  {subscriptions.length === 0 && (
-                    <div className="text-sm text-gray-500">No recent activity</div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Recent subscriptions table */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Subscriptions</CardTitle>
+              <Link href="/admin/billing">
+                <Button variant="outline" size="sm"><ExternalLink className="h-3.5 w-3.5 mr-1.5" />Full Billing Page</Button>
+              </Link>
+            </CardHeader>
+            <CardContent className="p-0">
+              {billingLoading ? (
+                <div className="text-center py-8 text-gray-400">Loading billing data...</div>
+              ) : (billingData?.subscriptions||[]).length === 0 ? (
+                <div className="text-center py-8 text-gray-400">No subscriptions found</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-y">
+                      <tr>
+                        {['User','Plan','Status','Joined'].map(h=>(
+                          <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {(billingData?.subscriptions||[]).slice(0,10).map((s: any) => (
+                        <tr key={s.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-gray-900">{s.userName}</p>
+                            <p className="text-xs text-gray-400">{s.userEmail}</p>
+                          </td>
+                          <td className="px-4 py-3"><Badge variant="outline" className="capitalize">{s.plan||'free'}</Badge></td>
+                          <td className="px-4 py-3"><Badge className={s.status==='active'?'bg-green-100 text-green-800':'bg-gray-100 text-gray-600'}>{s.status||'inactive'}</Badge></td>
+                          <td className="px-4 py-3 text-xs text-gray-500">{s.createdAt?new Date(s.createdAt).toLocaleDateString():'-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {(billingData?.subscriptions||[]).length > 10 && (
+                    <div className="px-4 py-3 border-t text-xs text-gray-400">
+                      Showing 10 of {billingData.subscriptions.length} — <Link href="/admin/billing" className="text-blue-500 hover:underline">View all</Link>
+                    </div>
                   )}
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5" />
-                  Billing Alerts
-                </CardTitle>
-                <CardDescription>Issues requiring attention</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <div>
-                      <p className="font-medium text-yellow-600">Failed Payments</p>
-                      <p className="text-gray-600">3 payments need retry</p>
-                    </div>
-                    <Badge variant="destructive">3</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <div>
-                      <p className="font-medium text-blue-600">Expiring Trials</p>
-                      <p className="text-gray-600">12 trials ending soon</p>
-                    </div>
-                    <Badge variant="secondary">12</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <div>
-                      <p className="font-medium text-red-600">Past Due</p>
-                      <p className="text-gray-600">5 subscriptions past due</p>
-                    </div>
-                    <Badge variant="destructive">5</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Billing Users List */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Billing Users</CardTitle>
-              <CardDescription>Users with active subscriptions and billing information</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {console.log('Rendering billing users:', users.length, 'users')}
-                {loading ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
-                    Loading users...
-                  </div>
-                ) : users.length > 0 ? (
-                  users.map((user) => (
-                    <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-blue-600 font-medium text-sm">
-                            {user.name.split(' ').map(n => n[0]).join('')}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium">{user.name}</p>
-                          <p className="text-sm text-gray-600">{user.email}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">{user.subscription}</p>
-                        <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
-                          {user.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    No users found. Create a user to see them here.
-                  </div>
-                )}
-              </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Billing Overview */}
+          {/* Recent payments */}
           <Card>
-            <CardHeader>
-              <CardTitle>Billing Overview</CardTitle>
-              <CardDescription>Comprehensive billing management and analytics</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">${subscriptions.filter(sub => sub.status === 'active').reduce((sum, sub) => sum + (sub.amount || 0), 0).toLocaleString()}</div>
-                  <p className="text-sm text-gray-600">Monthly Recurring Revenue</p>
+            <CardHeader><CardTitle>Recent Payments</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              {(billingData?.payments||[]).length === 0 ? (
+                <div className="text-center py-8 text-gray-400">No payments yet</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-y">
+                      <tr>
+                        {['User','Description','Amount','Status','Date'].map(h=>(
+                          <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {(billingData?.payments||[]).slice(0,8).map((p: any) => (
+                        <tr key={p.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-gray-900">{p.userName}</p>
+                            <p className="text-xs text-gray-400">{p.userEmail}</p>
+                          </td>
+                          <td className="px-4 py-3 text-gray-700 text-xs">{p.description}</td>
+                          <td className="px-4 py-3 font-semibold">${(p.amount||0).toFixed(2)}</td>
+                          <td className="px-4 py-3"><Badge className={p.status==='succeeded'||p.status==='sent'?'bg-green-100 text-green-800':'bg-gray-100 text-gray-600'}>{(p.status||'').replace(/_/g,' ')}</Badge></td>
+                          <td className="px-4 py-3 text-xs text-gray-500">{p.createdAt?new Date(p.createdAt).toLocaleDateString():'-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{subscriptions.filter(sub => sub.status === 'active').length}</div>
-                  <p className="text-sm text-gray-600">Active Subscriptions</p>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">${subscriptions.length > 0 ? (subscriptions.reduce((sum, sub) => sum + (sub.amount || 0), 0) / subscriptions.length).toFixed(2) : '0.00'}</div>
-                  <p className="text-sm text-gray-600">Average Revenue Per User</p>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-orange-600">0.86%</div>
-                  <p className="text-sm text-gray-600">Churn Rate</p>
-                </div>
-              </div>
-              <div className="mt-6 flex justify-center space-x-4">
-                <Link href="/admin/billing/subscriptions">
-                  <Button>
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    Go to Subscriptions Page
-                  </Button>
-                </Link>
-                <Link href="/admin/billing">
-                  <Button variant="outline">
-                    <DollarSign className="h-4 w-4 mr-2" />
-                    Full Billing Dashboard
-                  </Button>
-                </Link>
-                <Link href="/test-advanced-billing">
-                  <Button variant="outline">
-                    <Activity className="h-4 w-4 mr-2" />
-                    Test Billing Features
-                  </Button>
-                </Link>
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
