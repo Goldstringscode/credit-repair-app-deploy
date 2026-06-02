@@ -145,23 +145,65 @@ export default function RecipientFilterModal({
   const calculateRecipientCount = async () => {
     setLoading(true)
     try {
-      // In a real app, this would make an API call to get the actual count
-      // For now, we'll simulate based on filter complexity
-      let count = 0
-      
-      if (filters.userTypes.length === 0 && 
-          filters.subscriptionStatus.length === 0 && 
-          filters.subscriptionPlans.length === 0 &&
-          !filters.searchQuery) {
-        count = 9999 // All users
-      } else {
-        // Simulate count based on selected filters
-        count = realUserCounts.total
+      // Fetch all users and filter client-side based on selected criteria
+      const res = await fetch('/api/admin/users?limit=1000')
+      const data = await res.json()
+      const allUsers = data.success ? (data.users || []) : []
+
+      // Start with all users
+      let filtered = [...allUsers]
+
+      // Filter by user types
+      if (filters.userTypes && filters.userTypes.length > 0) {
+        filtered = filtered.filter((u: any) => {
+          return filters.userTypes.some((t: string) => {
+            if (t === 'active') return u.status === 'active'
+            if (t === 'inactive') return u.status !== 'active'
+            if (t === 'admin') return u.role === 'admin'
+            if (t === 'new') {
+              const d = new Date(u.createdAt||u.joinDate)
+              return (Date.now()-d.getTime()) < 30*24*60*60*1000
+            }
+            if (t === 'trial') return !u.plan || u.plan === 'free'
+            if (t === 'basic') return u.plan === 'basic'
+            return true
+          })
+        })
       }
-      
+
+      // Filter by subscription status
+      if (filters.subscriptionStatus && filters.subscriptionStatus.length > 0) {
+        filtered = filtered.filter((u: any) =>
+          filters.subscriptionStatus.includes(u.status)
+        )
+      }
+
+      // Filter by subscription plans
+      if (filters.subscriptionPlans && filters.subscriptionPlans.length > 0) {
+        filtered = filtered.filter((u: any) =>
+          filters.subscriptionPlans.includes(u.plan||'free')
+        )
+      }
+
+      // Filter by custom filters
+      if (filters.customFilters?.hasActiveSubscription) {
+        filtered = filtered.filter((u: any) => u.status === 'active')
+      }
+
+      // Search query filter
+      if (filters.searchQuery) {
+        const q = filters.searchQuery.toLowerCase()
+        filtered = filtered.filter((u: any) =>
+          u.email?.toLowerCase().includes(q) || u.name?.toLowerCase().includes(q)
+        )
+      }
+
+      // Add external emails count
+      const count = filtered.length + (externalEmails?.length || 0)
       setRecipientCount(count)
     } catch (error) {
       console.error('Error calculating recipient count:', error)
+      setRecipientCount(realUserCounts.total)
     } finally {
       setLoading(false)
     }
@@ -286,7 +328,7 @@ export default function RecipientFilterModal({
                         Calculating...
                       </span>
                     ) : (
-                      `${recipientCount.toLocaleString()} recipients selected`
+                      `${recipientCount.toLocaleString()} of ${realUserCounts.total} total users selected`
                     )}
                   </span>
                 </div>
@@ -333,6 +375,8 @@ export default function RecipientFilterModal({
                             <div className="flex items-center space-x-2">
                               <Icon className="h-4 w-4" />
                               <span className="font-medium">{userType.label}</span>
+                              {userType.id === 'admin' && <span className="ml-auto text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{realUserCounts.admin}</span>}
+                              {userType.id === 'active' && <span className="ml-auto text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">{realUserCounts.active}</span>}
                             </div>
                             <p className="text-sm text-gray-500 mt-1">{userType.description}</p>
                           </div>
