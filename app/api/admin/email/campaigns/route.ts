@@ -63,7 +63,19 @@ export async function GET(request: NextRequest) {
     
     if (error && error.code !== '42P01') throw error // ignore "table not found" 
     
-    return NextResponse.json({ success: true, data: { campaigns: data || [] } })
+    const campaigns = data || []
+    const metrics = {
+      totalCampaigns: campaigns.length,
+      activeCampaigns: campaigns.filter((c: any) => c.status === 'sending').length,
+      draftCampaigns: campaigns.filter((c: any) => c.status === 'draft').length,
+      scheduledCampaigns: campaigns.filter((c: any) => c.status === 'scheduled').length,
+      totalRecipients: campaigns.reduce((s: number, c: any) => s + (c.sent_count || 0), 0),
+      totalSent: campaigns.reduce((s: number, c: any) => s + (c.sent_count || 0), 0),
+      totalOpened: campaigns.reduce((s: number, c: any) => s + (c.opened_count || 0), 0),
+      totalClicked: campaigns.reduce((s: number, c: any) => s + (c.clicked_count || 0), 0),
+      openRate: 0, clickRate: 0,
+    }
+    return NextResponse.json({ success: true, data: { campaigns, metrics } })
   } catch (err: any) {
     console.error('GET campaigns error:', err.message)
     return NextResponse.json({ success: true, data: { campaigns: [] } })
