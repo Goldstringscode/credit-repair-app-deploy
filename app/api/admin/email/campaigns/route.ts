@@ -20,7 +20,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: process.env.EMAIL_FROM || 'Credit Repair AI <noreply@creditrepairai.com>',
+        from: process.env.EMAIL_FROM || 'Credit Repair AI <onboarding@resend.dev>',
         to: [to],
         subject,
         html,
