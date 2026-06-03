@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,6 +33,10 @@ interface ResendFormData {
 }
 
 export default function ResendCampaignModal({ isOpen, onClose, onSuccess, campaign }: ResendCampaignModalProps) {
+  const [_allUsersCount, _setAllUsersCount] = useState(0)
+  useEffect(() => {
+    fetch('/api/admin/users?limit=1000').then(r=>r.json()).then(d=>{ if(d.success) _setAllUsersCount(d.users?.length||0) }).catch(()=>{})
+  }, [])
   const [formData, setFormData] = useState<ResendFormData>({
     resendType: 'same_audience',
     recipients: 0,
@@ -228,7 +232,7 @@ export default function ResendCampaignModal({ isOpen, onClose, onSuccess, campai
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => handleInputChange('recipients', 9999)}
+                      onClick={() => handleInputChange('recipients', _allUsersCount || 0)}
                       className="whitespace-nowrap"
                     >
                       All Users
