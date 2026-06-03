@@ -69,6 +69,18 @@ const TEMPLATE_TYPES = [
 ]
 
 export default function CreateCampaignModal({ isOpen, onClose, onSuccess }: CreateCampaignModalProps) {
+  // Load real user count on mount
+  useEffect(() => {
+    fetch('/api/admin/users?limit=1000')
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.users) {
+          setFormData(prev => ({ ...prev, recipients: d.users.length }))
+        }
+      })
+      .catch(() => {})
+  }, [])
+
   const [formData, setFormData] = useState<CampaignFormData>({
     name: '',
     subject: '',
