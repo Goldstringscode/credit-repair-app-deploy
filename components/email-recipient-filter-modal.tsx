@@ -88,33 +88,7 @@ const ACCOUNT_STATUSES = [
   { id: 'pending', label: 'Pending', color: 'blue' }
 ]
 
-export default function RecipientFilterModal({
- isOpen, onClose, onApply, currentRecipients = 0 }: RecipientFilterModalProps) {
-  // External (non-registered) email addresses
-  const [externalEmails, setExternalEmails] = React.useState<string[]>([])
-  const [externalInput, setExternalInput] = React.useState('')
-  const [externalError, setExternalError] = React.useState('')
-
-  // Real user counts from API
-  const [realUserCounts, setRealUserCounts] = React.useState({ total: 0, active: 0, free: 0, paid: 0, admin: 0 })
-  React.useEffect(() => {
-    fetch('/api/admin/users?limit=1000')
-      .then(r => r.json())
-      .then(d => {
-        if (d.success && d.users) {
-          const users = d.users
-          setRealUserCounts({
-            total: users.length,
-            active: users.filter((u: any) => u.status === 'active').length,
-            free: users.filter((u: any) => !u.plan || u.plan === 'free').length,
-            paid: users.filter((u: any) => u.plan && u.plan !== 'free').length,
-            admin: users.filter((u: any) => u.role === 'admin').length,
-          })
-        }
-      })
-      .catch(() => {})
-  }, [])
-
+export default function RecipientFilterModal({ isOpen, onClose, onApply, currentRecipients = 0 }: RecipientFilterModalProps) {
   const [filters, setFilters] = useState<RecipientFilters>({
     userTypes: [],
     subscriptionStatus: [],
@@ -135,76 +109,6 @@ export default function RecipientFilterModal({
   const [recipientCount, setRecipientCount] = useState(0)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const calculateRecipientCount = async () => {
-    setLoading(true)
-    try {
-      // Fetch all users and filter client-side based on selected criteria
-      const res = await fetch('/api/admin/users?limit=1000')
-      const data = await res.json()
-      const allUsers = data.success ? (data.users || []) : []
-
-      // Start with all users
-      let filtered = [...allUsers]
-
-      // Filter by user types
-      if (filters.userTypes && filters.userTypes.length > 0) {
-        filtered = filtered.filter((u: any) => {
-          return filters.userTypes.some((t: string) => {
-            if (t === 'active') return u.status === 'active'
-            if (t === 'inactive') return u.status !== 'active'
-            if (t === 'admin') return u.role === 'admin'
-            if (t === 'new') {
-              const d = new Date(u.createdAt||u.joinDate)
-              return (Date.now()-d.getTime()) < 30*24*60*60*1000
-            }
-            if (t === 'trial') return !u.plan || u.plan === 'free'
-            if (t === 'basic') return u.plan === 'basic'
-            return true
-          })
-        })
-      }
-
-      // Filter by subscription status
-      if (filters.subscriptionStatus && filters.subscriptionStatus.length > 0) {
-        filtered = filtered.filter((u: any) =>
-          filters.subscriptionStatus.includes(u.status)
-        )
-      }
-
-      // Filter by subscription plans
-      if (filters.subscriptionPlans && filters.subscriptionPlans.length > 0) {
-        filtered = filtered.filter((u: any) =>
-          filters.subscriptionPlans.includes(u.plan||'free')
-        )
-      }
-
-      // Filter by custom filters
-      if (filters.customFilters?.hasActiveSubscription) {
-        filtered = filtered.filter((u: any) => u.status === 'active')
-      }
-
-      // Search query filter
-      if (filters.searchQuery) {
-        const q = filters.searchQuery.toLowerCase()
-        filtered = filtered.filter((u: any) =>
-          u.email?.toLowerCase().includes(q) || u.name?.toLowerCase().includes(q)
-        )
-      }
-
-      // Add external emails count
-      const count = filtered.length + (externalEmails?.length || 0)
-      setRecipientCount(count)
-    } catch (error) {
-      console.error('Error calculating recipient count:', error)
-      setRecipientCount(realUserCounts.total)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-
-
-
   // Calculate recipient count based on filters
   useEffect(() => {
     if (isOpen) {
@@ -212,6 +116,43 @@ export default function RecipientFilterModal({
     }
   }, [filters, isOpen])
 
+  const calculateRecipientCount = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/users?limit=1000')
+      const data = await res.json()
+      const allUsers: any[] = data.success ? (data.users || []) : []
+      let filtered = [...allUsers]
+      if (filters.userTypes && filters.userTypes.length > 0) {
+        filtered = filtered.filter((u: any) => filters.userTypes.some((t: string) => {
+          if (t === 'premium' || t === 'executive') return u.plan === 'premium' || u.plan === 'professional' || u.plan === 'enterprise'
+          if (t === 'admin') return u.role === 'admin'
+          if (t === 'new') { const d = new Date(u.joinDate||0); return (Date.now()-d.getTime()) < 30*24*60*60*1000 }
+          if (t === 'trial' || t === 'basic') return !u.plan || u.plan === 'free' || u.plan === 'basic'
+          if (t === 'active') return u.status === 'active'
+          if (t === 'inactive') return u.status !== 'active'
+          return true
+        }))
+      }
+      if (filters.subscriptionStatus && filters.subscriptionStatus.length > 0) {
+        filtered = filtered.filter((u: any) => filters.subscriptionStatus.includes(u.status))
+      }
+      if (filters.subscriptionPlans && filters.subscriptionPlans.length > 0) {
+        filtered = filtered.filter((u: any) => filters.subscriptionPlans.includes(u.plan || 'free'))
+      }
+      if (filters.customFilters?.hasActiveSubscription) filtered = filtered.filter((u: any) => u.status === 'active')
+      if (filters.customFilters?.hasMadePayment) filtered = filtered.filter((u: any) => u.plan && u.plan !== 'free')
+      if (filters.searchQuery?.trim()) {
+        const q = filters.searchQuery.toLowerCase()
+        filtered = filtered.filter((u: any) => u.email?.toLowerCase().includes(q) || u.name?.toLowerCase().includes(q))
+      }
+      setRecipientCount(filtered.length)
+    } catch (err) {
+      console.error('Error calculating recipient count:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
   const handleFilterChange = (filterType: keyof RecipientFilters, value: any) => {
     setFilters(prev => ({ ...prev, [filterType]: value }))
   }
@@ -271,11 +212,18 @@ export default function RecipientFilterModal({
     })
   }
 
+  // Auto-recalculate when filters change or modal opens
+  React.useEffect(() => {
+    if (isOpen) calculateRecipientCount()
+  }, [filters, isOpen])
+
   const handleApply = async () => {
-    // Calculate count and use returned value (state update is async)
-    const freshCount = await calculateRecipientCount() || recipientCount
-    onApply(filters, freshCount, externalEmails)
-    onClose()
+    await calculateRecipientCount()
+    // Small delay to let state update propagate
+    setTimeout(() => {
+      onApply(filters, recipientCount)
+      onClose()
+    }, 100)
   }
 
   const getActiveFilterCount = () => {
@@ -333,11 +281,13 @@ export default function RecipientFilterModal({
                         Calculating...
                       </span>
                     ) : (
-                      `${recipientCount.toLocaleString()} of ${realUserCounts.total} total users selected`
+                      `${recipientCount.toLocaleString()} recipients selected`
                     )}
                   </span>
                 </div>
-                {recipientCount}
+                {currentRecipients > 0 && (
+                  <div className="text-sm text-gray-500">
+                    Previous: {currentRecipients.toLocaleString()}
                   </div>
                 )}
               </div>
@@ -345,11 +295,10 @@ export default function RecipientFilterModal({
           </Card>
 
           <Tabs defaultValue="user-types" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="user-types">User Types</TabsTrigger>
               <TabsTrigger value="subscription">Subscription</TabsTrigger>
               <TabsTrigger value="dates">Date Ranges</TabsTrigger>
-              <TabsTrigger value="external">External</TabsTrigger>
               <TabsTrigger value="advanced">Advanced</TabsTrigger>
             </TabsList>
 
@@ -378,8 +327,6 @@ export default function RecipientFilterModal({
                             <div className="flex items-center space-x-2">
                               <Icon className="h-4 w-4" />
                               <span className="font-medium">{userType.label}</span>
-                              {userType.id === 'admin' && <span className="ml-auto text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{realUserCounts.admin}</span>}
-                              {userType.id === 'active' && <span className="ml-auto text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">{realUserCounts.active}</span>}
                             </div>
                             <p className="text-sm text-gray-500 mt-1">{userType.description}</p>
                           </div>
@@ -585,57 +532,6 @@ export default function RecipientFilterModal({
                 </div>
               </div>
             </TabsContent>
-          <TabsContent value="external" className="space-y-4">
-            <div>
-              <h3 className="font-semibold mb-1">External Recipients</h3>
-              <p className="text-sm text-gray-500 mb-3">Add email addresses for people not in your user database.</p>
-              <div className="flex gap-2">
-                <Input
-                  value={externalInput}
-                  onChange={e => setExternalInput(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      const email = externalInput.trim().toLowerCase()
-                      if (!email) return
-                      if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) { setExternalError('Invalid email'); return }
-                      if (externalEmails.includes(email)) { setExternalError('Already added'); return }
-                      setExternalEmails(prev => [...prev, email])
-                      setExternalInput('')
-                      setExternalError('')
-                    }
-                  }}
-                  placeholder="Enter email address and press Enter..."
-                  className={externalError ? 'border-red-400' : ''}
-                />
-                <Button type="button" variant="outline" onClick={() => {
-                  // Support pasting comma/newline separated list
-                  const emails = externalInput.split(/[,\n\s;]+/).map(e => e.trim().toLowerCase()).filter(e => /^[^@]+@[^@]+\.[^@]+$/.test(e))
-                  const newEmails = emails.filter(e => !externalEmails.includes(e))
-                  setExternalEmails(prev => [...prev, ...newEmails])
-                  setExternalInput('')
-                  setExternalError('')
-                }}>Add</Button>
-              </div>
-              {externalError && <p className="text-xs text-red-500 mt-1">{externalError}</p>}
-              <p className="text-xs text-gray-400 mt-1">Tip: paste a comma-separated list and click Add to import multiple at once</p>
-              {externalEmails.length > 0 && (
-                <div className="mt-3 space-y-1.5 max-h-48 overflow-y-auto">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">{externalEmails.length} external email{externalEmails.length !== 1 ? 's' : ''}</span>
-                    <button onClick={() => setExternalEmails([])} className="text-xs text-gray-400 hover:text-red-500">Clear all</button>
-                  </div>
-                  {externalEmails.map(e => (
-                    <div key={e} className="flex items-center justify-between bg-gray-50 rounded px-3 py-1.5 text-sm">
-                      <span className="font-mono text-gray-700">{e}</span>
-                      <button onClick={() => setExternalEmails(prev => prev.filter(x => x !== e))} className="text-gray-400 hover:text-red-500 ml-2">✕</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
           </Tabs>
 
           {/* Action Buttons */}
