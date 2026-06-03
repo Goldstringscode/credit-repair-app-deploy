@@ -135,13 +135,6 @@ export default function RecipientFilterModal({
   const [recipientCount, setRecipientCount] = useState(0)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  // Calculate recipient count based on filters
-  useEffect(() => {
-    if (isOpen) {
-      calculateRecipientCount()
-    }
-  }, [filters, isOpen])
-
   const calculateRecipientCount = async () => {
     setLoading(true)
     try {
@@ -208,6 +201,16 @@ export default function RecipientFilterModal({
       setLoading(false)
     }
   }
+
+
+
+
+  // Calculate recipient count based on filters
+  useEffect(() => {
+    if (isOpen) {
+      calculateRecipientCount()
+    }
+  }, [filters, isOpen])
 
   const handleFilterChange = (filterType: keyof RecipientFilters, value: any) => {
     setFilters(prev => ({ ...prev, [filterType]: value }))
