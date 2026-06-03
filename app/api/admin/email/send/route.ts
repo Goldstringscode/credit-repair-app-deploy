@@ -233,14 +233,15 @@ export async function POST(request: NextRequest) {
     })
 
     // For testing, we'll send to the verified email address and include the intended recipient in the subject
-    const
-    const
+    const isTestMode = false // Always send to real recipients
+    const testEmail = 'jstringscode@gmail.com' // Your verified email for testing
     
     // Convert plain text email to beautiful HTML template
     const htmlEmailBody = convertToHtmlEmail(emailBody, subject, template)
     
-    const emailPayload = 'onboarding@resend.dev',
-      to: [,
+    const emailPayload = isTestMode ? {
+      from: 'onboarding@resend.dev',
+      to: [testEmail],
       subject: `[TEST TO: ${to}] ${subject}`,
       html: `
         <div style="background: #f0f8ff; padding: 20px; border-left: 4px solid #007bff; margin-bottom: 20px;">
@@ -257,7 +258,8 @@ export async function POST(request: NextRequest) {
       html: htmlEmailBody
     }
 
-    console.log('📧 Email payload:', {,
+    console.log('📧 Email payload:', {
+      isTestMode,
       from: emailPayload.from,
       to: emailPayload.to,
       subject: emailPayload.subject
@@ -360,15 +362,16 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         messageId: resendResult.id,
-        to: to,
+        to: isTestMode ? testEmail : to,
         intendedRecipient: to,
         subject,
         timestamp: new Date().toISOString(),
         status: 'sent',
-        service: 'resend'
+        service: 'resend',
+        testMode: isTestMode
       },
-      message:
-        ? `Test email sent successfully to ${
+      message: isTestMode 
+        ? `Test email sent successfully to ${testEmail} (intended for ${to})`
         : `Email sent successfully to ${to}`
     })
 
