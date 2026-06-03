@@ -233,15 +233,14 @@ export async function POST(request: NextRequest) {
     })
 
     // For testing, we'll send to the verified email address and include the intended recipient in the subject
-    const isTestMode = process.env.NODE_ENV === 'development' || !process.env.RESEND_VERIFIED_DOMAIN
-    const testEmail = 'jstringscode@gmail.com' // Your verified email for testing
+    const
+    const
     
     // Convert plain text email to beautiful HTML template
     const htmlEmailBody = convertToHtmlEmail(emailBody, subject, template)
     
-    const emailPayload = isTestMode ? {
-      from: 'onboarding@resend.dev',
-      to: [testEmail],
+    const emailPayload = 'onboarding@resend.dev',
+      to: [,
       subject: `[TEST TO: ${to}] ${subject}`,
       html: `
         <div style="background: #f0f8ff; padding: 20px; border-left: 4px solid #007bff; margin-bottom: 20px;">
@@ -252,14 +251,13 @@ export async function POST(request: NextRequest) {
         ${htmlEmailBody}
       `
     } : {
-      from: `noreply@${process.env.RESEND_VERIFIED_DOMAIN}`,
+      from: process.env.EMAIL_FROM || 'Credit Repair AI <onboarding@resend.dev>',
       to: [to],
       subject: subject,
       html: htmlEmailBody
     }
 
-    console.log('📧 Email payload:', {
-      isTestMode,
+    console.log('📧 Email payload:', {,
       from: emailPayload.from,
       to: emailPayload.to,
       subject: emailPayload.subject
@@ -362,16 +360,15 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         messageId: resendResult.id,
-        to: isTestMode ? testEmail : to,
+        to: to,
         intendedRecipient: to,
         subject,
         timestamp: new Date().toISOString(),
         status: 'sent',
-        service: 'resend',
-        testMode: isTestMode
+        service: 'resend'
       },
-      message: isTestMode 
-        ? `Test email sent successfully to ${testEmail} (intended for ${to})`
+      message:
+        ? `Test email sent successfully to ${
         : `Email sent successfully to ${to}`
     })
 
