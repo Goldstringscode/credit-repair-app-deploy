@@ -16,6 +16,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
   if (!apiKey) { console.error('RESEND_API_KEY not set'); return false }
 
   try {
+    console.log('Sending to Resend - from:', process.env.EMAIL_FROM || 'onboarding@resend.dev', 'to:', to, 'apiKeyExists:', !!process.env.RESEND_API_KEY)
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
@@ -27,6 +28,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
       })
     })
     const data = await res.json()
+    console.log('Resend full response status:', res.status, 'body:', JSON.stringify(data))
     if (!res.ok) { console.error('Resend error for', to, ':', JSON.stringify(data)); return false }
     console.log('Sent to', to, '- id:', data.id)
     return true
