@@ -1,11 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 
 export const dynamic = 'force-dynamic'
-
-// Allow this API route to be accessed without authentication
 export const runtime = 'nodejs'
 
-// Convert plain text email to beautiful HTML template
 function convertToHtmlEmail(body: string, subject: string, template?: string): string {
   // Convert line breaks to HTML
   const htmlBody = body.replace(/\n/g, '<br>')
@@ -140,260 +137,76 @@ function convertToHtmlEmail(body: string, subject: string, template?: string): s
   `
 }
 
+
 export async function POST(request: NextRequest) {
   try {
-    console.log('📧 Email API called')
-    
-    // Simple API key authentication (optional for now)
-    const apiKey = request.headers.get('x-api-key')
-    const expectedApiKey = process.env.EMAIL_API_KEY || 'default-key'
-    
-    // For now, we'll allow requests without API key for testing
-    // In production, you can uncomment the following lines:
-    // if (apiKey !== expectedApiKey) {
-    //   return NextResponse.json(
-    //     { success: false, error: "Invalid API key" },
-    //     { status: 401 }
-    //   )
-    // }
-    
-    // Parse request body with error handling
-    let body
+    let body: any
     try {
       body = await request.json()
-      console.log('📧 Request body parsed successfully:', { 
-        to: body.to, 
-        subject: body.subject, 
-        hasBody: !!body.body,
-        template: body.template,
-        priority: body.priority
-      })
-    } catch (parseError) {
-      console.error('❌ Failed to parse request body:', parseError)
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: "Invalid JSON in request body",
-          details: parseError instanceof Error ? parseError.message : 'Unknown parse error'
-        },
-        { status: 400 }
-      )
+    } catch {
+      return NextResponse.json({ success: false, error: 'Invalid JSON body' }, { status: 400 })
     }
-    
+
     const { to, subject, body: emailBody, template, priority = 'normal' } = body
 
-    // Validate required fields
     if (!to || !subject || !emailBody) {
-      console.log('❌ Missing required fields:', { to: !!to, subject: !!subject, body: !!emailBody })
       return NextResponse.json(
-        { 
-          success: false, 
-          error: "Missing required fields: to, subject, body",
-          details: {
-            to: to || 'missing',
-            subject: subject || 'missing', 
-            body: emailBody ? 'present' : 'missing'
-          }
-        },
+        { success: false, error: 'Missing required fields: to, subject, body' },
         { status: 400 }
       )
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(to)) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: "Invalid email address format" 
-        },
-        { status: 400 }
-      )
-    }
-
-    // Check if Resend API key is available
     const resendApiKey = process.env.RESEND_API_KEY
     if (!resendApiKey) {
-      console.error('❌ RESEND_API_KEY not found in environment variables')
       return NextResponse.json(
-        { 
-          success: false, 
-          error: "Email service not configured. Please contact support." 
-        },
+        { success: false, error: 'Email service not configured: RESEND_API_KEY missing' },
         { status: 500 }
       )
     }
 
-    console.log('📧 Sending email via Resend API:', {
-      to,
+    const fromAddress = process.env.EMAIL_FROM || 'onboarding@resend.dev'
+    const htmlBody = convertToHtmlEmail(emailBody, subject, template)
+
+    const payload = {
+      from: fromAddress,
+      to: Array.isArray(to) ? to : [to],
       subject,
-      template,
-      priority,
-      bodyLength: emailBody.length
-    })
-
-    // For testing, we'll send to the verified email address and include the intended recipient in the subject
-    const isTestMode = false // Always send to real recipients
-    const testEmail = 'jstringscode@gmail.com' // Your verified email for testing
-    
-    // Convert plain text email to beautiful HTML template
-    const htmlEmailBody = convertToHtmlEmail(emailBody, subject, template)
-    
-    const emailPayload = isTestMode ? {
-      from: 'onboarding@resend.dev',
-      to: [testEmail],
-      subject: `[TEST TO: ${to}] ${subject}`,
-      html: `
-        <div style="background: #f0f8ff; padding: 20px; border-left: 4px solid #007bff; margin-bottom: 20px;">
-          <h3 style="color: #007bff; margin: 0 0 10px 0;">🧪 TEST EMAIL</h3>
-          <p style="margin: 0; color: #666;"><strong>Intended Recipient:</strong> ${to}</p>
-          <p style="margin: 5px 0 0 0; color: #666;"><strong>Test Mode:</strong> This email was sent to your verified address for testing.</p>
-        </div>
-        ${htmlEmailBody}
-      `
-    } : {
-      from: process.env.EMAIL_FROM || 'Credit Repair AI <onboarding@resend.dev>',
-      to: [to],
-      subject: subject,
-      html: htmlEmailBody
+      html: htmlBody,
     }
 
-    console.log('📧 Email payload:', {
-      isTestMode,
-      from: emailPayload.from,
-      to: emailPayload.to,
-      subject: emailPayload.subject
+    console.log('📧 Sending email:', { from: payload.from, to: payload.to, subject })
+
+    const resendRes = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + resendApiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
     })
 
-    // Send email using Resend API with comprehensive error handling
-    let resendResponse
-    let resendResult
-    
-    try {
-      console.log('📧 Sending to Resend API with payload:', {
-        from: emailPayload.from,
-        to: emailPayload.to,
-        subject: emailPayload.subject,
-        hasHtml: !!emailPayload.html
-      })
-      
-      resendResponse = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${resendApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(emailPayload)
-      })
+    const resendData = await resendRes.json()
+    console.log('📧 Resend response:', resendRes.status, JSON.stringify(resendData))
 
-      console.log('📧 Resend API response received:', {
-        status: resendResponse.status,
-        ok: resendResponse.ok,
-        statusText: resendResponse.statusText
-      })
-
-      // Parse response with error handling
-      try {
-        resendResult = await resendResponse.json()
-        console.log('📧 Resend API result parsed:', resendResult)
-      } catch (jsonError) {
-        console.error('❌ Failed to parse Resend API response:', jsonError)
-        const responseText = await resendResponse.text()
-        console.error('❌ Raw response text:', responseText)
-        return NextResponse.json(
-          { 
-            success: false, 
-            error: "Failed to parse Resend API response",
-            details: {
-              status: resendResponse.status,
-              statusText: resendResponse.statusText,
-              rawResponse: responseText,
-              parseError: jsonError instanceof Error ? jsonError.message : 'Unknown JSON parse error'
-            }
-          },
-          { status: 500 }
-        )
-      }
-
-    } catch (fetchError) {
-      console.error('❌ Failed to call Resend API:', fetchError)
+    if (!resendRes.ok) {
+      console.error('❌ Resend error:', resendData)
       return NextResponse.json(
-        { 
-          success: false, 
-          error: "Failed to call Resend API",
-          details: {
-            fetchError: fetchError instanceof Error ? fetchError.message : 'Unknown fetch error',
-            stack: fetchError instanceof Error ? fetchError.stack : undefined
-          }
-        },
-        { status: 500 }
+        { success: false, error: resendData?.message || 'Failed to send email', details: resendData },
+        { status: resendRes.status }
       )
     }
-
-    console.log('📧 Resend API response:', {
-      status: resendResponse.status,
-      ok: resendResponse.ok,
-      result: resendResult
-    })
-
-    if (!resendResponse.ok) {
-      console.error('❌ Resend API error:', {
-        status: resendResponse.status,
-        statusText: resendResponse.statusText,
-        result: resendResult
-      })
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: `Email service error: ${resendResult.message || resendResult.error || 'Unknown error'}`,
-          details: {
-            status: resendResponse.status,
-            statusText: resendResponse.statusText,
-            resendError: resendResult
-          }
-        },
-        { status: 500 }
-      )
-    }
-
-    console.log('✅ Email sent successfully via Resend:', resendResult)
 
     return NextResponse.json({
       success: true,
-      data: {
-        messageId: resendResult.id,
-        to: isTestMode ? testEmail : to,
-        intendedRecipient: to,
-        subject,
-        timestamp: new Date().toISOString(),
-        status: 'sent',
-        service: 'resend',
-        testMode: isTestMode
-      },
-      message: isTestMode 
-        ? `Test email sent successfully to ${testEmail} (intended for ${to})`
-        : `Email sent successfully to ${to}`
+      message: 'Email sent successfully to ' + (Array.isArray(to) ? to.join(', ') : to),
+      emailId: resendData.id,
+      to: payload.to,
     })
 
-  } catch (error) {
-    console.error('❌ Unexpected error in email API:', error)
-    console.error('❌ Error details:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      name: error instanceof Error ? error.name : undefined
-    })
-    
-    // Return a structured error response
+  } catch (err: any) {
+    console.error('❌ Send route error:', err.message)
     return NextResponse.json(
-      { 
-        success: false, 
-        error: "Unexpected error occurred while sending email",
-        details: {
-          message: error instanceof Error ? error.message : 'Unknown error',
-          type: error instanceof Error ? error.constructor.name : typeof error,
-          stack: error instanceof Error ? error.stack : undefined
-        }
-      },
+      { success: false, error: err.message || 'Internal server error' },
       { status: 500 }
     )
   }
