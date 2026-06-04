@@ -11,33 +11,42 @@ const db = () => createClient(
 )
 
 // Send a single email via Resend API directly
-async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+async function sendEmail(to: string, subject: string, html: string): Promise<{ok: boolean, error?: string}> {
   const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey) { console.error('RESEND_API_KEY not set'); return false }
+  if (!apiKey) {
+    console.error('❌ RESEND_API_KEY not set')
+    return { ok: false, error: 'RESEND_API_KEY not configured' }
+  }
+
+  const fromAddress = process.env.EMAIL_FROM || 'onboarding@resend.dev'
+  console.log('📧 Sending email - from:', fromAddress, 'to:', to)
 
   try {
-    console.log('Sending to Resend - from:', process.env.EMAIL_FROM || 'onboarding@resend.dev', 'to:', to, 'apiKeyExists:', !!process.env.RESEND_API_KEY)
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: process.env.EMAIL_FROM || 'Credit Repair AI <onboarding@resend.dev>',
-        to: [to],
-        subject,
-        html,
-      })
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ from: fromAddress, to: [to], subject, html })
     })
+
     const data = await res.json()
-    console.log('Resend full response status:', res.status, 'body:', JSON.stringify(data))
-    if (!res.ok) { console.error('Resend error for', to, ':', JSON.stringify(data)); return false }
-    console.log('Sent to', to, '- id:', data.id)
-    return true
+    console.log('📧 Resend response:', res.status, JSON.stringify(data))
+
+    if (!res.ok) {
+      const errMsg = data?.message || data?.error || ('Resend error ' + res.status)
+      console.error('❌ Resend error for', to, ':', errMsg)
+      return { ok: false, error: errMsg }
+    }
+
+    console.log('✅ Sent to', to, '- id:', data.id)
+    return { ok: true }
   } catch (err: any) {
-    console.error('sendEmail error for', to, ':', err.message)
-    return false
+    console.error('❌ sendEmail exception for', to, ':', err.message)
+    return { ok: false, error: err.message }
   }
 }
-
 // Build simple HTML email from plain text content
 function buildHtml(subject: string, content: string): string {
   const escaped = content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')
@@ -199,8 +208,9 @@ export async function PUT(request: NextRequest) {
           .replace(/\{lastName\}/g, user.last_name || '')
           .replace(/\{email\}/g, user.email)
         
-        const ok = await sendEmail(user.email, subject, personalizedHtml)
-        if (ok) sentCount++
+        const result = await sendEmail(user.email, subject, personalizedHtml)
+        if (result.ok) sentCount++
+        else console.error('Failed to send to', user.email, ':', result.error)
         
         // Small delay between sends to avoid rate limiting
         if (i < emailList.length - 1) await new Promise(r => setTimeout(r, 100))
