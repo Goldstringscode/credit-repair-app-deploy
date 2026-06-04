@@ -200,6 +200,7 @@ export async function PUT(request: NextRequest) {
       const html = buildHtml(subject, content)
 
       let sentCount = 0
+      const sendErrors: string[] = []
       // Send in batches to avoid rate limits
       for (let i = 0; i < emailList.length; i++) {
         const user = emailList[i]
@@ -210,7 +211,7 @@ export async function PUT(request: NextRequest) {
         
         const result = await sendEmail(user.email, subject, personalizedHtml)
         if (result.ok) sentCount++
-        else console.error('Failed to send to', user.email, ':', result.error)
+        else { console.error('Failed to send to', user.email, ':', result.error); sendErrors.push(user.email + ': ' + result.error) }
         
         // Small delay between sends to avoid rate limiting
         if (i < emailList.length - 1) await new Promise(r => setTimeout(r, 100))
@@ -229,7 +230,8 @@ export async function PUT(request: NextRequest) {
         data: { campaign: updated || { id, status: 'sent', sent_count: sentCount } },
         sentCount,
         recipientCount: emailList.length,
-        message: 'Sent to ' + sentCount + ' of ' + emailList.length + ' recipients'
+        errors: sendErrors,
+        message: 'Sent to ' + sentCount + ' of ' + emailList.length + ' recipients' + (sendErrors.length ? ' | Errors: ' + sendErrors.join('; ') : '')
       })
     }
 
