@@ -386,18 +386,43 @@ export default function SystemPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Button variant="outline" className="flex items-center space-x-2">
-              <Database className="h-4 w-4" />
-              <span>Backup Database</span>
+            <Button variant="outline" className="flex items-center space-x-2" onClick={handleBackup} disabled={backupState === 'loading'}>
+              {backupState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : backupState === 'done' ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : backupState === 'error' ? <XCircle className="h-4 w-4 text-red-500" /> : <Download className="h-4 w-4" />}
+              <span>{backupState === 'loading' ? 'Backing up...' : backupState === 'done' ? 'Downloaded!' : 'Backup Database'}</span>
             </Button>
-            <Button variant="outline" className="flex items-center space-x-2">
-              <RefreshCw className="h-4 w-4" />
-              <span>Restart Services</span>
+            <Button variant="outline" className="flex items-center space-x-2" onClick={handleRestart} disabled={restartState === 'loading'}>
+              {restartState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : restartState === 'done' ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : restartState === 'error' ? <XCircle className="h-4 w-4 text-red-500" /> : <RefreshCw className="h-4 w-4" />}
+              <span>{restartState === 'loading' ? 'Checking...' : restartState === 'done' ? 'All Healthy!' : 'Restart Services'}</span>
             </Button>
-            <Button variant="outline" className="flex items-center space-x-2">
-              <Shield className="h-4 w-4" />
-              <span>Run Security Scan</span>
+            <Button variant="outline" className="flex items-center space-x-2" onClick={handleSecurityScan} disabled={scanState === 'loading'}>
+              {scanState === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : scanState === 'done' ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : scanState === 'error' ? <XCircle className="h-4 w-4 text-red-500" /> : <Shield className="h-4 w-4" />}
+              <span>{scanState === 'loading' ? 'Scanning...' : scanState === 'done' ? 'Scan Complete' : 'Run Security Scan'}</span>
             </Button>
+            {actionResult && (
+              <div className={`col-span-3 mt-1 p-3 rounded-lg text-sm border ${actionResult.message.toLowerCase().includes('fail') || actionResult.message.toLowerCase().includes('error') ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700'}`}>
+                <p className="font-medium">{actionResult.message}</p>
+                {actionResult.type === 'scan' && actionResult.data && (
+                  <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+                    {actionResult.data.filter((f: any) => f.status !== 'pass').slice(0,6).map((f: any) => (
+                      <div key={f.id} className="flex items-start gap-2 text-xs">
+                        <span className={`font-bold uppercase flex-shrink-0 ${f.severity==='critical'?'text-red-600':f.severity==='high'?'text-orange-600':f.severity==='medium'?'text-yellow-600':'text-gray-500'}`}>{f.severity}</span>
+                        <span>{f.title} — {f.recommendation}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {actionResult.type === 'restart' && actionResult.data && (
+                  <div className="mt-2 grid grid-cols-2 gap-1">
+                    {actionResult.data.map((s: any) => (
+                      <div key={s.name} className="flex items-center gap-1.5 text-xs">
+                        {s.status === 'running' ? <CheckCircle2 className="h-3 w-3 text-green-500 flex-shrink-0" /> : <XCircle className="h-3 w-3 text-red-500 flex-shrink-0" />}
+                        <span>{s.name} {s.latencyMs}ms</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
