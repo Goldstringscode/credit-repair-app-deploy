@@ -75,6 +75,8 @@ export default function ComplianceDashboard() {
   const [complianceStatus, setComplianceStatus] = useState<ComplianceStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
+  const [auditLog, setAuditLog] = useState<any[]>([])
+  const [summary, setSummary] = useState<any>(null)
 
   useEffect(() => {
     loadComplianceStatus()
@@ -104,126 +106,21 @@ export default function ComplianceDashboard() {
   const loadComplianceStatus = async () => {
     try {
       setLoading(true)
-      
-      // Load data from unified database service
-      const usersResponse = await databaseService.getUsers()
-      const subscriptionsResponse = await databaseService.getSubscriptions()
-      
-      if (usersResponse.success && subscriptionsResponse.success) {
-        const users = usersResponse.data?.users || []
-        const subscriptions = subscriptionsResponse.data?.subscriptions || []
-        
-        // Calculate compliance metrics from real data
-        const totalUsers = users.length
-        const activeUsers = users.filter(user => user.status === 'active').length
-        const totalSubscriptions = subscriptions.length
-        const activeSubscriptions = subscriptions.filter(sub => sub.status === 'active').length
-        
-        const complianceData: ComplianceStatus = {
-          gdpr: {
-            requests: Math.floor(totalUsers * 0.1), // 10% of users make GDPR requests
-            completed: Math.floor(totalUsers * 0.09),
-            pending: Math.floor(totalUsers * 0.01),
-            complianceRate: 95
-          },
-          fcra: {
-            disputes: Math.floor(totalUsers * 0.05), // 5% of users have disputes
-            freeReports: Math.floor(totalUsers * 0.3), // 30% request free reports
-            resolved: Math.floor(totalUsers * 0.04),
-            complianceRate: 92
-          },
-          ccpa: {
-            requests: Math.floor(totalUsers * 0.05), // 5% of users make CCPA requests
-            completed: Math.floor(totalUsers * 0.04),
-            pending: Math.floor(totalUsers * 0.01),
-            complianceRate: 90
-          },
-          hipaa: {
-            requests: Math.floor(totalUsers * 0.02), // 2% of users make HIPAA requests
-            completed: Math.floor(totalUsers * 0.019),
-            breaches: 0,
-            complianceRate: 99
-          },
-          pci: {
-            cards: activeSubscriptions, // Each active subscription has a payment method
-            transactions: totalSubscriptions,
-            vulnerabilities: 0,
-            complianceRate: 100
-          },
-          retention: {
-            totalRecords: totalUsers,
-            expired: Math.floor(totalUsers * 0.1), // 10% of records are expired
-            deleted: Math.floor(totalUsers * 0.05), // 5% of records are deleted
-            exempt: Math.floor(totalUsers * 0.2), // 20% of records are exempt
-            complianceRate: 88
-          },
-          audit: {
-            totalEvents: totalUsers * 10, // 10 events per user on average
-            criticalEvents: Math.floor(totalUsers * 0.01), // 1% of users have critical events
-            highRiskEvents: Math.floor(totalUsers * 0.05), // 5% of users have high risk events
-            complianceRate: 94
-          }
-        }
-        
-        setComplianceStatus(complianceData)
+      const res = await fetch('/api/admin/compliance')
+      const data = await res.json()
+      if (data.success && data.data) {
+        setComplianceStatus(data.data.compliance)
+        setAuditLog(data.data.auditLog || [])
+        setSummary(data.data.summary || null)
       } else {
-        throw new Error('Failed to load user and subscription data')
+        console.error('Compliance API error:', data.error)
       }
-    } catch (error) {
-      console.error('Failed to load compliance status:', error)
-      
-      // Fallback to mock data if service fails
-      const mockStatus: ComplianceStatus = {
-        gdpr: {
-          requests: 45,
-          completed: 42,
-          pending: 3,
-          complianceRate: 93
-        },
-        fcra: {
-          disputes: 128,
-          freeReports: 67,
-          resolved: 115,
-          complianceRate: 90
-        },
-        ccpa: {
-          requests: 23,
-          completed: 21,
-          pending: 2,
-          complianceRate: 91
-        },
-        hipaa: {
-          requests: 12,
-          completed: 11,
-          breaches: 0,
-          complianceRate: 100
-        },
-        pci: {
-          cards: 89,
-          transactions: 1247,
-          vulnerabilities: 2,
-          complianceRate: 95
-        },
-        retention: {
-          totalRecords: 1250,
-          expired: 45,
-          deleted: 38,
-          exempt: 7,
-          complianceRate: 95
-        },
-        audit: {
-          totalEvents: 15420,
-          criticalEvents: 3,
-          highRiskEvents: 12,
-          complianceRate: 98
-        }
-      }
-      setComplianceStatus(mockStatus)
+    } catch (err: any) {
+      console.error('Failed to load compliance data:', err.message)
     } finally {
       setLoading(false)
     }
   }
-
   const handleGDPRRequest = async (requestType: string) => {
     try {
       await clientComplianceService.createGDPRRequest(
@@ -443,29 +340,30 @@ export default function ComplianceDashboard() {
                 <CardDescription>Latest compliance-related actions and requests</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-3">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">GDPR data export completed</p>
-                      <p className="text-xs text-gray-500">2 hours ago</p>
-                    </div>
+                {auditLog.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">No compliance events recorded yet.</p>
+                ) : (
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {auditLog.slice(0, 8).map((event: any) => (
+                      <div key={event.id} className="flex items-start space-x-3">
+                        <div className={`mt-0.5 h-4 w-4 flex-shrink-0 rounded-full ${event.severity === 'high' ? 'bg-red-100' : event.severity === 'medium' ? 'bg-yellow-100' : 'bg-green-100'}`}>
+                          {event.status === 'compliant' ? <CheckCircle className="h-4 w-4 text-green-500" /> : <AlertTriangle className="h-4 w-4 text-yellow-500" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{event.description}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-gray-500">{event.category}</span>
+                            <span className="text-xs text-gray-400">·</span>
+                            <span className="text-xs text-gray-500">{new Date(event.timestamp).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${event.status === 'compliant' ? 'bg-green-100 text-green-700' : event.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                          {event.status}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">FCRA dispute resolved</p>
-                      <p className="text-xs text-gray-500">4 hours ago</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <AlertCircle className="h-4 w-4 text-yellow-500" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">Data retention review due</p>
-                      <p className="text-xs text-gray-500">1 day ago</p>
-                    </div>
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
 
