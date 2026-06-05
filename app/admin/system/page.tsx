@@ -9,13 +9,17 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle,
+  CheckCircle2,
   Database,
+  Download,
   HardDrive,
+  Loader2,
   MemoryStick,
   Monitor,
   RefreshCw,
   Server,
   Shield,
+  XCircle,
   Zap
 } from "lucide-react"
 
@@ -49,6 +53,72 @@ export default function SystemPage() {
   const [summary, setSummary] = useState<any>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [loading, setLoading] = useState(true)
+
+  // Quick action state
+  const [backupState, setBackupState] = useState<'idle'|'loading'|'done'|'error'>('idle')
+  const [restartState, setRestartState] = useState<'idle'|'loading'|'done'|'error'>('idle')
+  const [scanState, setScanState] = useState<'idle'|'loading'|'done'|'error'>('idle')
+  const [actionResult, setActionResult] = useState<{type:string, message:string, data?:any}|null>(null)
+
+  const handleBackup = async () => {
+    setBackupState('loading'); setActionResult(null)
+    try {
+      const res = await fetch('/api/admin/system/backup', { method: 'POST' })
+      if (!res.ok) throw new Error('Backup failed: ' + res.statusText)
+      // Trigger download
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const date = new Date().toISOString().split('T')[0]
+      a.href = url; a.download = 'credit-repair-backup-' + date + '.json'; a.click()
+      URL.revokeObjectURL(url)
+      const rows = res.headers.get('X-Backup-Rows') || '?'
+      const tables = res.headers.get('X-Backup-Tables') || '?'
+      setBackupState('done')
+      setActionResult({ type: 'backup', message: 'Backup downloaded: ' + tables + ' tables, ' + rows + ' rows' })
+    } catch (err: any) {
+      setBackupState('error')
+      setActionResult({ type: 'backup', message: 'Backup failed: ' + err.message })
+    }
+    setTimeout(() => setBackupState('idle'), 4000)
+  }
+
+  const handleRestart = async () => {
+    setRestartState('loading'); setActionResult(null)
+    try {
+      const res = await fetch('/api/admin/system/restart', { method: 'POST' })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error)
+      setRestartState('done')
+      setActionResult({ type: 'restart', message: data.message, data: data.services })
+      // Refresh service statuses
+      setServices(data.services.map((s: any) => ({ name: s.name, status: s.status, lastCheck: 'just now' })))
+    } catch (err: any) {
+      setRestartState('error')
+      setActionResult({ type: 'restart', message: 'Service check failed: ' + err.message })
+    }
+    setTimeout(() => setRestartState('idle'), 4000)
+  }
+
+  const handleSecurityScan = async () => {
+    setScanState('loading'); setActionResult(null)
+    try {
+      const res = await fetch('/api/admin/system/security-scan', { method: 'POST' })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error)
+      setScanState('done')
+      const s = data.summary
+      setActionResult({
+        type: 'scan',
+        message: 'Scan complete: ' + s.critical + ' critical, ' + s.high + ' high, ' + s.medium + ' medium, ' + s.passed + ' passed',
+        data: data.findings,
+      })
+    } catch (err: any) {
+      setScanState('error')
+      setActionResult({ type: 'scan', message: 'Security scan failed: ' + err.message })
+    }
+    setTimeout(() => setScanState('idle'), 8000)
+  }
 
   const loadSystemData = async () => {
     try {
