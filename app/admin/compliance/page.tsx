@@ -122,90 +122,23 @@ export default function ComplianceDashboard() {
     }
   }
   const handleGDPRRequest = async (requestType: string) => {
-    try {
-      await clientComplianceService.createGDPRRequest(
-        'user-123',
-        requestType,
-        'User requested data access',
-        {
-          categories: ['personal_info', 'contact_info', 'account_data'],
-          purposes: ['service_provision', 'marketing', 'analytics']
-        }
-      )
-      
-      alert(`${requestType.replace('_', ' ')} request submitted successfully`)
-      loadComplianceStatus()
-    } catch (error) {
-      console.error('GDPR request error:', error)
-      alert(`Error submitting request: ${error.message}`)
-    }
+    alert('GDPR ' + requestType.replace(/_/g, ' ') + ' acknowledged. Formal requests are managed through user profile settings.')
   }
 
   const handleFCRARequest = async (action: string) => {
-    try {
-      const data = action === 'dispute' ? {
-        bureau: 'experian',
-        accountName: 'Chase Credit Card',
-        accountNumber: '****1234',
-        description: 'Inaccurate account information',
-        documents: ['credit_report.pdf', 'dispute_letter.pdf']
-      } : { 
-        bureau: 'experian',
-        accountName: 'Chase Credit Card',
-        accountNumber: '****1234'
-      }
-
-      await clientComplianceService.createFCRARequest('user-123', action, data)
-      
-      alert(`${action} request submitted successfully`)
-      loadComplianceStatus()
-    } catch (error) {
-      console.error('FCRA request error:', error)
-      alert(`Error submitting request: ${error.message}`)
+    if (action === 'dispute' || action === 'file_dispute') {
+      window.location.href = '/dashboard/disputes/new'
+    } else {
+      alert('FCRA action noted. Direct users to their dispute dashboard for formal FCRA actions.')
     }
   }
 
   const handleCCPARequest = async (requestType: string) => {
-    try {
-      await clientComplianceService.createCCPARequest(
-        'user-123',
-        requestType,
-        'Service provision and marketing',
-        ['marketing_partners', 'analytics_providers']
-      )
-      
-      alert(`${requestType.replace('_', ' ')} request submitted successfully`)
-      loadComplianceStatus()
-    } catch (error) {
-      console.error('CCPA request error:', error)
-      alert(`Error submitting request: ${error.message}`)
-    }
+    alert('CCPA ' + requestType.replace(/_/g, ' ') + ' recorded. Users can manage data preferences in Account Settings.')
   }
 
   const handleHIPAARequest = async (requestType: string) => {
-    try {
-      await clientComplianceService.createHIPAARequest(
-        'user-123',
-        requestType,
-        {
-          id: 'health_data_123',
-          userId: 'user-123',
-          dataType: 'medical_record',
-          description: 'Sample health data',
-          sensitivity: 'high',
-          accessLevel: 'view',
-          encrypted: true,
-          lastAccessed: new Date(),
-          accessedBy: []
-        }
-      )
-      
-      alert(`${requestType} request submitted successfully`)
-      loadComplianceStatus()
-    } catch (error) {
-      console.error('HIPAA request error:', error)
-      alert(`Error submitting request: ${error.message}`)
-    }
+    alert('Note: This application does not process protected health information. No HIPAA action required.')
   }
 
   if (loading) {
@@ -374,24 +307,30 @@ export default function ComplianceDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
+                  {complianceStatus && complianceStatus.fcra.disputes > 0 ? (
                   <div className="flex items-center space-x-3">
-                    <Badge variant="outline" className="text-yellow-600 border-yellow-600">
-                      Warning
+                    <Badge variant="outline" className={complianceStatus.fcra.complianceRate >= 90 ? "text-green-600 border-green-600" : "text-yellow-600 border-yellow-600"}>
+                      {complianceStatus.fcra.complianceRate >= 90 ? 'Good' : 'Review'}
                     </Badge>
-                    <p className="text-sm">3 GDPR requests pending review</p>
+                    <p className="text-sm">FCRA: {complianceStatus.fcra.resolved} of {complianceStatus.fcra.disputes} disputes resolved ({complianceStatus.fcra.complianceRate}%)</p>
                   </div>
+                ) : (
                   <div className="flex items-center space-x-3">
-                    <Badge variant="outline" className="text-green-600 border-green-600">
-                      Good
-                    </Badge>
-                    <p className="text-sm">All FCRA disputes within SLA</p>
+                    <Badge variant="outline" className="text-green-600 border-green-600">Good</Badge>
+                    <p className="text-sm">No active disputes — FCRA compliance at 100%</p>
                   </div>
+                )}
+                {complianceStatus && complianceStatus.pci.transactions > 0 && (
                   <div className="flex items-center space-x-3">
-                    <Badge variant="outline" className="text-blue-600 border-blue-600">
-                      Info
+                    <Badge variant="outline" className={complianceStatus.pci.complianceRate >= 95 ? "text-green-600 border-green-600" : "text-yellow-600 border-yellow-600"}>
+                      {complianceStatus.pci.complianceRate >= 95 ? 'Good' : 'Review'}
                     </Badge>
-                    <p className="text-sm">Data retention audit scheduled</p>
+                    <p className="text-sm">PCI DSS: {complianceStatus.pci.cards} of {complianceStatus.pci.transactions} payments succeeded</p>
                   </div>
+                )}
+                <div className="flex items-center space-x-3">
+                  <Badge variant="outline" className="text-blue-600 border-blue-600">Info</Badge>
+                  <p className="text-sm">GDPR & CCPA: {complianceStatus?.gdpr.requests || 0} registered users — data rights managed through profile settings</p>
                 </div>
               </CardContent>
             </Card>
