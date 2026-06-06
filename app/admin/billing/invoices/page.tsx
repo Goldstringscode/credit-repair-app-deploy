@@ -233,6 +233,16 @@ export default function AdminInvoiceManagement() {
     )
   }
 
+  // Derive statusCounts from metrics for the tab filters
+  const statusCounts = {
+    all: metrics?.totalInvoices ?? invoices.length,
+    draft: metrics?.draftInvoices ?? invoices.filter(i => i.status === 'draft').length,
+    sent: metrics?.sentInvoices ?? invoices.filter(i => i.status === 'sent').length,
+    paid: metrics?.paidInvoices ?? invoices.filter(i => i.status === 'paid').length,
+    overdue: metrics?.overdueInvoices ?? invoices.filter(i => i.status === 'overdue').length,
+    cancelled: invoices.filter(i => i.status === 'cancelled').length,
+  }
+
   return (
     <div className="container mx-auto p-6">
       <div className="mb-8">
