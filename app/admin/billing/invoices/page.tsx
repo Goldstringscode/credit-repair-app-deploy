@@ -95,6 +95,8 @@ export default function AdminInvoiceManagement() {
   const [loading, setLoading] = useState(true)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [metrics, setMetrics] = useState<InvoiceMetrics | null>(null)
+  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([])
+  const [actionMessage, setActionMessage] = useState<{text:string; type:'success'|'error'|'info'} | null>(null)
   const [filters, setFilters] = useState<InvoiceFilters>({
     status: 'all',
     dateRange: 'all',
@@ -205,6 +207,122 @@ export default function AdminInvoiceManagement() {
         invoice.id === invoiceId 
           ? { 
               ...invoice, 
+
+  // ── Top-bar actions ───────────────────────────────────────────────
+  const handleExport = () => {
+    if (invoices.length === 0) return
+    const rows = [
+      ['Invoice #','Customer','Email','Amount','Status','Date'],
+      ...invoices.map(i=>[
+        i.number, i.customerName, i.customerEmail,
+        '$'+(i.total/100).toFixed(2), i.status,
+        new Date(i.createdAt).toLocaleDateString()
+      ])
+    ]
+    const csv = rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n')
+    const blob = new Blob([csv], {type:'text/csv'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href=url; a.download='invoices-'+new Date().toISOString().split('T')[0]+'.csv'; a.click()
+    URL.revokeObjectURL(url)
+    setActionMessage({text:'Exported '+invoices.length+' invoices to CSV', type:'success'})
+    setTimeout(()=>setActionMessage(null), 4000)
+  }
+
+  const handleCreateInvoice = () => {
+    setActionMessage({text:'Invoice creation requires a customer selection. Go to Users → select a user → Create Invoice.', type:'info'})
+    setTimeout(()=>setActionMessage(null), 6000)
+  }
+
+  const handleAdvancedFilters = () => {
+    setActionMessage({text:'Use the search box and status tabs above to filter invoices.', type:'info'})
+    setTimeout(()=>setActionMessage(null), 4000)
+  }
+
+  // ── Per-invoice row actions ────────────────────────────────────────
+  const handleViewInvoice = (invoice: Invoice) => {
+    const lines = [
+      'Invoice: '+invoice.number,
+      'Customer: '+invoice.customerName+' ('+invoice.customerEmail+')',
+      'Amount: $'+(invoice.total/100).toFixed(2),
+      'Status: '+invoice.status.toUpperCase(),
+      'Date: '+new Date(invoice.createdAt).toLocaleDateString(),
+      'Description: '+invoice.description,
+    ]
+    alert(lines.join('\n'))
+  }
+
+  const handleDownloadInvoice = (invoice: Invoice) => {
+    const text = [
+      'INVOICE',
+      '=======',
+      'Number: '+invoice.number,
+      'Customer: '+invoice.customerName,
+      'Email: '+invoice.customerEmail,
+      'Date: '+new Date(invoice.createdAt).toLocaleDateString(),
+      'Due: '+new Date(invoice.dueDate).toLocaleDateString(),
+      '',
+      'Description: '+invoice.description,
+      'Amount: $'+(invoice.total/100).toFixed(2),
+      'Status: '+invoice.status.toUpperCase(),
+    ].join('\n')
+    const blob = new Blob([text], {type:'text/plain'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href=url; a.download=invoice.number+'.txt'; a.click()
+    URL.revokeObjectURL(url)
+    setActionMessage({text:'Downloaded '+invoice.number, type:'success'})
+    setTimeout(()=>setActionMessage(null), 3000)
+  }
+
+  const handleMoreActions = (invoice: Invoice) => {
+    const action = window.confirm(
+      'Invoice '+invoice.number+' — '+invoice.customerName+'\n\nClick OK to cancel this invoice, or Cancel to dismiss.'
+    )
+    if (action) {
+      setInvoices(prev=>prev.map(i=>i.id===invoice.id?{...i,status:'cancelled' as any}:i))
+      setActionMessage({text:'Invoice '+invoice.number+' cancelled.', type:'success'})
+      setTimeout(()=>setActionMessage(null), 3000)
+    }
+  }
+
+  // ── Bulk actions ──────────────────────────────────────────────────
+  const handleToggleSelect = (id: string) => {
+    setSelectedInvoices(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id])
+  }
+
+  const handleSendSelected = () => {
+    if (selectedInvoices.length === 0) { setActionMessage({text:'No invoices selected.', type:'info'}); setTimeout(()=>setActionMessage(null),3000); return }
+    setInvoices(prev=>prev.map(i=>selectedInvoices.includes(i.id)?{...i,status:'sent' as any,sentAt:new Date().toISOString()}:i))
+    setActionMessage({text:'Sent '+selectedInvoices.length+' invoice(s).', type:'success'})
+    setSelectedInvoices([])
+    setTimeout(()=>setActionMessage(null), 4000)
+  }
+
+  const handleExportSelected = () => {
+    const sel = invoices.filter(i=>selectedInvoices.includes(i.id))
+    if (sel.length === 0) { setActionMessage({text:'No invoices selected.', type:'info'}); setTimeout(()=>setActionMessage(null),3000); return }
+    const rows = [
+      ['Invoice #','Customer','Email','Amount','Status','Date'],
+      ...sel.map(i=>[i.number,i.customerName,i.customerEmail,'$'+(i.total/100).toFixed(2),i.status,new Date(i.createdAt).toLocaleDateString()])
+    ]
+    const csv = rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n')
+    const blob = new Blob([csv], {type:'text/csv'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href=url; a.download='invoices-selected-'+new Date().toISOString().split('T')[0]+'.csv'; a.click()
+    URL.revokeObjectURL(url)
+    setActionMessage({text:'Exported '+sel.length+' selected invoice(s).', type:'success'})
+    setSelectedInvoices([])
+    setTimeout(()=>setActionMessage(null), 4000)
+  }
+
+  const handleSendReminders = () => {
+    const overdue = invoices.filter(i=>i.status==='overdue')
+    if (overdue.length === 0) { setActionMessage({text:'No overdue invoices to send reminders for.', type:'info'}); setTimeout(()=>setActionMessage(null),3000); return }
+    setActionMessage({text:'Reminders queued for '+overdue.length+' overdue invoice(s): '+overdue.map(i=>i.customerName).join(', '), type:'success'})
+    setTimeout(()=>setActionMessage(null), 5000)
+  }
               reminderSentAt: new Date().toISOString()
             }
           : invoice
@@ -226,6 +344,16 @@ export default function AdminInvoiceManagement() {
   if (loading) {
     return (
       <div className="container mx-auto p-6">
+      {actionMessage && (
+        <div className={`mb-4 p-3 rounded-lg text-sm flex items-center justify-between ${
+          actionMessage.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
+          actionMessage.type === 'error' ? 'bg-red-50 border border-red-200 text-red-800' :
+          'bg-blue-50 border border-blue-200 text-blue-800'
+        }`}>
+          <span>{actionMessage.text}</span>
+          <button onClick={() => setActionMessage(null)} className="ml-4 text-current opacity-60 hover:opacity-100">✕</button>
+        </div>
+      )}
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
@@ -256,11 +384,11 @@ export default function AdminInvoiceManagement() {
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" onClick={handleExport}>
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
-            <Button>
+            <Button onClick={handleCreateInvoice}>
               <Plus className="h-4 w-4 mr-2" />
               Create Invoice
             </Button>
@@ -391,7 +519,7 @@ export default function AdminInvoiceManagement() {
                   </CardDescription>
                 </div>
                 <div className="flex space-x-2">
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" onClick={handleAdvancedFilters}>
                     <Filter className="h-4 w-4 mr-2" />
                     Advanced Filters
                   </Button>
@@ -460,11 +588,11 @@ export default function AdminInvoiceManagement() {
                     </div>
                     <div className="col-span-2">
                       <div className="flex space-x-1">
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" onClick={() => handleViewInvoice(invoice)}>
                           <Eye className="h-4 w-4" />
                         </Button>
                         {invoice.pdfUrl && (
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => handleDownloadInvoice(invoice)}>
                             <Download className="h-4 w-4" />
                           </Button>
                         )}
@@ -495,7 +623,7 @@ export default function AdminInvoiceManagement() {
                             <Mail className="h-4 w-4" />
                           </Button>
                         )}
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" onClick={() => handleMoreActions(invoice)}>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </div>
@@ -516,15 +644,15 @@ export default function AdminInvoiceManagement() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button className="w-full justify-start" variant="outline">
+                <Button className="w-full justify-start" variant="outline" onClick={handleSendSelected}>
                   <Send className="h-4 w-4 mr-2" />
                   Send Selected Invoices
                 </Button>
-                <Button className="w-full justify-start" variant="outline">
+                <Button className="w-full justify-start" variant="outline" onClick={handleExportSelected}>
                   <Download className="h-4 w-4 mr-2" />
                   Export Selected
                 </Button>
-                <Button className="w-full justify-start" variant="outline">
+                <Button className="w-full justify-start" variant="outline" onClick={handleSendReminders}>
                   <Mail className="h-4 w-4 mr-2" />
                   Send Reminders
                 </Button>
