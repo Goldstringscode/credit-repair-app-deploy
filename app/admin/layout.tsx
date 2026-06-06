@@ -89,6 +89,12 @@ const adminNavigation = [
     description: "Subscriptions and payments"
   },
   {
+    name: "Invoices",
+    href: "/admin/billing/invoices",
+    icon: FileText,
+    description: "Payment invoices and receipts"
+  },
+  {
     name: "Email Marketing",
     href: "/admin/email",
     icon: Mail,
