@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
       supabase.from('payments').select('*', { count: 'exact', head: true }),
       supabase.from('payments').select('*', { count: 'exact', head: true }).eq('status', 'succeeded'),
       supabase.from('certified_mail_requests').select('*', { count: 'exact', head: true }),
+
       supabase.from('letter_templates').select('*', { count: 'exact', head: true }),
       supabase.from('email_campaigns').select('*', { count: 'exact', head: true }),
       supabase.from('users').select('id, created_at').gte('created_at', since).order('created_at'),
@@ -94,13 +95,18 @@ export async function GET(request: NextRequest) {
       dailyData.push({ date: dayStr, users: dayUsers, disputes: dayDisputes, revenue: dayRevenue / 100 })
     }
 
-    // Funnel steps - real progression
+    // Funnel steps - users who completed each step (capped at total users)
+    // disputes/payments/certified_mail are REQUEST counts, not unique user counts
+    // Cap at tu to avoid impossible numbers like "40 users out of 5"
+    const funnelDisputes = Math.min(td, tu)   // users who filed at least 1 dispute
+    const funnelPayments = Math.min(sp, tu)   // users who made at least 1 payment
+    const funnelMail = Math.min(tcm, tu)      // users who sent at least 1 certified mail
     const funnel = [
       { step: 'signup', name: 'User Signups', users: tu, conversionRate: 100, stepConversionRate: 100 },
       { step: 'active', name: 'Active Users', users: au, conversionRate: tu > 0 ? Math.round(au/tu*100*10)/10 : 0, stepConversionRate: tu > 0 ? Math.round(au/tu*100*10)/10 : 0 },
-      { step: 'dispute_filed', name: 'Filed Dispute', users: td, conversionRate: tu > 0 ? Math.round(td/tu*100*10)/10 : 0, stepConversionRate: au > 0 ? Math.round(td/au*100*10)/10 : 0 },
-      { step: 'payment_made', name: 'Made Payment', users: sp, conversionRate: tu > 0 ? Math.round(sp/tu*100*10)/10 : 0, stepConversionRate: td > 0 ? Math.round(sp/td*100*10)/10 : 0 },
-      { step: 'certified_mail', name: 'Sent Certified Mail', users: tcm, conversionRate: tu > 0 ? Math.round(tcm/tu*100*10)/10 : 0, stepConversionRate: sp > 0 ? Math.round(tcm/sp*100*10)/10 : 0 },
+      { step: 'dispute_filed', name: 'Filed Dispute', users: funnelDisputes, conversionRate: tu > 0 ? Math.round(funnelDisputes/tu*100*10)/10 : 0, stepConversionRate: au > 0 ? Math.round(funnelDisputes/au*100*10)/10 : 0 },
+      { step: 'payment_made', name: 'Made Payment', users: funnelPayments, conversionRate: tu > 0 ? Math.round(funnelPayments/tu*100*10)/10 : 0, stepConversionRate: funnelDisputes > 0 ? Math.round(funnelPayments/funnelDisputes*100*10)/10 : 0 },
+      { step: 'certified_mail', name: 'Sent Certified Mail', users: funnelMail, conversionRate: tu > 0 ? Math.round(funnelMail/tu*100*10)/10 : 0, stepConversionRate: funnelPayments > 0 ? Math.round(funnelMail/funnelPayments*100*10)/10 : 0 },
     ]
 
     // Event analytics - real counts
