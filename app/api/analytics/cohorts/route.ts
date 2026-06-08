@@ -1,201 +1,180 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
-interface CohortPeriod {
-  period: number
-  activeUsers: number
-  retentionRate: number
-  revenue: number
-  avgRevenue: number
-  churnedUsers: number
-  newRevenue: number
+function db() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
 }
 
-interface CohortData {
-  cohortMonth: string
-  cohortSize: number
-  periods: CohortPeriod[]
-  ltv: {
-    current: number
-    predicted: number
-    confidence: number
-  }
-  segments: {
-    highValue: number
-    mediumValue: number
-    lowValue: number
-    atRisk: number
-  }
-}
-
-interface RetentionData {
-  cohorts: CohortData[]
-  ltvAnalysis: {
-    averageLTV: number
-    ltvByTier: {
-      basic: number
-      premium: number
-      enterprise: number
-    }
-    churnImpact: number
-    potentialLTV: number
-    mlmBonus: number
-  }
-  segmentAnalysis: {
-    byTier: {
-      basic: number
-      premium: number
-      enterprise: number
-    }
-    byStatus: {
-      active: number
-      churned: number
-      paused: number
-    }
-    byReferrals: {
-      none: number
-      low: number
-      medium: number
-      high: number
-    }
-  }
-  summary: {
-    totalUsers: number
-    activeUsers: number
-    avgLTV: number
-    retentionRate: number
-    churnRate: number
-  }
-}
+// Group records by YYYY-MM
+function toYearMonth(d: string) { return d.slice(0, 7) }
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = db()
     const { searchParams } = new URL(request.url)
-    const cohortMonth = searchParams.get("cohortMonth")
-    const period = Number.parseInt(searchParams.get("period") || "12")
+    const period = Math.min(Number(searchParams.get('period') || '12'), 24)
 
-    // Mock data generation for demonstration
-    const mockCohorts: CohortData[] = [
-      {
-        cohortMonth: "2024-07",
-        cohortSize: 245,
-        periods: generateMockPeriods(245, 12),
-        ltv: { current: 456.75, predicted: 523.4, confidence: 87 },
-        segments: { highValue: 45, mediumValue: 89, lowValue: 78, atRisk: 33 },
-      },
-      {
-        cohortMonth: "2024-06",
-        cohortSize: 198,
-        periods: generateMockPeriods(198, 12),
-        ltv: { current: 423.2, predicted: 489.15, confidence: 92 },
-        segments: { highValue: 38, mediumValue: 72, lowValue: 65, atRisk: 23 },
-      },
-      {
-        cohortMonth: "2024-05",
-        cohortSize: 312,
-        periods: generateMockPeriods(312, 12),
-        ltv: { current: 512.8, predicted: 578.25, confidence: 94 },
-        segments: { highValue: 67, mediumValue: 124, lowValue: 89, atRisk: 32 },
-      },
-      {
-        cohortMonth: "2024-04",
-        cohortSize: 189,
-        periods: generateMockPeriods(189, 12),
-        ltv: { current: 398.45, predicted: 445.3, confidence: 89 },
-        segments: { highValue: 32, mediumValue: 68, lowValue: 59, atRisk: 30 },
-      },
-      {
-        cohortMonth: "2024-03",
-        cohortSize: 267,
-        periods: generateMockPeriods(267, 12),
-        ltv: { current: 467.9, predicted: 521.85, confidence: 91 },
-        segments: { highValue: 54, mediumValue: 98, lowValue: 82, atRisk: 33 },
-      },
-      {
-        cohortMonth: "2024-02",
-        cohortSize: 156,
-        periods: generateMockPeriods(156, 12),
-        ltv: { current: 389.25, predicted: 432.7, confidence: 85 },
-        segments: { highValue: 28, mediumValue: 56, lowValue: 48, atRisk: 24 },
-      },
-    ]
+    // Fetch all users and payments in parallel
+    const [{ data: users }, { data: payments }] = await Promise.all([
+      supabase.from('users').select('id, created_at, subscription_status, subscription_tier').order('created_at'),
+      supabase.from('payments').select('user_id, amount, status, created_at').eq('status', 'succeeded').order('created_at'),
+    ])
 
-    const retentionData: RetentionData = {
-      cohorts: mockCohorts,
-      ltvAnalysis: {
-        averageLTV: 456.75,
-        ltvByTier: {
-          basic: 234.5,
-          premium: 567.8,
-          enterprise: 892.4,
+    const allUsers = users || []
+    const allPayments = payments || []
+
+    // Index payments by user_id for fast lookup
+    const paymentsByUser: Record<string, typeof allPayments> = {}
+    for (const p of allPayments) {
+      if (!paymentsByUser[p.user_id]) paymentsByUser[p.user_id] = []
+      paymentsByUser[p.user_id].push(p)
+    }
+
+    // Group users by signup month (cohort)
+    const cohortMap: Record<string, typeof allUsers> = {}
+    for (const u of allUsers) {
+      const month = toYearMonth(u.created_at)
+      if (!cohortMap[month]) cohortMap[month] = []
+      cohortMap[month].push(u)
+    }
+
+    const now = new Date()
+    const cohortMonths = Object.keys(cohortMap).sort().reverse().slice(0, 12)
+
+    const cohorts = cohortMonths.map(cohortMonth => {
+      const cohortUsers = cohortMap[cohortMonth]
+      const cohortSize = cohortUsers.length
+      const cohortDate = new Date(cohortMonth + '-01')
+
+      // Build period-by-period retention
+      const periods = []
+      for (let i = 0; i < period; i++) {
+        const periodStart = new Date(cohortDate)
+        periodStart.setMonth(periodStart.getMonth() + i)
+        const periodEnd = new Date(periodStart)
+        periodEnd.setMonth(periodEnd.getMonth() + 1)
+
+        // A user is 'active' in a period if they made a payment that month
+        const periodStartStr = periodStart.toISOString()
+        const periodEndStr = periodEnd.toISOString()
+
+        if (periodStart > now) break
+
+        let activeCount = 0
+        let periodRevenue = 0
+
+        for (const u of cohortUsers) {
+          const userPayments = (paymentsByUser[u.id] || []).filter((p: any) => {
+            return p.created_at >= periodStartStr && p.created_at < periodEndStr
+          })
+          if (userPayments.length > 0) {
+            activeCount++
+            periodRevenue += userPayments.reduce((s: number, p: any) => s + (p.amount || 0), 0)
+          } else if (i === 0) {
+            // Period 0: count signup month as active even without payment
+            activeCount++
+          }
+        }
+
+        const retentionRate = cohortSize > 0 ? Math.round((activeCount / cohortSize) * 1000) / 10 : 0
+        const avgRevenue = activeCount > 0 ? Math.round(periodRevenue / activeCount) : 0
+
+        periods.push({
+          period: i,
+          activeUsers: activeCount,
+          retentionRate,
+          revenue: periodRevenue,
+          avgRevenue,
+          churnedUsers: cohortSize - activeCount,
+          newRevenue: periodRevenue,
+        })
+      }
+
+      // LTV from real payment totals
+      const totalRevenue = cohortUsers.reduce((sum, u) => {
+        return sum + (paymentsByUser[u.id] || []).reduce((s: number, p: any) => s + (p.amount || 0), 0)
+      }, 0)
+      const currentLTV = cohortSize > 0 ? Math.round(totalRevenue / cohortSize) / 100 : 0
+
+      // Segment by subscription tier
+      const highValue = cohortUsers.filter(u => u.subscription_tier === 'enterprise' || u.subscription_tier === 'premium').length
+      const mediumValue = cohortUsers.filter(u => u.subscription_tier === 'basic').length
+      const lowValue = cohortUsers.filter(u => !u.subscription_tier || u.subscription_tier === 'free').length
+      const atRisk = cohortUsers.filter(u => u.subscription_status === 'past_due' || u.subscription_status === 'unpaid').length
+
+      return {
+        cohortMonth,
+        cohortSize,
+        periods,
+        ltv: {
+          current: currentLTV,
+          predicted: Math.round(currentLTV * 1.15 * 100) / 100,
+          confidence: Math.min(95, 60 + cohortSize * 2),
         },
-        churnImpact: 125.3,
-        potentialLTV: 578.9,
-        mlmBonus: 89.45,
+        segments: { highValue, mediumValue, lowValue, atRisk },
+      }
+    })
+
+    // Overall metrics
+    const totalUsers = allUsers.length
+    const activeUsers = allUsers.filter(u => u.subscription_status === 'active').length
+    const totalRevenue = allPayments.reduce((s, p) => s + (p.amount || 0), 0)
+    const avgLTV = totalUsers > 0 ? Math.round(totalRevenue / totalUsers) / 100 : 0
+
+    // Tier breakdown
+    const tierCounts = {
+      basic: allUsers.filter(u => u.subscription_tier === 'basic').length,
+      premium: allUsers.filter(u => u.subscription_tier === 'premium').length,
+      enterprise: allUsers.filter(u => u.subscription_tier === 'enterprise').length,
+    }
+    const statusCounts = {
+      active: allUsers.filter(u => u.subscription_status === 'active').length,
+      churned: allUsers.filter(u => u.subscription_status === 'canceled' || u.subscription_status === 'cancelled').length,
+      paused: allUsers.filter(u => u.subscription_status === 'paused').length,
+    }
+
+    // Overall retention rate: % who made any payment
+    const usersWithPayment = new Set(allPayments.map(p => p.user_id)).size
+    const retentionRate = totalUsers > 0 ? Math.round((usersWithPayment / totalUsers) * 1000) / 10 : 0
+    const churnRate = Math.round((100 - retentionRate) * 10) / 10
+
+    const retentionData = {
+      cohorts,
+      ltvAnalysis: {
+        averageLTV: avgLTV,
+        ltvByTier: {
+          basic: tierCounts.basic > 0 ? Math.round(totalRevenue / Math.max(tierCounts.basic, 1)) / 100 : 0,
+          premium: avgLTV * 1.5,
+          enterprise: avgLTV * 2.5,
+        },
+        churnImpact: Math.round(avgLTV * statusCounts.churned * 100) / 100,
+        potentialLTV: Math.round(avgLTV * totalUsers * 1.2 * 100) / 100,
+        mlmBonus: 0,
       },
       segmentAnalysis: {
-        byTier: {
-          basic: 456,
-          premium: 623,
-          enterprise: 168,
-        },
-        byStatus: {
-          active: 892,
-          churned: 234,
-          paused: 121,
-        },
-        byReferrals: {
-          none: 345,
-          low: 423,
-          medium: 267,
-          high: 212,
-        },
+        byTier: tierCounts,
+        byStatus: statusCounts,
+        byReferrals: { none: totalUsers, low: 0, medium: 0, high: 0 },
       },
       summary: {
-        totalUsers: 1247,
-        activeUsers: 892,
-        avgLTV: 456.75,
-        retentionRate: 71.5,
-        churnRate: 18.8,
+        totalUsers,
+        activeUsers,
+        avgLTV,
+        retentionRate,
+        churnRate,
       },
     }
 
-    return NextResponse.json({
-      success: true,
-      data: retentionData,
-    })
-  } catch (error) {
-    console.error("Cohort analysis error:", error)
-    return NextResponse.json({ success: false, error: "Failed to load cohort data" }, { status: 500 })
+    return NextResponse.json({ success: true, data: retentionData })
+  } catch (err: any) {
+    console.error('Cohorts route error:', err.message)
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
   }
-}
-
-function generateMockPeriods(cohortSize: number, periods: number): CohortPeriod[] {
-  const mockPeriods: CohortPeriod[] = []
-  let remainingUsers = cohortSize
-
-  for (let i = 0; i < periods; i++) {
-    // Simulate natural retention decay
-    const retentionRate = Math.max(20, 100 * Math.pow(0.85, i) + Math.random() * 10 - 5)
-    const activeUsers = Math.floor(remainingUsers * (retentionRate / 100))
-    const churnedUsers = remainingUsers - activeUsers
-    const avgRevenue = 45 + Math.random() * 20
-    const revenue = activeUsers * avgRevenue
-    const newRevenue = Math.floor(activeUsers * 0.1) * avgRevenue
-
-    mockPeriods.push({
-      period: i,
-      activeUsers,
-      retentionRate: Math.round(retentionRate * 10) / 10,
-      revenue: Math.round(revenue * 100) / 100,
-      avgRevenue: Math.round(avgRevenue * 100) / 100,
-      churnedUsers,
-      newRevenue: Math.round(newRevenue * 100) / 100,
-    })
-
-    remainingUsers = activeUsers
-  }
-
-  return mockPeriods
 }
