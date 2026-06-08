@@ -1,99 +1,94 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
     const { cohort, type } = await request.json()
 
-    // Mock retention data for CSV export
-    const retentionData = [
-      {
-        cohortMonth: "2024-07",
-        cohortSize: 156,
-        month0: 100,
-        month1: 89,
-        month2: 78,
-        month3: 71,
-        month6: 58,
-        month12: 45,
-        currentLTV: 342.5,
-        predictedLTV: 456.75,
-        churnRate: 12.3,
-        avgRevenue: 89.25,
-      },
-      {
-        cohortMonth: "2024-06",
-        cohortSize: 134,
-        month0: 100,
-        month1: 85,
-        month2: 74,
-        month3: 68,
-        month6: 55,
-        month12: 42,
-        currentLTV: 398.2,
-        predictedLTV: 487.3,
-        churnRate: 15.7,
-        avgRevenue: 92.15,
-      },
-      {
-        cohortMonth: "2024-05",
-        cohortSize: 189,
-        month0: 100,
-        month1: 91,
-        month2: 82,
-        month3: 75,
-        month6: 62,
-        month12: 48,
-        currentLTV: 425.8,
-        predictedLTV: 523.45,
-        churnRate: 9.8,
-        avgRevenue: 95.6,
-      },
-    ]
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
 
-    // Convert to CSV
-    const headers = [
-      "Cohort Month",
-      "Cohort Size",
-      "Month 0 Retention %",
-      "Month 1 Retention %",
-      "Month 2 Retention %",
-      "Month 3 Retention %",
-      "Month 6 Retention %",
-      "Month 12 Retention %",
-      "Current LTV",
-      "Predicted LTV",
-      "Churn Rate %",
-      "Avg Monthly Revenue",
-    ]
+    // Fetch real data for export
+    const [{ data: users }, { data: payments }] = await Promise.all([
+      supabase.from('users').select('id, email, created_at, subscription_status, subscription_tier').order('created_at'),
+      supabase.from('payments').select('user_id, amount, status, created_at').eq('status', 'succeeded').order('created_at'),
+    ])
 
-    const csvContent = [
-      headers.join(","),
-      ...retentionData.map((row) =>
-        [
-          row.cohortMonth,
-          row.cohortSize,
-          row.month0,
-          row.month1,
-          row.month2,
-          row.month3,
-          row.month6,
-          row.month12,
-          row.currentLTV,
-          row.predictedLTV,
-          row.churnRate,
-          row.avgRevenue,
-        ].join(","),
-      ),
-    ].join("\n")
+    const allUsers = users || []
+    const allPayments = payments || []
 
-    return new NextResponse(csvContent, {
+    // Index payments by user
+    const paymentsByUser: Record<string, typeof allPayments> = {}
+    for (const p of allPayments) {
+      if (!paymentsByUser[p.user_id]) paymentsByUser[p.user_id] = []
+      paymentsByUser[p.user_id].push(p)
+    }
+
+    const toYM = (d: string) => d.slice(0, 7)
+
+    if (type === 'cohort' || !type) {
+      // Export cohort-level summary
+      const cohortMap: Record<string, typeof allUsers> = {}
+      for (const u of allUsers) {
+        const m = toYM(u.created_at)
+        if (!cohortMap[m]) cohortMap[m] = []
+        cohortMap[m].push(u)
+      }
+
+      const rows: string[][] = [['Cohort Month', 'Cohort Size', 'Active Users', 'Revenue ($)', 'Avg LTV ($)', 'Retention Rate (%)', 'Churn Rate (%)']]
+      for (const [month, cohortUsers] of Object.entries(cohortMap).sort().reverse().slice(0, 12)) {
+        if (cohort && cohort !== 'all' && cohort !== month) continue
+        const active = cohortUsers.filter(u => u.subscription_status === 'active').length
+        const revenue = cohortUsers.reduce((s, u) => s + (paymentsByUser[u.id] || []).reduce((ss: number, p: any) => ss + (p.amount || 0), 0), 0)
+        const avgLTV = cohortUsers.length > 0 ? (revenue / cohortUsers.length / 100).toFixed(2) : '0.00'
+        const retention = cohortUsers.length > 0 ? ((active / cohortUsers.length) * 100).toFixed(1) : '0.0'
+        const churn = (100 - Number(retention)).toFixed(1)
+        rows.push([month, String(cohortUsers.length), String(active), (revenue/100).toFixed(2), avgLTV, retention, churn])
+      }
+
+      const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n')
+      return new NextResponse(csv, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': 'attachment; filename="retention-cohorts-' + new Date().toISOString().split('T')[0] + '.csv"',
+        }
+      })
+    }
+
+    // User-level export
+    const rows: string[][] = [['User ID', 'Email', 'Signup Month', 'Tier', 'Status', 'Total Payments', 'Total Revenue ($)', 'LTV ($)']]
+    for (const u of allUsers) {
+      const userPayments = paymentsByUser[u.id] || []
+      const revenue = userPayments.reduce((s: number, p: any) => s + (p.amount || 0), 0)
+      rows.push([
+        u.id.slice(0, 8),
+        u.email,
+        toYM(u.created_at),
+        u.subscription_tier || 'none',
+        u.subscription_status || 'unknown',
+        String(userPayments.length),
+        (revenue / 100).toFixed(2),
+        (revenue / 100).toFixed(2),
+      ])
+    }
+
+    const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n')
+    return new NextResponse(csv, {
+      status: 200,
       headers: {
-        "Content-Type": "text/csv",
-        "Content-Disposition": `attachment; filename="retention-analysis-${Date.now()}.csv"`,
-      },
+        'Content-Type': 'text/csv',
+        'Content-Disposition': 'attachment; filename="retention-users-' + new Date().toISOString().split('T')[0] + '.csv"',
+      }
     })
-  } catch (error) {
-    console.error("Export error:", error)
-    return NextResponse.json({ error: "Failed to export data" }, { status: 500 })
+  } catch (err: any) {
+    console.error('Export retention error:', err.message)
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
   }
 }
