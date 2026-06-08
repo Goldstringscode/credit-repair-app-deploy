@@ -53,7 +53,7 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: ()=>void; onCreat
   const [dueDate, setDueDate] = useState(() => new Date(Date.now()+30*24*60*60*1000).toISOString().split('T')[0])
   const [notes, setNotes] = useState('')
   const [lineItems, setLineItems] = useState<DraftLineItem[]>([
-    { description: 'Credit Repair Service', quantity: 1, unitPrice: 9900, type: 'service' }
+    { description: 'Credit Repair Service', quantity: 1, unitPrice: 99, type: 'service' }
   ])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -102,7 +102,7 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: ()=>void; onCreat
       const res = await fetch('/api/admin/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: selectedUserId||undefined, customerName, customerEmail, lineItems, dueDate, notes })
+        body: JSON.stringify({ userId: selectedUserId||undefined, customerName, customerEmail, lineItems: lineItems.map(i=>({...i, unitPrice: Math.round(i.unitPrice*100)})), dueDate, notes })
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.error)
@@ -178,12 +178,12 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: ()=>void; onCreat
                     <Input type="number" min="1" value={item.quantity} onChange={e=>updateLineItem(idx,'quantity',Number(e.target.value))}/>
                   </div>
                   <div className="col-span-3">
-                    {idx===0&&<Label className="text-xs text-gray-400 mb-1 block">Price (cents)</Label>}
-                    <Input type="number" min="0" placeholder="9900" value={item.unitPrice} onChange={e=>updateLineItem(idx,'unitPrice',Number(e.target.value))}/>
+                    {idx===0&&<Label className="text-xs text-gray-400 mb-1 block">Unit Price ($)</Label>}
+                    <Input type="number" min="0" placeholder="99.00" value={item.unitPrice} onChange={e=>updateLineItem(idx,'unitPrice',Number(e.target.value))}/>
                   </div>
                   <div className="col-span-1">
                     {idx===0&&<div className="h-4 mb-1"/>}
-                    <div className="h-10 flex items-center text-sm font-medium">${((item.quantity*item.unitPrice)/100).toFixed(2)}</div>
+                    <div className="h-10 flex items-center text-sm font-medium">${(item.quantity*item.unitPrice).toFixed(2)}</div>
                   </div>
                   <div className="col-span-1">
                     {idx===0&&<div className="h-4 mb-1"/>}
@@ -192,12 +192,11 @@ function CreateInvoiceModal({ onClose, onCreated }: { onClose: ()=>void; onCreat
                 </div>
               ))}
             </div>
-            <p className="text-xs text-gray-400">Price is in cents: 9900 = $99.00 · 14900 = $149.00</p>
           </div>
           <div className="bg-gray-50 rounded-lg p-4 space-y-1.5">
-            <div className="flex justify-between text-sm"><span className="text-gray-500">Subtotal</span><span>${(subtotal/100).toFixed(2)}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-gray-500">Tax (8%)</span><span>${(tax/100).toFixed(2)}</span></div>
-            <div className="flex justify-between text-sm font-bold border-t pt-1.5 mt-1"><span>Total</span><span>${(total/100).toFixed(2)}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-gray-500">Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-gray-500">Tax (8%)</span><span>${tax.toFixed(2)}</span></div>
+            <div className="flex justify-between text-sm font-bold border-t pt-1.5 mt-1"><span>Total</span><span>${total.toFixed(2)}</span></div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
