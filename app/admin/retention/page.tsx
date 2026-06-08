@@ -162,10 +162,11 @@ export default function RetentionPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Cohorts</SelectItem>
-                <SelectItem value="2024-07">July 2024</SelectItem>
-                <SelectItem value="2024-06">June 2024</SelectItem>
-                <SelectItem value="2024-05">May 2024</SelectItem>
-                <SelectItem value="2024-04">April 2024</SelectItem>
+                {(retentionData?.cohorts || []).map(c => {
+                  const [yr, mo] = c.cohortMonth.split('-')
+                  const label = new Date(Number(yr), Number(mo)-1, 1).toLocaleDateString('en-US', {month:'long', year:'numeric'})
+                  return <SelectItem key={c.cohortMonth} value={c.cohortMonth}>{label} ({c.cohortSize} users)</SelectItem>
+                })}
               </SelectContent>
             </Select>
             <Button onClick={exportRetentionData} variant="outline">
