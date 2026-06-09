@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sanitizeError } from '@/lib/api-error'
+import { getCached, setCached } from '@/lib/cache'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
+    const _hit = getCached<object>('admin:users')
+    if (_hit) return NextResponse.json(_hit)
+
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -47,7 +51,9 @@ export async function GET(request: NextRequest) {
 
     console.log('Admin users returned:', users.length)
 
-    return NextResponse.json({ success: true, users, total: users.length })
+const _res = { success: true, users, total: users.length }
+    setCached('admin:users', _res, 30)
+    return NextResponse.json(_res)
   } catch (err: any) {
     console.error('Admin users catch error:', err.message)
     return NextResponse.json({ success: false, error: sanitizeError(err) }, { status: 500 })
