@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getSupabaseClient } from "@/lib/supabase-client"
 import { verifyToken } from "@/lib/jwt"
+import { getCached, setCached } from '@/lib/cache'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +25,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const _hit = getCached<object>('admin:staff')
+    if (_hit) return NextResponse.json(_hit)
+
     const supabase = getSupabaseClient()
     const { data, error } = await supabase
       .from("users")
@@ -96,7 +100,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: inviteError.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, message: "Invitation sent" })
+const _res = { success: true, message: "Invitation sent" }
+    setCached('admin:staff', _res, 30)
+    return NextResponse.json(_res)
   } catch (err) {
     console.error("Staff POST error:", err)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
