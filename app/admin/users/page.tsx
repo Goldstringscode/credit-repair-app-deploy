@@ -27,10 +27,25 @@ export default function AdminUsersPage() {
   const [selected, setSelected] = useState<any>(null)
 
   useEffect(() => {
-    fetch('/api/auth/me').then(r=>r.ok?r.json():null).then(d => {
-      if(!d?.user || d.user.role !== 'admin') { router.push('/'); return }
-      loadUsers()
-    })
+    setLoading(true)
+    fetch('/api/admin/users')
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.users) {
+          const us = d.users
+          setUsers(us)
+          // Compute stats from the returned users
+          setStats({
+            total: us.length,
+            creditRepairOnly: us.filter((u: any) => u.subscription && u.subscription !== 'free').length,
+            mlmOnly: 0,
+            both: 0,
+            activeSubscriptions: us.filter((u: any) => u.status === 'active').length,
+          })
+        }
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
   }, [])
 
   const loadUsers = () => {
