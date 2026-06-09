@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import bcrypt from 'bcryptjs'
-import { verifyAdminRequest } from '@/lib/admin-auth'
 
 export const dynamic = 'force-dynamic'
 
 // One-time password reset — delete this file after use
 export async function GET(request: NextRequest) {
-  const _auth = await verifyAdminRequest(request)
-  if ('error' in _auth) return _auth.error
-
   const { searchParams } = new URL(request.url)
   const secret = searchParams.get('secret')
 
