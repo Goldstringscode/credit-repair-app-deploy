@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { verifyAdminRequest } from '@/lib/admin-auth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -65,6 +66,9 @@ function buildHtml(subject: string, content: string): string {
 }
 
 export async function GET(request: NextRequest) {
+  const _auth = await verifyAdminRequest(request)
+  if ('error' in _auth) return _auth.error
+
   try {
     const supabase = db()
     const { data, error } = await supabase
@@ -94,6 +98,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const _auth = await verifyAdminRequest(request)
+  if ('error' in _auth) return _auth.error
+
   try {
     const body = await request.json()
     const { name, subject, content, recipientFilter, recipientFilters, recipientMode, selectedUserIds, externalEmails, scheduledFor, status, estimatedRecipients } = body
@@ -127,6 +134,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const _auth = await verifyAdminRequest(request)
+  if ('error' in _auth) return _auth.error
+
   try {
     const body = await request.json()
     const { id, status, ...updateData } = body
@@ -250,6 +260,9 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const _auth = await verifyAdminRequest(request)
+  if ('error' in _auth) return _auth.error
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
