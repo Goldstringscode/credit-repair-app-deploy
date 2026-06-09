@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { sanitizeError } from '@/lib/api-error'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -185,6 +186,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, data: { compliance, auditLog, summary } })
   } catch (err: any) {
     console.error('Compliance route error:', err.message)
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+    return NextResponse.json({ success: false, error: sanitizeError(err) }, { status: 500 })
   }
 }
