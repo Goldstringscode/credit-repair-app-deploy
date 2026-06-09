@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/auth'
 import { MLM_PERMISSIONS } from '@/lib/mlm-subscription-permissions'
+import { sanitizeError } from '@/lib/api-error'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
     updated_at: new Date().toISOString(),
   }).select().single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: sanitizeError(error) }, { status: 500 })
 
   // Assign user to their new team
   await db.from('mlm_users').update({ team_id: team.id }).eq('id', mlmUser.id)
