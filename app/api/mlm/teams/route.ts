@@ -85,29 +85,26 @@ export async function POST(req: NextRequest) {
   // Assign user to their new team
   await db.from('mlm_users').update({ team_id: team.id }).eq('id', mlmUser.id)
 
-  // Seed default channels for the new team
-  const defaultChannels = ['general', 'announcements', 'wins', 'support']
-  for (const channelName of defaultChannels) {
-    await db.from('mlm_channels').insert({
-      name: channelName,
-      description: channelName === 'general' ? 'General team discussion'
-        : channelName === 'announcements' ? 'Important team announcements'
-        : channelName === 'wins' ? 'Share your wins!'
-        : 'Get help from the team',
-      team_id: team.id,
-      created_by: user.id,
-      is_active: true,
-      created_at: new Date().toISOString(),
-    })
-  }
+  // Seed default channels — single batch insert (was 4 sequential inserts)
+  const channelDefs = [
+    { name: 'general',       description: 'General team discussion' },
+    { name: 'announcements', description: 'Important team announcements' },
+    { name: 'wins',          description: 'Share your wins!' },
+    { name: 'support',       description: 'Get help from the team' },
+  ]
+  await db.from('mlm_channels').insert(
+    channelDefs.map(ch => ({
+      ...ch, team_id: team.id, created_by: user.id,
+      is_active: true, created_at: new Date().toISOString(),
+    }))
+  )
 
-  // Seed commission rules
-  const commRules = [[1,0.10],[2,0.08],[3,0.06],[4,0.05],[5,0.04],[6,0.03],[7,0.02]]
-  for (const [depth, pct] of commRules) {
-    await db.from('mlm_team_commission_rules').insert({
-      team_id: team.id, level_depth: depth, commission_pct: pct
-    })
-  }
+  // Seed commission rules — single batch insert (was 7 sequential inserts)
+  await db.from('mlm_team_commission_rules').insert(
+    [[1,0.10],[2,0.08],[3,0.06],[4,0.05],[5,0.04],[6,0.03],[7,0.02]].map(([depth, pct]) => ({
+      team_id: team.id, level_depth: depth, commission_pct: pct,
+    }))
+  )
 
   return NextResponse.json({ success: true, team })
 }
