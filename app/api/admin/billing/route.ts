@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { sanitizeError } from '@/lib/api-error'
 
 export const dynamic = 'force-dynamic'
 
@@ -112,6 +113,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (err: any) {
     console.error('Admin billing error:', err.message)
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+    return NextResponse.json({ success: false, error: sanitizeError(err) }, { status: 500 })
   }
 }
