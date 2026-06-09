@@ -1,9 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { mockPayoutRequests } from "@/lib/admin-payout-management"
+import { verifyAdminRequest } from '@/lib/admin-auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
+  const _auth = await verifyAdminRequest(request)
+  if ('error' in _auth) return _auth.error
+
   try {
     const { searchParams } = new URL(request.url)
     const format = searchParams.get("format") || "csv"
