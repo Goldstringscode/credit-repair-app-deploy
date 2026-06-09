@@ -202,20 +202,38 @@ export async function PUT(request: NextRequest) {
 
       let sentCount = 0
       const sendErrors: string[] = []
-      // Send in batches to avoid rate limits
-      for (let i = 0; i < emailList.length; i++) {
-        const user = emailList[i]
-        const personalizedHtml = html
+      // Get Resend credentials
+      const apiKey = process.env.RESEND_API_KEY || ''
+      const fromAddress = process.env.EMAIL_FROM || 'onboarding@resend.dev'
+
+      // Build all personalized emails upfront
+      const batchEmails = emailList.map((user: any) => ({
+        from: fromAddress,
+        to: user.email,
+        subject,
+        html: html
           .replace(/\{firstName\}/g, user.first_name || 'there')
           .replace(/\{lastName\}/g, user.last_name || '')
-          .replace(/\{email\}/g, user.email)
-        
-        const result = await sendEmail(user.email, subject, personalizedHtml)
-        if (result.ok) sentCount++
-        else { console.error('Failed to send to', user.email, ':', result.error); sendErrors.push(user.email + ': ' + result.error) }
-        
-        // Small delay between sends to avoid rate limiting
-        if (i < emailList.length - 1) await new Promise(r => setTimeout(r, 100))
+          .replace(/\{email\}/g, user.email),
+        tags: [{ name: 'campaign_id', value: String(id) }],
+      }));
+
+      // Send via Resend batch API — 100 emails per request (Resend limit)
+      const BATCH_SIZE = 100;
+      for (let b = 0; b < batchEmails.length; b += BATCH_SIZE) {
+        const chunk = batchEmails.slice(b, b + BATCH_SIZE);
+        const batchRes = await fetch('https://api.resend.com/emails/batch', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify(chunk),
+        });
+        const batchData = await batchRes.json();
+        if (batchRes.ok) {
+          sentCount += (batchData.data?.length ?? chunk.length);
+          console.log(`[Campaign] Batch ${Math.floor(b/BATCH_SIZE)+1}: sent ${chunk.length} of ${emailList.length}`);
+        } else {
+          console.error('[Campaign] Batch error:', JSON.stringify(batchData));
+        }
       }
 
       // Update campaign status and stats
