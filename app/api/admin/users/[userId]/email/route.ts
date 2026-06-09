@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { verifyAdminRequest } from '@/lib/admin-auth'
 
 // POST - Send email to user
 export async function POST(
