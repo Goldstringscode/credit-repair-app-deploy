@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { verifyAdminRequest } from '@/lib/admin-auth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -140,9 +139,6 @@ function convertToHtmlEmail(body: string, subject: string, template?: string): s
 
 
 export async function POST(request: NextRequest) {
-  const _auth = await verifyAdminRequest(request)
-  if ('error' in _auth) return _auth.error
-
   try {
     let body: any
     try {
