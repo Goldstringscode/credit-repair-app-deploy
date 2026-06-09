@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { sanitizeAiFields } from '@/lib/sanitize-ai-input'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +24,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY
+    // Sanitize all user fields before they enter the AI prompt
+  let sanitized: Record<string,string>
+  try {
+    sanitized = sanitizeAiFields({
+      originalExplanation: originalExplanation ?? '',
+      disputeReason: disputeReason ?? '',
+      creditorName: creditorName ?? '',
+      accountNumber: accountNumber ?? '',
+      desiredOutcome: desiredOutcome ?? '',
+    })
+  } catch {
+    return NextResponse.json({ success: false, error: 'Invalid input detected. Please revise your submission.' }, { status: 400 })
+  }
+
+  const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
       return NextResponse.json(
         { success: false, error: 'AI service not configured', details: 'ANTHROPIC_API_KEY is not set' },
@@ -34,13 +49,13 @@ export async function POST(request: NextRequest) {
     const prompt = `You are an expert credit repair specialist with deep knowledge of FCRA, consumer rights, and effective dispute letter writing. Enhance the following basic dispute explanation into a detailed, professional, and legally sound explanation.
 
 ORIGINAL EXPLANATION:
-${originalExplanation}
+${sanitized.originalExplanation}
 
 DISPUTE CONTEXT:
-- Dispute Reason: ${disputeReason}
-- Creditor: ${creditorName}
-- Account Number: ${accountNumber || 'Not provided'}
-- Desired Outcome: ${desiredOutcome || 'Remove from credit report'}
+- Dispute Reason: ${sanitized.disputeReason}
+- Creditor: ${sanitized.creditorName}
+- Account Number: ${sanitized.accountNumber || 'Not provided'}
+- Desired Outcome: ${sanitized.desiredOutcome || 'Remove from credit report'}
 - Supporting Documentation: ${supportingDocs ? 'Available' : 'Not available'}
 - Previous Disputes: ${previousDisputes ? 'Yes' : 'No'}
 
