@@ -39,15 +39,12 @@ async function validateSponsor(sponsorId: string | undefined, mlmCode: string | 
 
 async function wouldCreateCycle(newUserId: string, sponsorMlmId: string | null): Promise<boolean> {
   if (!sponsorMlmId) return false
-  const visited = new Set<string>()
-  let currentId: string | null = sponsorMlmId
-  while (currentId) {
-    if (visited.has(currentId) || currentId === newUserId) return true
-    visited.add(currentId)
-    const { data } = await getSupabase().from('mlm_users').select('sponsor_id').eq('id', currentId).maybeSingle()
-    currentId = data?.sponsor_id ?? null
-  }
-  return false
+  // Fetch the entire ancestor chain in ONE recursive CTE query instead of N queries
+  // This walks up: sponsorMlmId → sponsor's sponsor → ... until root
+  const { data: ancestors } = await getSupabase().rpc('get_mlm_ancestors', { start_id: sponsorMlmId })
+  if (!ancestors) return false
+  // If newUserId appears anywhere in the ancestor chain, adding them would create a cycle
+  return ancestors.some((row: any) => row.id === newUserId)
 }
 
 async function generateUniqueMlmCode(): Promise<string> {
