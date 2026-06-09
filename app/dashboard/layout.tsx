@@ -97,6 +97,19 @@ export default function DashboardLayout({
                 </Link>
               )
             })}
+            {user?.role === 'admin' && (
+              <Link
+                href="/admin"
+                className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                  pathname.startsWith('/admin')
+                    ? 'bg-gray-900 text-white'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <UserCog className={`mr-3 h-5 w-5 flex-shrink-0 ${pathname.startsWith('/admin') ? 'text-white' : 'text-gray-400 group-hover:text-gray-500'}`} />
+                Admin Panel
+              </Link>
+            )}
           </nav>
           <div className="border-t p-4">
             <Button variant="outline" className="w-full bg-transparent" onClick={handleSignOut}>
@@ -131,6 +144,19 @@ export default function DashboardLayout({
                 </Link>
               )
             })}
+            {user?.role === 'admin' && (
+              <Link
+                href="/admin"
+                className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                  pathname.startsWith('/admin')
+                    ? 'bg-gray-900 text-white'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <UserCog className={`mr-3 h-5 w-5 flex-shrink-0 ${pathname.startsWith('/admin') ? 'text-white' : 'text-gray-400 group-hover:text-gray-500'}`} />
+                Admin Panel
+              </Link>
+            )}
           </nav>
           <div className="border-t p-4">
             <div className="flex items-center space-x-3 mb-4">
