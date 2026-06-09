@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AccessControl } from '@/lib/access-control';
+import { verifyAdminRequest } from '@/lib/admin-auth'
 
 export async function DELETE(
   request: NextRequest,
