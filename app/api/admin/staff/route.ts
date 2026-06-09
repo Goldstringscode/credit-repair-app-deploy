@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getSupabaseClient } from "@/lib/supabase-client"
 import { verifyToken } from "@/lib/jwt"
+import { verifyAdminRequest } from '@/lib/admin-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +19,9 @@ function getAdminFromRequest(request: NextRequest) {
 
 // GET — list all staff members
 export async function GET(request: NextRequest) {
+  const _auth = await verifyAdminRequest(request)
+  if ('error' in _auth) return _auth.error
+
   const admin = getAdminFromRequest(request)
   if (!admin) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
@@ -45,6 +49,9 @@ export async function GET(request: NextRequest) {
 
 // POST — invite a new staff member
 export async function POST(request: NextRequest) {
+  const _auth = await verifyAdminRequest(request)
+  if ('error' in _auth) return _auth.error
+
   const admin = getAdminFromRequest(request)
   if (!admin) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
