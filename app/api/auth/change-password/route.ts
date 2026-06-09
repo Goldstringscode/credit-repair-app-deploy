@@ -1,53 +1,87 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getCurrentUser } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
+import { sanitizeError } from '@/lib/api-error'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
-const db = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+function db() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
+function getIp(req: NextRequest) {
+  return req.headers.get('cf-connecting-ip') || req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+}
+function getUa(req: NextRequest) { return req.headers.get('user-agent')?.substring(0,200)||'unknown' }
+async function writeAudit(supabase: any, opts: {
+  userId?: string|null, email?: string|null, ip: string, ua: string,
+  success: boolean, reason?: string
+}) {
+  try {
+    await supabase.from('password_reset_audit').insert({
+      event: 'change', user_id: opts.userId||null, email: opts.email||null,
+      ip_address: opts.ip, user_agent: opts.ua,
+      success: opts.success, failure_reason: opts.reason||null,
+    })
+  } catch(e) { console.error('[Audit] write failed:', e) }
+}
 
 export async function POST(request: NextRequest) {
-  try {
-    const { user, isAuthenticated } = await getCurrentUser(request)
-    if (!isAuthenticated || !user) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-    }
+  const ip = getIp(request)
+  const ua = getUa(request)
+  const supabase = db()
 
-    const { currentPassword, newPassword } = await request.json()
-    if (!currentPassword || !newPassword) {
-      return NextResponse.json({ success: false, error: 'Both passwords required' }, { status: 400 })
+  try {
+    const { userId, currentPassword, newPassword } = await request.json()
+
+    if (!userId || !currentPassword || !newPassword) {
+      return NextResponse.json({ error: 'User ID, current password, and new password are required' }, { status: 400 })
     }
     if (newPassword.length < 8) {
-      return NextResponse.json({ success: false, error: 'New password must be at least 8 characters' }, { status: 400 })
+      return NextResponse.json({ error: 'New password must be at least 8 characters' }, { status: 400 })
+    }
+    if (currentPassword === newPassword) {
+      return NextResponse.json({ error: 'New password must differ from current password' }, { status: 400 })
     }
 
-    // Get current password hash
-    const { data: userData } = await db().from('users')
-      .select('password_hash').eq('id', user.id).maybeSingle()
+    // Fetch user
+    const { data: user, error: findError } = await supabase
+      .from('users').select('id, email, password').eq('id', userId).single()
 
-    if (!userData?.password_hash) {
-      return NextResponse.json({ success: false, error: 'Cannot change password for this account type' }, { status: 400 })
+    if (findError || !user) {
+      await writeAudit(supabase, { userId, ip, ua, success: false, reason: 'user_not_found' })
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     // Verify current password
-    const isValid = await bcrypt.compare(currentPassword, userData.password_hash)
+    const isValid = await bcrypt.compare(currentPassword, user.password || '')
     if (!isValid) {
-      return NextResponse.json({ success: false, error: 'Current password is incorrect' }, { status: 400 })
+      await writeAudit(supabase, { userId: user.id, email: user.email, ip, ua, success: false, reason: 'wrong_current_password' })
+      return NextResponse.json({ error: 'Current password is incorrect' }, { status: 401 })
     }
 
-    // Hash new password
-    const newHash = await bcrypt.hash(newPassword, 12)
+    // Hash and save new password
+    const hashedPassword = await bcrypt.hash(newPassword, 12)
+    const { error: updateError } = await supabase.from('users').update({
+      password: hashedPassword,
+      password_changed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq('id', user.id)
 
-    const { error } = await db().from('users')
-      .update({ password_hash: newHash, updated_at: new Date().toISOString() })
-      .eq('id', user.id)
+    if (updateError) {
+      await writeAudit(supabase, { userId: user.id, email: user.email, ip, ua, success: false, reason: 'db_update_failed' })
+      return NextResponse.json({ error: 'Failed to update password' }, { status: 500 })
+    }
 
-    if (error) return NextResponse.json({ success: false, error: 'Failed to update password' }, { status: 500 })
-
+    await writeAudit(supabase, { userId: user.id, email: user.email, ip, ua, success: true })
     return NextResponse.json({ success: true, message: 'Password changed successfully' })
-  } catch (error) {
-    console.error('Change password error:', error)
-    return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 })
+
+  } catch (err: any) {
+    console.error('[ChangePassword] Error:', err.message)
+    return NextResponse.json({ error: sanitizeError(err, 'change-password') }, { status: 500 })
   }
 }
