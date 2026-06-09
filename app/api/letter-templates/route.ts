@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/auth'
+import { sanitizeError } from '@/lib/api-error'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     if (error.message.includes('does not exist')) {
       return NextResponse.json({ success: true, templates: [] })
     }
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 })
   }
 
   return NextResponse.json({ success: true, templates: data || [] })
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 })
   }
 
   return NextResponse.json({ success: true, template: data })
@@ -88,6 +89,6 @@ export async function DELETE(request: NextRequest) {
     .eq('id', id)
     .eq('user_id', user.id) // ensure user owns it
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: sanitizeError(error) }, { status: 500 })
   return NextResponse.json({ success: true })
 }
