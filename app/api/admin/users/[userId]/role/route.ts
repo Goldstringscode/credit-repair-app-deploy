@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { verifyAdminRequest } from '@/lib/admin-auth'
 
 // PUT - Change user role
 export async function PUT(
