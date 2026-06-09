@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { databaseService } from "@/lib/database-service"
-import { verifyAdminRequest } from '@/lib/admin-auth'
 
 // GET - Get specific user
 export async function GET(
