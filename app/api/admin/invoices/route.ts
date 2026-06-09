@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sanitizeError } from '@/lib/api-error'
+import { getCached, setCached } from '@/lib/cache'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -16,6 +17,9 @@ function db() {
 // ── GET — fetch all invoices (payments + manually created) ──────────
 export async function GET(request: NextRequest) {
   try {
+    const _hit = getCached<object>('admin:invoices')
+    if (_hit) return NextResponse.json(_hit)
+
     const supabase = db()
     const { searchParams } = new URL(request.url)
     const statusFilter = searchParams.get('status')
@@ -151,11 +155,13 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error
 
-    return NextResponse.json({ success: true, data: {
+const _res = { success: true, data: {
       id: data.id, number: data.number, customerName: data.customer_name,
       customerEmail: data.customer_email, status: data.status, total: data.total,
       currency: data.currency, createdAt: data.created_at, dueDate: data.due_date,
-    }})
+    }}
+    setCached('admin:invoices', _res, 30)
+    return NextResponse.json(_res)
   } catch (err:any) {
     return NextResponse.json({ success: false, error: sanitizeError(err) }, { status: 500 })
   }
