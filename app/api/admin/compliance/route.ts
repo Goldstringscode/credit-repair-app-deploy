@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sanitizeError } from '@/lib/api-error'
+import { getCached, setCached } from '@/lib/cache'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -15,6 +16,9 @@ function db() {
 
 export async function GET(request: NextRequest) {
   try {
+    const _hit = getCached<object>('admin:compliance')
+    if (_hit) return NextResponse.json(_hit)
+
     const supabase = db()
     const now = new Date()
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
@@ -183,7 +187,9 @@ export async function GET(request: NextRequest) {
       lastUpdated: now.toISOString(),
     }
 
-    return NextResponse.json({ success: true, data: { compliance, auditLog, summary } })
+const _res = { success: true, data: { compliance, auditLog, summary } }
+    setCached('admin:compliance', _res, 60)
+    return NextResponse.json(_res)
   } catch (err: any) {
     console.error('Compliance route error:', err.message)
     return NextResponse.json({ success: false, error: sanitizeError(err) }, { status: 500 })
