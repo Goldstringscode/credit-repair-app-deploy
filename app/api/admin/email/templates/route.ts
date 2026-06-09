@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAdminRequest } from '@/lib/admin-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -100,9 +99,6 @@ let templates = [
 ]
 
 export async function GET(request: NextRequest) {
-  const _auth = await verifyAdminRequest(request)
-  if ('error' in _auth) return _auth.error
-
   try {
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type')
@@ -135,9 +131,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const _auth = await verifyAdminRequest(request)
-  if ('error' in _auth) return _auth.error
-
   try {
     const body = await request.json()
     const { name, subject, content, type = 'custom' } = body
@@ -175,9 +168,6 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const _auth = await verifyAdminRequest(request)
-  if ('error' in _auth) return _auth.error
-
   try {
     const body = await request.json()
     const { id, ...updateData } = body
@@ -217,9 +207,6 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const _auth = await verifyAdminRequest(request)
-  if ('error' in _auth) return _auth.error
-
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
