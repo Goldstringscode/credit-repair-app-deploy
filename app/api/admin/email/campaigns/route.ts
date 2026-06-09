@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { sanitizeError } from '@/lib/api-error'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -44,7 +45,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<{ok
     return { ok: true }
   } catch (err: any) {
     console.error('❌ sendEmail exception for', to, ':', err.message)
-    return { ok: false, error: err.message }
+    return { ok: false, error: sanitizeError(err) }
   }
 }
 // Build simple HTML email from plain text content
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, data: { campaign: data } })
   } catch (err: any) {
     console.error('POST campaign error:', err.message)
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+    return NextResponse.json({ success: false, error: sanitizeError(err) }, { status: 500 })
   }
 }
 
@@ -245,7 +246,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: true, data: { campaign: data } })
   } catch (err: any) {
     console.error('PUT campaign error:', err.message)
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+    return NextResponse.json({ success: false, error: sanitizeError(err) }, { status: 500 })
   }
 }
 
@@ -260,6 +261,6 @@ export async function DELETE(request: NextRequest) {
     if (error) throw error
     return NextResponse.json({ success: true })
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+    return NextResponse.json({ success: false, error: sanitizeError(err) }, { status: 500 })
   }
 }
