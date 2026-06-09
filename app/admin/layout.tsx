@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
+  ArrowLeft,
   LayoutDashboard,
   Users,
   CreditCard,
@@ -156,6 +157,10 @@ export default function AdminLayout({
         <div className="relative flex w-64 flex-col bg-white shadow-xl">
           <div className="flex h-16 items-center justify-between px-4">
             <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
+              <Link href="/dashboard" className="flex items-center gap-2 px-3 py-2 mt-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-100 hover:text-gray-900 transition-colors">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Dashboard
+              </Link>
             <Button
               variant="ghost"
               size="sm"
@@ -193,6 +198,10 @@ export default function AdminLayout({
         <div className="flex flex-col flex-grow bg-white border-r border-gray-200">
           <div className="flex h-16 items-center px-4 border-b border-gray-200">
             <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
+          <Link href="/dashboard" className="flex items-center gap-2 px-3 py-2 mt-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-100 hover:text-gray-900 transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Link>
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4">
             {adminNavigation.map((item) => {
