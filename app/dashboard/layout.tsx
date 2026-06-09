@@ -42,8 +42,6 @@ const navigation = [
   { name: "MLM System", href: "/mlm/dashboard", icon: TrendingUp },
   { name: "Compliance", href: "/admin/compliance", icon: FileCheck },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
-  { name: "Admin", href: "/admin", icon: UserCog },
-  { name: "User Management", href: "/admin/users", icon: Users },
 ]
 
 export default function DashboardLayout({
