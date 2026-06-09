@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { sanitizeError } from '@/lib/api-error'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Admin users error:', JSON.stringify(error))
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+      return NextResponse.json({ success: false, error: sanitizeError(error) }, { status: 500 })
     }
 
     const users = (data || []).map((u: any) => ({
@@ -49,6 +50,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, users, total: users.length })
   } catch (err: any) {
     console.error('Admin users catch error:', err.message)
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+    return NextResponse.json({ success: false, error: sanitizeError(err) }, { status: 500 })
   }
 }
