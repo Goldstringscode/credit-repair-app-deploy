@@ -65,6 +65,12 @@ const adminNavigation = [
     description: "Revenue and user analytics"
   },
   {
+    name: "Retention",
+    href: "/admin/retention",
+    icon: TrendingUp,
+    description: "Cohort retention and LTV analysis"
+  },
+  {
     name: "Payouts",
     href: "/admin/payouts",
     icon: TrendingUp,
