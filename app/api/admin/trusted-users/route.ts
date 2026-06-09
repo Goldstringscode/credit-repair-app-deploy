@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AccessControl, TRUSTED_USERS } from '@/lib/access-control';
+import { verifyAdminRequest } from '@/lib/admin-auth'
 
 export async function GET(request: NextRequest) {
+  const _auth = await verifyAdminRequest(request)
+  if ('error' in _auth) return _auth.error
+
   try {
     // In a real app, you'd check if the user is an admin
     // For now, we'll return all users
@@ -20,6 +24,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const _auth = await verifyAdminRequest(request)
+  if ('error' in _auth) return _auth.error
+
   try {
     const body = await request.json();
     const { email, name, role, accessLevel } = body;
