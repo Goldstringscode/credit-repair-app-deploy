@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { verifyAdminRequest } from '@/lib/admin-auth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
