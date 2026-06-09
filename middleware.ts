@@ -184,6 +184,55 @@ function getValidToken(request: NextRequest): Record<string, unknown> | null {
   }
 }
 
+
+// ── In-memory rate limiter (sliding window per IP) ─────────────────────────
+// Limits protect against brute force on auth, payment, and admin routes.
+// Uses a Map of { count, windowStart } per key — resets per Edge instance
+// which is acceptable: per-instance limits still block single-IP attacks.
+
+interface RLEntry { count: number; windowStart: number }
+const RL_STORE = new Map<string, RLEntry>()
+
+// Clean up entries older than 2x the longest window to prevent memory growth
+function rlCleanup() {
+  const now = Date.now()
+  for (const [key, entry] of RL_STORE) {
+    if (now - entry.windowStart > 30 * 60 * 1000) RL_STORE.delete(key)
+  }
+}
+
+/**
+ * Check rate limit. Returns true if request is allowed, false if rate limited.
+ * @param key      Unique key (e.g. "ip:auth" or "ip:admin")
+ * @param limit    Max requests allowed in the window
+ * @param windowMs Time window in milliseconds
+ */
+function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
+  const now = Date.now()
+  const entry = RL_STORE.get(key)
+
+  if (!entry || now - entry.windowStart >= windowMs) {
+    // New window
+    RL_STORE.set(key, { count: 1, windowStart: now })
+    if (RL_STORE.size > 10000) rlCleanup() // keep memory bounded
+    return true
+  }
+
+  entry.count++
+  if (entry.count > limit) return false
+  return true
+}
+
+function getRateLimitKey(request: NextRequest, suffix: string): string {
+  // Prefer CF-Connecting-IP (set by Cloudflare/Vercel), fall back to x-forwarded-for
+  const ip =
+    request.headers.get('cf-connecting-ip') ||
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    'unknown'
+  return ip + ':' + suffix
+}
+
 export function middleware(request: NextRequest) {
   try {
     const { pathname } = request.nextUrl;
@@ -194,6 +243,50 @@ export function middleware(request: NextRequest) {
         return NextResponse.json({ error: 'Not Found' }, { status: 404 });
       }
       return NextResponse.rewrite(new URL('/not-found', request.url));
+    }
+
+    // ── Rate limiting ────────────────────────────────────────────────────────
+    // (pathname extracted below in auth section; ip extracted here)
+    const ip =
+      request.headers.get('cf-connecting-ip') ||
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      'unknown'
+
+    // Auth routes: 10 req / 15 min (brute force protection)
+    if (pathname.startsWith('/api/auth')) {
+      if (!checkRateLimit(ip + ':auth', 10, 15 * 60 * 1000)) {
+        return NextResponse.json(
+          { success: false, error: 'Too many requests. Please wait 15 minutes before trying again.' },
+          { status: 429, headers: { 'Retry-After': '900' } }
+        )
+      }
+    }
+    // Payment routes: 20 req / min
+    else if (pathname.startsWith('/api/stripe') || pathname.startsWith('/api/billing') || pathname.startsWith('/api/payments')) {
+      if (!checkRateLimit(ip + ':payment', 20, 60 * 1000)) {
+        return NextResponse.json(
+          { success: false, error: 'Too many requests. Please try again shortly.' },
+          { status: 429, headers: { 'Retry-After': '60' } }
+        )
+      }
+    }
+    // Admin routes: 60 req / min
+    else if (pathname.startsWith('/api/admin')) {
+      if (!checkRateLimit(ip + ':admin', 60, 60 * 1000)) {
+        return NextResponse.json(
+          { success: false, error: 'Too many admin requests. Please slow down.' },
+          { status: 429, headers: { 'Retry-After': '60' } }
+        )
+      }
+    }
+    // All other API routes: 120 req / min
+    else if (pathname.startsWith('/api/')) {
+      if (!checkRateLimit(ip + ':api', 120, 60 * 1000)) {
+        return NextResponse.json(
+          { success: false, error: 'Too many requests. Please try again shortly.' },
+          { status: 429, headers: { 'Retry-After': '60' } }
+        )
+      }
     }
 
     // Allow public routes
