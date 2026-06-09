@@ -1,14 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { databaseService } from "@/lib/database-service"
-import { verifyAdminRequest } from '@/lib/admin-auth'
 
 export const dynamic = 'force-dynamic'
 
 // GET - Get all subscriptions with filtering and pagination
 export async function GET(request: NextRequest) {
-  const _auth = await verifyAdminRequest(request)
-  if ('error' in _auth) return _auth.error
-
   try {
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
@@ -43,9 +39,6 @@ export async function GET(request: NextRequest) {
 
 // POST - Create, update, or manage subscriptions
 export async function POST(request: NextRequest) {
-  const _auth = await verifyAdminRequest(request)
-  if ('error' in _auth) return _auth.error
-
   try {
     const body = await request.json()
     const { action, subscriptionData, subscriptionId, data } = body
