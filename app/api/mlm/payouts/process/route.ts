@@ -2,6 +2,7 @@ import { sendPayoutProcessedEmail } from '@/lib/email-service'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/auth'
+import { sanitizeError } from '@/lib/api-error'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
     created_at: new Date().toISOString(),
   }).select().single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: sanitizeError(error) }, { status: 500 })
 
   // Log to audit
   await db().from('mlm_audit_log').insert({
