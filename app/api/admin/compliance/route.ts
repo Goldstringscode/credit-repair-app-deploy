@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { verifyAdminRequest } from '@/lib/admin-auth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -13,6 +14,9 @@ function db() {
 }
 
 export async function GET(request: NextRequest) {
+  const _auth = await verifyAdminRequest(request)
+  if ('error' in _auth) return _auth.error
+
   try {
     const supabase = db()
     const now = new Date()
