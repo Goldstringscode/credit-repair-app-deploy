@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { aiDisputeLetterGenerator } from '@/lib/ai-dispute-letter-generator'
+import { sanitizeAiFields } from '@/lib/sanitize-ai-input'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,6 +66,23 @@ export async function POST(request: NextRequest) {
 
     for (const bureau of creditBureaus) {
       try {
+    // Sanitize free-text user fields before AI call
+    try {
+      if (typeof personalInfo === 'object' && personalInfo) {
+        const s = sanitizeAiFields({
+          firstName:  personalInfo.firstName ?? '',
+          lastName:   personalInfo.lastName ?? '',
+        })
+        personalInfo = { ...personalInfo, ...s }
+      }
+      if (additionalContext) {
+        const s = sanitizeAiFields({ additionalContext: additionalContext ?? '' })
+        additionalContext = s.additionalContext
+      }
+    } catch {
+      return NextResponse.json({ success: false, error: 'Invalid input detected. Please revise your submission.' }, { status: 400 })
+    }
+
         const letter = await aiDisputeLetterGenerator.generateDisputeLetter(
           personalInfo,
           disputeItems,
