@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/auth"
 import { type NextRequest, NextResponse } from "next/server"
 import { aiDisputeLetterGenerator } from "@/lib/ai-dispute-letter-generator"
+import { sanitizeAiFields } from '@/lib/sanitize-ai-input'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,13 +62,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Sanitize free-text user fields before passing to AI
+    let sanitizedInfo: any
+    try {
+      const s = sanitizeAiFields({
+        firstName:         personalInfo?.firstName ?? '',
+        lastName:          personalInfo?.lastName ?? '',
+        additionalContext: additionalContext ?? '',
+      })
+      // Also sanitize each dispute item's reason
+      const sanitizedItems = (disputeItems || []).map((item: any) => ({
+        ...item,
+        reason:      sanitizeAiFields({ reason: item.reason ?? '' }).reason,
+        accountName: sanitizeAiFields({ accountName: item.accountName ?? '' }).accountName,
+      }))
+      sanitizedInfo = { personalInfo: { ...personalInfo, ...s }, disputeItems: sanitizedItems, additionalContext: s.additionalContext }
+    } catch {
+      return NextResponse.json({ success: false, error: 'Invalid input detected. Please revise your submission.' }, { status: 400 })
+    }
+
     // Generate the letter
     const letter = await aiDisputeLetterGenerator.generateDisputeLetter(
-      personalInfo,
-      disputeItems,
-      letterTier, // Use the tier (standard/enhanced/premium) for the generation method
+      sanitizedInfo.personalInfo,
+      sanitizedInfo.disputeItems,
+      letterTier,
       creditBureau,
-      additionalContext
+      sanitizedInfo.additionalContext
     )
 
     return NextResponse.json({
