@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { verifyAdminRequest } from '@/lib/admin-auth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -15,9 +14,6 @@ function db() {
 
 // ── GET — fetch all invoices (payments + manually created) ──────────
 export async function GET(request: NextRequest) {
-  const _auth = await verifyAdminRequest(request)
-  if ('error' in _auth) return _auth.error
-
   try {
     const supabase = db()
     const { searchParams } = new URL(request.url)
@@ -104,9 +100,6 @@ export async function GET(request: NextRequest) {
 
 // ── POST — create a manual invoice ──────────────────────────────────
 export async function POST(request: NextRequest) {
-  const _auth = await verifyAdminRequest(request)
-  if ('error' in _auth) return _auth.error
-
   try {
     const supabase = db()
     const body = await request.json()
