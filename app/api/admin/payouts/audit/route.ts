@@ -1,8 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { verifyAdminRequest } from '@/lib/admin-auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
+  const _auth = await verifyAdminRequest(request)
+  if ('error' in _auth) return _auth.error
+
   try {
     const { searchParams } = new URL(request.url)
     const payoutId = searchParams.get("payoutId")
@@ -94,6 +98,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const _auth = await verifyAdminRequest(request)
+  if ('error' in _auth) return _auth.error
+
   try {
     const body = await request.json()
     const { payoutId, adminId, action, previousStatus, newStatus, reason, changes } = body
