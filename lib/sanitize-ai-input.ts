@@ -13,15 +13,16 @@ const INJECTION_PATTERNS = [
   /ignore (all )?(previous|prior|above) instructions?/i,
   /disregard (all )?(previous|prior|above|your) instructions?/i,
   /forget (all )?(previous|prior|above) instructions?/i,
-  /you are now/i,
-  /new persona/i,
-  /act as (a|an|the)?s+(different|new|evil|unrestricted)/i,
+  /you are now (a|an|the|my)/i,            // tightened: requires role after
+  /adopt (a |the )?new persona/i,           // tightened: requires 'adopt'
+  /take on (a |the )?new persona/i,
+  /act as (a|an|the)?\s+(different|evil|unrestricted|jailbroken)/i,
   /jailbreak/i,
   /prompt injection/i,
-  /system:s*you/i,            // fake system turn
-  /<|.*?|>/,                 // token-boundary attacks
-  /[INST]|[/INST]/,       // Llama instruction tags
-  /###s*(instruction|system|human|assistant)/i,
+  /\bsystem:\s*you\b/i,
+  /<\|.*?\|>/,
+  /\[INST\]|\[\/INST\]/,
+  /###\s*(instruction|system|human|assistant):/i,
 ]
 
 // ── Field limits (characters, not tokens — ~4 chars/token) ───────────────────
