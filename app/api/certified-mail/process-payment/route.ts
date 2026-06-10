@@ -1,38 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { certifiedMailService } from '@/lib/certified-mail-service-shipengine'
+import { sanitizeError } from '@/lib/api-error'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
-    const { trackingId, paymentIntentId, paymentMethodId } = await request.json()
+    const { trackingId, paymentIntentId } = await request.json()
     if (!trackingId || !paymentIntentId) {
-      return NextResponse.json({ success: false, error: 'Missing trackingId or paymentIntentId' }, { status: 400 })
+      return NextResponse.json(
+        { success: false, error: 'Missing trackingId or paymentIntentId' },
+        { status: 400 }
+      )
     }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-    const pi = await stripe.paymentIntents.retrieve(paymentIntentId)
 
-    if (pi.status !== 'succeeded') {
-      if (!paymentMethodId) {
-        return NextResponse.json({ success: false, error: 'Payment method required' }, { status: 400 })
-      }
-      // confirm() only accepts payment_method - no automatic_payment_methods here
-      const confirmed = await stripe.paymentIntents.confirm(paymentIntentId, {
-        payment_method: paymentMethodId,
-      })
-      if (confirmed.status !== 'succeeded' && confirmed.status !== 'processing') {
-        return NextResponse.json({ success: false, error: 'Payment failed: ' + confirmed.status }, { status: 402 })
-      }
+    // Verify payment was confirmed client-side (confirmCardPayment handles 3DS/SCA)
+    const pi = await stripe.paymentIntents.retrieve(paymentIntentId)
+    if (pi.status !== 'succeeded' && pi.status !== 'processing') {
+      return NextResponse.json(
+        { success: false, error: 'Payment not completed. Status: ' + pi.status },
+        { status: 402 }
+      )
     }
 
+    // Payment verified — purchase shipping label and finalize
     const result = await certifiedMailService.processPaymentAndSend(trackingId, paymentIntentId)
     if (!result.success) {
       return NextResponse.json({ success: false, error: result.error }, { status: 500 })
     }
+
     return NextResponse.json({
-      success: true, trackingId,
+      success: true,
+      trackingId,
       trackingNumber: result.trackingNumber,
       trackingUrl: result.trackingUrl,
       labelUrl: result.labelUrl,
@@ -40,7 +42,10 @@ export async function POST(request: NextRequest) {
       cost: result.cost,
     })
   } catch (err: any) {
-    console.error('process-payment error:', err)
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+    console.error('[process-payment] Error:', err.message)
+    return NextResponse.json(
+      { success: false, error: sanitizeError(err, 'process-payment') },
+      { status: 500 }
+    )
   }
 }
