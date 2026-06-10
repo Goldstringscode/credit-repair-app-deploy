@@ -534,7 +534,7 @@ Enclosures: Credit Report Copy`
         const customResult = await customResponse.json()
         if (customResult.success && customResult.data?.letter) {
           const recipientKey = recipient.name + ' (Custom)'
-          newGeneratedLetters[recipientKey] = customResult.data.letter
+          newGeneratedLetters[recipientKey] = customResult.data.letter?.content || customResult.data.letter
           if (!firstBureau) firstBureau = recipientKey
           if (!firstMetadata) firstMetadata = customResult.data?.letter?.metadata || null
         }
