@@ -27,9 +27,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const validLetterTypes = ['dispute', 'debt_validation', 'cease_and_desist', 'goodwill', 'pay_for_delete', 'verification']
-    if (!validLetterTypes.includes(letterType)) {
-      return NextResponse.json({ success: false, error: 'Invalid letter type' }, { status: 400 })
+    // Build recipient list — support both multi-recipient (new) and single creditBureau (legacy)
+    const bureauAddresses: Record<string, { address: string; city: string; state: string; zip: string }> = {
+      experian:   { address: 'PO Box 4500',   city: 'Allen',   state: 'TX', zip: '75013' },
+      transunion: { address: 'PO Box 2000',   city: 'Chester', state: 'PA', zip: '19016' },
+      equifax:    { address: 'PO Box 740256', city: 'Atlanta', state: 'GA', zip: '30374' },
     }
 
     let recipientList: Array<{ id: string; name: string; address: string; city: string; state: string; zip: string; type: string }>
@@ -37,13 +39,8 @@ export async function POST(request: NextRequest) {
     if (recipients && Array.isArray(recipients) && recipients.length > 0) {
       recipientList = recipients
     } else if (creditBureau) {
-      const bureauAddresses: Record<string, { address: string; city: string; state: string; zip: string }> = {
-        experian:   { address: 'PO Box 4500',   city: 'Allen',   state: 'TX', zip: '75013' },
-        transunion: { address: 'PO Box 2000',   city: 'Chester', state: 'PA', zip: '19016' },
-        equifax:    { address: 'PO Box 740256', city: 'Atlanta', state: 'GA', zip: '30374' },
-      }
-      const bureauInfo = bureauAddresses[creditBureau.toLowerCase()] || { address: '', city: '', state: '', zip: '' }
-      recipientList = [{ id: creditBureau, name: creditBureau, type: 'bureau', ...bureauInfo }]
+      const bureauInfo = bureauAddresses[String(creditBureau).toLowerCase()] || { address: '', city: '', state: '', zip: '' }
+      recipientList = [{ id: String(creditBureau), name: String(creditBureau), type: 'bureau', ...bureauInfo }]
     } else {
       return NextResponse.json(
         { success: false, error: 'Provide either recipients array or creditBureau' },
@@ -55,22 +52,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Maximum 20 recipients per request' }, { status: 400 })
     }
 
-    let sanitizedInfo: Record<string, string>
-    let sanitizedItems: any[]
-    let sanitizedContext: string
+    // Sanitize user-supplied fields
+    let sanitizedPersonalInfo = personalInfo
+    let sanitizedItems = disputeItems
+    let sanitizedContext = additionalContext || ''
 
     try {
-      sanitizedInfo = sanitizeAiFields({
+      const s = sanitizeAiFields({
         firstName:         personalInfo?.firstName ?? '',
         lastName:          personalInfo?.lastName ?? '',
         additionalContext: additionalContext ?? '',
       })
+      sanitizedPersonalInfo = { ...personalInfo, firstName: s.firstName, lastName: s.lastName }
+      sanitizedContext = s.additionalContext
       sanitizedItems = (disputeItems || []).map((item: any) => ({
         ...item,
-        reason:      sanitizeAiFields({ reason: item.reason ?? '' }).reason,
+        reason:      sanitizeAiFields({ reason:      item.reason      ?? '' }).reason,
         accountName: sanitizeAiFields({ accountName: item.accountName ?? '' }).accountName,
       }))
-      sanitizedContext = sanitizedInfo.additionalContext
     } catch {
       return NextResponse.json(
         { success: false, error: 'Invalid input detected. Please revise your submission.' },
@@ -78,11 +77,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const sanitizedPersonalInfo = { ...personalInfo, ...sanitizedInfo }
+    // Determine letter tier and type
+    const tierMap: Record<string, string> = { premium: 'premium', enhanced: 'enhanced', standard: 'standard' }
+    const resolvedTier = tierMap[String(letterTier).toLowerCase()] || 'standard'
 
+    // Generate one letter per recipient
     const letters: Array<{
       recipientId: string; recipientName: string; recipientAddress: string
-      letterTier: string; letterType: string; content: string
+      letterTier: string; letterType: string; content: string; metadata?: any
     }> = []
 
     for (const recipient of recipientList) {
@@ -92,32 +94,61 @@ export async function POST(request: NextRequest) {
         recipientName: recipient.name,
         recipientAddress: recipient.type === 'self'
           ? (personalInfo?.address || '')
-          : `${recipient.address}, ${recipient.city}, ${recipient.state} ${recipient.zip}`.trim(),
+          : [recipient.address, recipient.city, recipient.state, recipient.zip].filter(Boolean).join(', '),
       }
 
-      const letter = await aiDisputeLetterGenerator.generateDisputeLetter(
-        recipientPersonalInfo,
-        sanitizedItems,
-        letterTier,
-        recipient.name,
-        sanitizedContext
-      )
+      let letterResult: any
+      try {
+        letterResult = await aiDisputeLetterGenerator.generateDisputeLetter(
+          recipientPersonalInfo,
+          sanitizedItems,
+          resolvedTier,
+          recipient.name,
+          sanitizedContext
+        )
+      } catch (genErr: any) {
+        console.error('Generator failed for recipient', recipient.name, genErr.message)
+        continue  // skip this recipient, try remaining ones
+      }
+
+      // The generator may return the letter directly as a string, or as an object with .content
+      const content = typeof letterResult === 'string'
+        ? letterResult
+        : (letterResult?.content ?? letterResult?.letter ?? JSON.stringify(letterResult))
 
       letters.push({
         recipientId:      recipient.id,
         recipientName:    recipient.name,
         recipientAddress: recipient.type === 'self'
           ? 'Personal copy'
-          : `${recipient.address}, ${recipient.city}, ${recipient.state} ${recipient.zip}`,
-        letterTier,
+          : [recipient.address, recipient.city, recipient.state, recipient.zip].filter(Boolean).join(', '),
+        letterTier:  resolvedTier,
         letterType,
-        content: letter,
+        content,
+        metadata: letterResult?.metadata || null,
       })
     }
 
+    if (letters.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Letter generation failed for all recipients. Check server logs.' },
+        { status: 500 }
+      )
+    }
+
+    const firstLetter = letters[0]
+
+    // Return both new shape (letters[]) AND legacy shape (letter) for backward compat
     return NextResponse.json({
       success: true,
       data: {
+        // Legacy shape — page reads result.data.letter.content
+        letter: {
+          content:  firstLetter.content,
+          metadata: firstLetter.metadata,
+          recipient: firstLetter.recipientName,
+        },
+        // New shape — multi-recipient
         letters,
         count: letters.length,
         message: `Successfully generated ${letters.length} letter${letters.length !== 1 ? 's' : ''}`,
@@ -125,7 +156,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (err: any) {
-    console.error('Letter generation failed:', err.message)
+    console.error('[generate-letter] Error:', err.message)
     return NextResponse.json(
       { success: false, error: sanitizeError(err, 'generate-letter') },
       { status: 500 }
