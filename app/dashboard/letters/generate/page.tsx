@@ -398,7 +398,22 @@ Enclosures: Credit Report Copy`
       let firstBureau = ""
       let firstMetadata = null
 
-      for (const bureau of disputeInfo.bureaus) {
+      // Build base request body once (used for both bureau and custom recipient loops)
+      const baseRequestBody = {
+        personalInfo,
+        disputeItems,
+        letterType: selectedLetterType,
+        letterTier: aiLetterType,
+        additionalContext: disputeInfo.disputeDetails,
+        previousDisputes: disputeInfo.previousDisputes,
+        letterPurpose: letterType,
+        disputeDetails: disputeInfo.disputeDetails,
+        enhancedExplanation,
+        aiEnhanced: !!enhancedExplanation,
+        desiredOutcome: disputeInfo.desiredOutcome,
+      }
+
+            for (const bureau of disputeInfo.bureaus) {
         console.log(`📝 Generating letter for ${bureau}...`)
         
         // Get bureau-specific information
@@ -411,23 +426,7 @@ Enclosures: Credit Report Copy`
             ? enhancedExplanation
             : disputeInfo.disputeDetails
 
-          const requestBody = {
-          personalInfo,
-          disputeItems,
-          letterType: selectedLetterType,
-          letterTier: aiLetterType,
-          creditBureau: bureau,
-          additionalContext: {
-            previousDisputes: disputeInfo.previousDisputes,
-            letterPurpose: selectedLetterType,
-            disputeDetails: explanationToUse,
-            enhancedExplanation: enhancedExplanation && enhancedExplanation.length > 0 ? enhancedExplanation : null,
-            aiEnhanced: !!(enhancedExplanation && enhancedExplanation.length > 0),
-            desiredOutcome: disputeInfo.desiredOutcome,
-            bureauName: bureauName,
-            bureauAddress: bureauAddress
-          }
-        }
+          const requestBody = { ...baseRequestBody, creditBureau: bureau }
 
         console.log(`📤 Sending request to API for ${bureau}:`, requestBody)
         console.log("🔍 Request details:", {
@@ -515,7 +514,7 @@ Enclosures: Credit Report Copy`
             // Generate letters for custom recipients
       for (const recipient of customRecipients) {
         const customRequestBody = {
-          ...requestBody,
+          ...baseRequestBody,
           creditBureau: recipient.name,
           recipients: [{
             id: recipient.id,
