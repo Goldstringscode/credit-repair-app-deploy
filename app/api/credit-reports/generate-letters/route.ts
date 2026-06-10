@@ -66,25 +66,27 @@ export async function POST(request: NextRequest) {
 
     for (const bureau of creditBureaus) {
       try {
-    // Sanitize free-text user fields before AI call
+    // Sanitize free-text user fields before AI call — use new variables, never reassign const
+    let sanitizedPersonalInfo = personalInfo
+    let sanitizedAdditionalContext = additionalContext
     try {
       if (typeof personalInfo === 'object' && personalInfo) {
         const s = sanitizeAiFields({
           firstName:  personalInfo.firstName ?? '',
           lastName:   personalInfo.lastName ?? '',
         })
-        personalInfo = { ...personalInfo, ...s }
+        sanitizedPersonalInfo = { ...personalInfo, ...s }
       }
-      if (additionalContext) {
+      if (sanitizedAdditionalContext) {
         const s = sanitizeAiFields({ additionalContext: additionalContext ?? '' })
-        additionalContext = s.additionalContext
+        sanitizedAdditionalContext = s.additionalContext
       }
     } catch {
       return NextResponse.json({ success: false, error: 'Invalid input detected. Please revise your submission.' }, { status: 400 })
     }
 
         const letter = await aiDisputeLetterGenerator.generateDisputeLetter(
-          personalInfo,
+          sanitizedPersonalInfo,
           disputeItems,
           letterTier,
           bureau.toLowerCase(),
