@@ -42,21 +42,31 @@ function PaymentForm({ bureauList, tier, letterContent, letterType, recipientNam
   const initPayment = useCallback(async () => {
     if (!bureauList?.length && !recipientName) return
     try {
-      const addr = bureauList?.[0] || { name: recipientName, address: '' }
+      // Look up full bureau address object from BUREAU_ADDRESSES constant
+      const bureauId = (Array.isArray(bureauList) ? bureauList[0] : bureauList) || recipientName
+      const bureauAddr = BUREAU_ADDRESSES[bureauId as keyof typeof BUREAU_ADDRESSES]
+      const addr = bureauAddr || { name: recipientName, street1: '', city: '', state: '', zip: '' }
       const sender = personalInfo ? {
-        name: personalInfo.firstName + ' ' + personalInfo.lastName,
-        address: personalInfo.address || '',
-        city: personalInfo.city || '',
-        state: personalInfo.state || '',
-        zip: personalInfo.zipCode || personalInfo.zip || '',
+        name:    personalInfo.firstName + ' ' + personalInfo.lastName,
+        street1: personalInfo.address || '',
+        city:    personalInfo.city || '',
+        state:   personalInfo.state || '',
+        zip:     personalInfo.zipCode || personalInfo.zip || '',
         country: 'US',
-      } : { name: 'User', address: '', city: '', state: '', zip: '', country: 'US' }
+      } : { name: 'User', street1: '', city: '', state: 'CA', zip: '90001', country: 'US' }
       const res = await fetch('/api/certified-mail/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           letter: { content: letterContent, disputeType: letterType, bureauName: addr.name },
-          recipient: { name: addr.name || recipientName, address: addr.address || '', city: '', state: '', zip: '', country: 'US' },
+          recipient: {
+              name:    addr.name    || String(bureauId),
+              street1: addr.street1 || '',
+              city:    addr.city    || '',
+              state:   addr.state   || '',
+              zip:     addr.zip     || '',
+              country: 'US',
+            },
           sender,
           serviceTier: tier,
         }),
