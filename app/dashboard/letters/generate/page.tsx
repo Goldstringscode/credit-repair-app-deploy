@@ -69,6 +69,10 @@ export default function GenerateLetterPage() {
   const [uploadedDocuments, setUploadedDocuments] = useState<File[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [generatedLetters, setGeneratedLetters] = useState<{ [bureau: string]: string }>({})
+  const [customRecipients, setCustomRecipients] = useState<Array<{id:string;name:string;address:string;city:string;state:string;zip:string}>>([])
+  const [addingRecipient, setAddingRecipient] = useState(false)
+  const [recipientDraft, setRecipientDraft] = useState({name:'',address:'',city:'',state:'',zip:''})
+  const [recipientError, setRecipientError] = useState('')
   const [currentBureau, setCurrentBureau] = useState<string>("")
   const [letterMetadata, setLetterMetadata] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
@@ -505,6 +509,35 @@ Enclosures: Credit Report Copy`
           console.log(`📊 Customization level for ${bureau}:`, result.data.letter.metadata.customizationLevel)
         } else {
           throw new Error(result.error || "Failed to generate letter")
+        }
+      }
+
+            // Generate letters for custom recipients
+      for (const recipient of customRecipients) {
+        const customRequestBody = {
+          ...requestBody,
+          creditBureau: recipient.name,
+          recipients: [{
+            id: recipient.id,
+            name: recipient.name,
+            address: recipient.address,
+            city: recipient.city,
+            state: recipient.state,
+            zip: recipient.zip,
+            type: 'custom',
+          }],
+        }
+        const customResponse = await fetch("/api/disputes/generate-letter", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(customRequestBody),
+        })
+        const customResult = await customResponse.json()
+        if (customResult.success && customResult.data?.letter) {
+          const recipientKey = recipient.name + ' (Custom)'
+          newGeneratedLetters[recipientKey] = customResult.data.letter
+          if (!firstBureau) firstBureau = recipientKey
+          if (!firstMetadata) firstMetadata = customResult.data?.letter?.metadata || null
         }
       }
 
@@ -1147,6 +1180,102 @@ Enclosures: Credit Report Copy`
                       </div>
                     ))}
                   </div>
+                </div>
+                {/* ── Custom recipients ──────────────────────────────────── */}
+                <div className="space-y-3 mt-4 pt-4 border-t border-gray-100">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">Additional Recipients</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Add a collection agency, employer, or your own address. Each recipient generates a separate letter.</p>
+                  </div>
+
+                  {customRecipients.map((r) => (
+                    <div key={r.id} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800">{r.name}</p>
+                        <p className="text-xs text-gray-500">{r.address}, {r.city}, {r.state} {r.zip}</p>
+                      </div>
+                      <button type="button" onClick={() => setCustomRecipients(prev => prev.filter(x => x.id !== r.id))} className="text-gray-400 hover:text-red-500 p-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                      </button>
+                    </div>
+                  ))}
+
+                  {addingRecipient ? (
+                    <div className="p-4 rounded-lg border border-blue-200 bg-blue-50 space-y-3">
+                      <p className="text-xs font-semibold text-blue-700">New Recipient</p>
+                      <div>
+                        <label className="text-xs font-medium text-gray-600">Name / Organization *</label>
+                        <input type="text" placeholder="e.g. ABC Collections LLC" value={recipientDraft.name}
+                          onChange={e => { setRecipientDraft(d => ({...d, name: e.target.value})); setRecipientError(''); }}
+                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-600">Street Address *</label>
+                        <input type="text" placeholder="e.g. 123 Main Street" value={recipientDraft.address}
+                          onChange={e => setRecipientDraft(d => ({...d, address: e.target.value}))}
+                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none" />
+                      </div>
+                      <div className="grid grid-cols-5 gap-2">
+                        <div className="col-span-2">
+                          <label className="text-xs font-medium text-gray-600">City *</label>
+                          <input type="text" placeholder="City" value={recipientDraft.city}
+                            onChange={e => setRecipientDraft(d => ({...d, city: e.target.value}))}
+                            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none" />
+                        </div>
+                        <div className="col-span-1">
+                          <label className="text-xs font-medium text-gray-600">State *</label>
+                          <input type="text" placeholder="TX" maxLength={2} value={recipientDraft.state}
+                            onChange={e => setRecipientDraft(d => ({...d, state: e.target.value.toUpperCase()}))}
+                            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm uppercase focus:border-blue-500 focus:outline-none" />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="text-xs font-medium text-gray-600">ZIP *</label>
+                          <input type="text" placeholder="75001" value={recipientDraft.zip}
+                            onChange={e => setRecipientDraft(d => ({...d, zip: e.target.value}))}
+                            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none" />
+                        </div>
+                      </div>
+                      {recipientError && <p className="text-xs text-red-600">{recipientError}</p>}
+                      <div className="flex gap-2">
+                        <button type="button"
+                          onClick={() => {
+                            if (!recipientDraft.name.trim()) { setRecipientError('Name is required'); return; }
+                            if (!recipientDraft.address.trim()) { setRecipientError('Address is required'); return; }
+                            if (!recipientDraft.city.trim() || !recipientDraft.state.trim() || !recipientDraft.zip.trim()) { setRecipientError('City, state and ZIP are required'); return; }
+                            setCustomRecipients(prev => [...prev, {
+                              id: 'custom_' + Date.now(),
+                              name: recipientDraft.name.trim(),
+                              address: recipientDraft.address.trim(),
+                              city: recipientDraft.city.trim(),
+                              state: recipientDraft.state.trim().toUpperCase().slice(0,2),
+                              zip: recipientDraft.zip.trim().slice(0,10),
+                            }]);
+                            setRecipientDraft({name:'',address:'',city:'',state:'',zip:''});
+                            setRecipientError('');
+                            setAddingRecipient(false);
+                          }}
+                          className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                          Add Recipient
+                        </button>
+                        <button type="button" onClick={() => { setAddingRecipient(false); setRecipientError(''); }}
+                          className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-900">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={() => setAddingRecipient(true)}
+                      className="w-full flex items-center justify-center gap-2 py-2 text-sm text-gray-500 border border-dashed border-gray-300 rounded-lg hover:border-blue-400 hover:text-blue-600 transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                      Add collection agency or custom address
+                    </button>
+                  )}
+
+                  {customRecipients.length > 0 && (
+                    <p className="text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-md p-2">
+                      {customRecipients.length + disputeInfo.bureaus.length} total letter{(customRecipients.length + disputeInfo.bureaus.length) !== 1 ? 's' : ''} will be generated ({disputeInfo.bureaus.length} bureau{disputeInfo.bureaus.length !== 1 ? 's' : ''} + {customRecipients.length} custom).
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-3">
