@@ -4,6 +4,9 @@ import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
 import { getSupabaseClient } from '@/lib/supabase-client'
 import { generateAccessToken, generateRefreshToken } from '@/lib/jwt'
+import { sanitizeError } from '@/lib/api-error'
+
+export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   try {
