@@ -219,9 +219,9 @@ function PaymentForm({ bureauList, tier, letterContent, letterType, recipientNam
         </div>
         {selectedRate && <div className="bg-gray-50 rounded-lg p-3 mb-4 flex items-center justify-between text-sm"><div className="flex items-center gap-2 text-gray-600"><Truck className="h-4 w-4" /><span>{selectedRate.service} · {selectedRate.days}</span></div><span className="font-medium">{selectedRate.dollars}</span></div>}
         <label className="text-xs font-medium text-gray-600 mb-1 block">Card Details</label>
-        <div className="border border-gray-300 rounded-lg px-3 py-3.5 bg-white focus-within:ring-2 focus-within:ring-blue-500 mb-1">
+        <CardElement options={{ style: { base: { fontSize: '14px', color: '#1f2937', fontFamily: 'system-ui, sans-serif', '::placeholder': { color: '#9ca3af' } }, invalid: { color: '#ef4444' } } }} />
           {!clientSecret && <div className="flex items-center justify-center py-4 text-sm text-gray-500"><span className="animate-spin mr-2">⟳</span>Initializing payment...</div>}
-              {clientSecret && <CardElement options={{ style: { base: { fontSize: '14px', color: '#1f2937', fontFamily: 'ui-sans-serif,system-ui,sans-serif', '::placeholder': { color: '#9ca3af' } }, invalid: { color: '#ef4444' } }, hidePostalCode: true }} />}
+        {!clientSecret && <p className="text-xs text-gray-400 mt-1 text-center">Setting up secure payment...</p>}
         </div>
         <p className="text-xs text-gray-400 mb-3">🔒 Encrypted by Stripe. We never see your card number.</p>
         <details className="mb-4"><summary className="text-xs text-blue-500 cursor-pointer">Test cards (sandbox)</summary><div className="mt-2 space-y-1">{[{n:'4242 4242 4242 4242',l:'Visa — succeeds'},{n:'5555 5555 5555 4444',l:'Mastercard — succeeds'},{n:'4000 0000 0000 9995',l:'Visa — declined'}].map(tc=><div key={tc.n} className="text-xs bg-gray-50 rounded p-2"><span className="font-mono font-bold">{tc.n}</span> <span className="text-gray-500">— {tc.l}</span></div>)}<p className="text-xs text-gray-400 mt-1">Any future date · Any 3-digit CVC · Any ZIP</p></div></details>
