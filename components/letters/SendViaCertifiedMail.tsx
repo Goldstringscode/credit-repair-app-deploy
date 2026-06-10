@@ -270,7 +270,7 @@ export default function SendViaCertifiedMail({ letterContent, letterType, recipi
           {showBreakdown && <div className="mt-3 border-t border-gray-200 pt-3 space-y-1.5">{costBreakdown.lineItems.map((item, i) => (<div key={i} className="flex justify-between text-sm"><span className={item.cents < 0 ? 'text-green-600' : 'text-gray-600'}>{item.label}</span><span className={item.cents < 0 ? 'text-green-600 font-medium' : 'text-gray-800 font-medium'}>{item.dollars}</span></div>))}<div className="flex justify-between font-bold text-sm border-t border-gray-200 pt-2 mt-2"><span>Total</span><span>{costBreakdown.totalDollars}</span></div></div>}
         </div>
       )}
-      <Elements stripe={stripePromise} options={clientSecret ? { clientSecret } : undefined}>
+      <Elements stripe={stripePromise}>
         <PaymentForm bureauList={bureauList} tier={tier} tierInfo={tierInfo} letterContent={letterContent} letterType={letterType} recipientName={recipientName} userId={userId} personalInfo={personalInfo} onSuccess={onSuccess} onError={onError} rates={rates} selectedRate={selectedRate} setSelectedRate={setSelectedRate} loadingRates={loadingRates} costBreakdown={costBreakdown} showBreakdown={showBreakdown} setShowBreakdown={setShowBreakdown} />
       </Elements>
     </div>
