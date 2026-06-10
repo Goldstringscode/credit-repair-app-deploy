@@ -34,36 +34,106 @@ function PaymentForm({ bureauList, tier, letterContent, letterType, recipientNam
   const [templateName, setTemplateName] = useState('')
   const [savingTemplate, setSavingTemplate] = useState(false)
   const [templateSaved, setTemplateSaved] = useState(false)
+  const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [trackingId, setTrackingId] = useState<string | null>(null)
+  const [intentId, setIntentId] = useState<string | null>(null)
+
+  // Create PaymentIntent when user reaches payment step
+  const initPayment = useCallback(async () => {
+    if (!bureauList?.length && !recipientName) return
+    try {
+      const addr = bureauList?.[0] || { name: recipientName, address: '' }
+      const sender = personalInfo ? {
+        name: personalInfo.firstName + ' ' + personalInfo.lastName,
+        address: personalInfo.address || '',
+        city: personalInfo.city || '',
+        state: personalInfo.state || '',
+        zip: personalInfo.zipCode || personalInfo.zip || '',
+        country: 'US',
+      } : { name: 'User', address: '', city: '', state: '', zip: '', country: 'US' }
+      const res = await fetch('/api/certified-mail/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          letter: { content: letterContent, disputeType: letterType, bureauName: addr.name },
+          recipient: { name: addr.name || recipientName, address: addr.address || '', city: '', state: '', zip: '', country: 'US' },
+          sender,
+          serviceTier: tier,
+        }),
+      })
+      const data = await res.json()
+      if (data.success && data.paymentClientSecret) {
+        setClientSecret(data.paymentClientSecret)
+        setTrackingId(data.trackingId)
+        setIntentId(data.paymentIntentId)
+      } else {
+        toast.error(data.error || 'Failed to initialize payment')
+      }
+    } catch (err: any) {
+      toast.error('Failed to initialize payment: ' + err.message)
+    }
+  }, [bureauList, recipientName, personalInfo, letterContent, letterType, tier])
+
+  useEffect(() => {
+    if (step === 'payment' && !clientSecret) {
+      initPayment()
+    }
+  }, [step, clientSecret, initPayment])
 
   const handlePay = async () => {
     if (!stripe || !elements) { toast.error('Stripe not loaded'); return }
     if (!selectedRate) { toast.error('Select a shipping rate'); return }
+    if (!clientSecret) { toast.error('Payment not initialized. Please wait...'); return }
+
     const cardEl = elements.getElement(CardElement)
     if (!cardEl) { toast.error('Card element not found'); return }
+
     setLoading(true); setStep('processing')
     try {
-      const sender = personalInfo
-        ? { name: personalInfo.firstName + ' ' + personalInfo.lastName, street1: personalInfo.address, city: personalInfo.city, state: personalInfo.state, zip: personalInfo.zip, email: personalInfo.email, phone: personalInfo.phone, country: 'US' }
-        : { name: 'User', street1: '215 Clayton St', city: 'San Francisco', state: 'CA', zip: '94117', country: 'US' }
-      const results: SentResult[] = []
-      for (const bureauId of bureauList) {
-        const addr = BUREAU_ADDRESSES[bureauId]
-        const recipient = addr ? { ...addr, country: 'US' } : { name: recipientName, street1: '', city: '', state: '', zip: '', country: 'US' }
-        const createRes = await fetch('/api/certified-mail/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: userId || 'unknown', recipient, sender, letter: { content: letterContent, disputeType: letterType, bureauName: addr?.name || recipientName }, serviceTier: tier, selectedRateObjectId: selectedRate.objectId }) })
-        const createData = await createRes.json()
-        if (!createData.success) throw new Error(createData.error || 'Failed to create mail request')
-        const { paymentMethod, error: pmErr } = await stripe.createPaymentMethod({ type: 'card', card: cardEl, billing_details: { name: personalInfo ? personalInfo.firstName + ' ' + personalInfo.lastName : 'User' } })
-        if (pmErr) throw new Error('Card error: ' + pmErr.message)
-        const payRes = await fetch('/api/certified-mail/process-payment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trackingId: createData.trackingId, paymentIntentId: createData.paymentIntentId, paymentMethodId: paymentMethod!.id }) })
-        const payData = await payRes.json()
-        if (!payData.success) throw new Error(payData.error || 'Payment failed')
-        results.push({ bureau: bureauId, bureauName: addr?.name || recipientName, trackingNumber: payData.trackingNumber || '', trackingUrl: payData.trackingUrl, labelUrl: payData.labelUrl })
+      // Confirm payment client-side (required for 3DS / SCA compliance)
+      const { paymentIntent, error: confirmError } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: cardEl,
+          billing_details: {
+            name: personalInfo ? personalInfo.firstName + ' ' + personalInfo.lastName : 'User',
+          },
+        },
+      })
+
+      if (confirmError) throw new Error('Card error: ' + confirmError.message)
+      if (!paymentIntent || (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'processing')) {
+        throw new Error('Payment not completed: ' + paymentIntent?.status)
       }
-      setSentResults(results); setStep('done')
-      toast.success(bureauList.length > 1 ? bureauList.length + ' letters sent!' : 'Letter sent!')
-      onSuccess?.(results.map((r: SentResult) => r.trackingNumber).join(','))
-    } catch (e: any) { toast.error(e.message || 'Failed'); setStep('payment'); onError?.(e.message) }
-    finally { setLoading(false) }
+
+      // Payment confirmed — tell server to finalize and purchase shipping label
+      const payRes = await fetch('/api/certified-mail/process-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trackingId, paymentIntentId: paymentIntent.id }),
+      })
+      const payData = await payRes.json()
+      if (!payData.success) throw new Error(payData.error || 'Failed to process shipping')
+
+      // Save template if requested
+      const result: SentResult = {
+        bureau: recipientName || 'Custom',
+        bureauName: recipientName || 'Custom',
+        trackingNumber: payData.trackingNumber,
+        trackingUrl: payData.trackingUrl,
+        labelUrl: payData.labelUrl,
+        estimatedDelivery: payData.estimatedDelivery,
+        cost: payData.cost,
+      }
+      setSentResults([result])
+      setStep('done')
+      onSuccess?.([result])
+    } catch (err: any) {
+      toast.error(err.message || 'Payment failed')
+      setStep('payment')
+      onError?.(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleSaveTemplate = async () => {
@@ -140,7 +210,8 @@ function PaymentForm({ bureauList, tier, letterContent, letterType, recipientNam
         {selectedRate && <div className="bg-gray-50 rounded-lg p-3 mb-4 flex items-center justify-between text-sm"><div className="flex items-center gap-2 text-gray-600"><Truck className="h-4 w-4" /><span>{selectedRate.service} · {selectedRate.days}</span></div><span className="font-medium">{selectedRate.dollars}</span></div>}
         <label className="text-xs font-medium text-gray-600 mb-1 block">Card Details</label>
         <div className="border border-gray-300 rounded-lg px-3 py-3.5 bg-white focus-within:ring-2 focus-within:ring-blue-500 mb-1">
-          <CardElement options={{ style: { base: { fontSize: '14px', color: '#1f2937', fontFamily: 'ui-sans-serif,system-ui,sans-serif', '::placeholder': { color: '#9ca3af' } }, invalid: { color: '#ef4444' } }, hidePostalCode: true }} />
+          {!clientSecret && <div className="flex items-center justify-center py-4 text-sm text-gray-500"><span className="animate-spin mr-2">⟳</span>Initializing payment...</div>}
+              {clientSecret && <CardElement options={{ style: { base: { fontSize: '14px', color: '#1f2937', fontFamily: 'ui-sans-serif,system-ui,sans-serif', '::placeholder': { color: '#9ca3af' } }, invalid: { color: '#ef4444' } }, hidePostalCode: true }} />}
         </div>
         <p className="text-xs text-gray-400 mb-3">🔒 Encrypted by Stripe. We never see your card number.</p>
         <details className="mb-4"><summary className="text-xs text-blue-500 cursor-pointer">Test cards (sandbox)</summary><div className="mt-2 space-y-1">{[{n:'4242 4242 4242 4242',l:'Visa — succeeds'},{n:'5555 5555 5555 4444',l:'Mastercard — succeeds'},{n:'4000 0000 0000 9995',l:'Visa — declined'}].map(tc=><div key={tc.n} className="text-xs bg-gray-50 rounded p-2"><span className="font-mono font-bold">{tc.n}</span> <span className="text-gray-500">— {tc.l}</span></div>)}<p className="text-xs text-gray-400 mt-1">Any future date · Any 3-digit CVC · Any ZIP</p></div></details>
@@ -199,7 +270,7 @@ export default function SendViaCertifiedMail({ letterContent, letterType, recipi
           {showBreakdown && <div className="mt-3 border-t border-gray-200 pt-3 space-y-1.5">{costBreakdown.lineItems.map((item, i) => (<div key={i} className="flex justify-between text-sm"><span className={item.cents < 0 ? 'text-green-600' : 'text-gray-600'}>{item.label}</span><span className={item.cents < 0 ? 'text-green-600 font-medium' : 'text-gray-800 font-medium'}>{item.dollars}</span></div>))}<div className="flex justify-between font-bold text-sm border-t border-gray-200 pt-2 mt-2"><span>Total</span><span>{costBreakdown.totalDollars}</span></div></div>}
         </div>
       )}
-      <Elements stripe={stripePromise}>
+      <Elements stripe={stripePromise} options={clientSecret ? { clientSecret } : undefined}>
         <PaymentForm bureauList={bureauList} tier={tier} tierInfo={tierInfo} letterContent={letterContent} letterType={letterType} recipientName={recipientName} userId={userId} personalInfo={personalInfo} onSuccess={onSuccess} onError={onError} rates={rates} selectedRate={selectedRate} setSelectedRate={setSelectedRate} loadingRates={loadingRates} costBreakdown={costBreakdown} showBreakdown={showBreakdown} setShowBreakdown={setShowBreakdown} />
       </Elements>
     </div>
