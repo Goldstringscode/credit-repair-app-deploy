@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { certifiedMailService } from '@/lib/certified-mail-service-shipengine'
 import { getCurrentUser } from '@/lib/auth'
+import { sanitizeError } from '@/lib/api-error'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +37,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result)
   } catch (err: any) {
     console.error('certified-mail/create error:', err)
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+    return NextResponse.json({ success: false, error: sanitizeError(err) }, { status: 500 })
   }
 }
