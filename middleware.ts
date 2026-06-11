@@ -223,6 +223,46 @@ function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
   return true
 }
 
+// Distributed rate limiter backed by Upstash Redis REST (Edge-compatible, fetch-based).
+// Falls back to the in-memory checkRateLimit when Upstash env vars are not configured,
+// so behavior is unchanged until UPSTASH_REDIS_REST_URL / _TOKEN are provisioned.
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN
+
+async function checkRateLimitDistributed(key: string, limit: number, windowMs: number): Promise<boolean> {
+  // No Redis configured → use the per-instance limiter (best-effort).
+  if (!UPSTASH_URL || !UPSTASH_TOKEN) {
+    return checkRateLimit(key, limit, windowMs)
+  }
+  try {
+    // Atomic INCR; set the expiry only on the first hit of a window (NX).
+    const res = await fetch(UPSTASH_URL + '/pipeline', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + UPSTASH_TOKEN,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify([
+        ['INCR', 'rl:' + key],
+        ['PEXPIRE', 'rl:' + key, String(windowMs), 'NX'],
+      ]),
+      // Never let the limiter hang the request path.
+      signal: AbortSignal.timeout(800),
+    })
+    if (!res.ok) {
+      // Redis unhappy → fail OPEN (allow) rather than locking users out.
+      return checkRateLimit(key, limit, windowMs)
+    }
+    const data = await res.json()
+    const count = Array.isArray(data) ? Number(data[0]?.result ?? 0) : 0
+    if (!count) return checkRateLimit(key, limit, windowMs)
+    return count <= limit
+  } catch {
+    // Network error / timeout → fail open via the local limiter.
+    return checkRateLimit(key, limit, windowMs)
+  }
+}
+
 function getRateLimitKey(request: NextRequest, suffix: string): string {
   // Prefer CF-Connecting-IP (set by Cloudflare/Vercel), fall back to x-forwarded-for
   const ip =
@@ -233,7 +273,7 @@ function getRateLimitKey(request: NextRequest, suffix: string): string {
   return ip + ':' + suffix
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   try {
     const { pathname } = request.nextUrl;
 
@@ -254,7 +294,7 @@ export function middleware(request: NextRequest) {
 
     // Auth routes: 10 req / 15 min (brute force protection)
     if (pathname.startsWith('/api/auth')) {
-      if (!checkRateLimit(ip + ':auth', 10, 15 * 60 * 1000)) {
+      if (!(await checkRateLimitDistributed(ip + ':auth', 10, 15 * 60 * 1000))) {
         return NextResponse.json(
           { success: false, error: 'Too many requests. Please wait 15 minutes before trying again.' },
           { status: 429, headers: { 'Retry-After': '900' } }
@@ -263,7 +303,7 @@ export function middleware(request: NextRequest) {
     }
     // Payment routes: 20 req / min
     else if (pathname.startsWith('/api/stripe') || pathname.startsWith('/api/billing') || pathname.startsWith('/api/payments')) {
-      if (!checkRateLimit(ip + ':payment', 20, 60 * 1000)) {
+      if (!(await checkRateLimitDistributed(ip + ':payment', 20, 60 * 1000))) {
         return NextResponse.json(
           { success: false, error: 'Too many requests. Please try again shortly.' },
           { status: 429, headers: { 'Retry-After': '60' } }
@@ -272,7 +312,7 @@ export function middleware(request: NextRequest) {
     }
     // Admin routes: 60 req / min
     else if (pathname.startsWith('/api/admin')) {
-      if (!checkRateLimit(ip + ':admin', 60, 60 * 1000)) {
+      if (!(await checkRateLimitDistributed(ip + ':admin', 60, 60 * 1000))) {
         return NextResponse.json(
           { success: false, error: 'Too many admin requests. Please slow down.' },
           { status: 429, headers: { 'Retry-After': '60' } }
@@ -281,7 +321,7 @@ export function middleware(request: NextRequest) {
     }
     // All other API routes: 120 req / min
     else if (pathname.startsWith('/api/')) {
-      if (!checkRateLimit(ip + ':api', 120, 60 * 1000)) {
+      if (!(await checkRateLimitDistributed(ip + ':api', 120, 60 * 1000))) {
         return NextResponse.json(
           { success: false, error: 'Too many requests. Please try again shortly.' },
           { status: 429, headers: { 'Retry-After': '60' } }
