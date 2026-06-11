@@ -65,11 +65,27 @@ export async function POST(request: NextRequest) {
       })
       sanitizedPersonalInfo = { ...personalInfo, firstName: s.firstName, lastName: s.lastName }
       sanitizedContext = s.additionalContext
-      sanitizedItems = (disputeItems || []).map((item: any) => ({
-        ...item,
-        reason:      sanitizeAiFields({ reason:      item.reason      ?? '' }).reason,
-        accountName: sanitizeAiFields({ accountName: item.accountName ?? '' }).accountName,
-      }))
+      sanitizedItems = (disputeItems || []).map((item: any) => {
+        // Sanitize every free-text field that can flow into the AI prompt.
+        // The dashboard sends disputeReason / creditorName / accountNumber on each
+        // item; older callers may send reason / accountName. Sanitize whichever
+        // are present so nothing reaches Anthropic unchecked.
+        const sf = sanitizeAiFields({
+          disputeReason: item.disputeReason ?? '',
+          creditorName:  item.creditorName  ?? '',
+          accountName:   item.accountName   ?? '',
+          accountNumber: item.accountNumber ?? '',
+          reason:        item.reason        ?? '',
+        })
+        return {
+          ...item,
+          ...(item.disputeReason !== undefined ? { disputeReason: sf.disputeReason } : {}),
+          ...(item.creditorName  !== undefined ? { creditorName:  sf.creditorName  } : {}),
+          ...(item.accountName   !== undefined ? { accountName:   sf.accountName   } : {}),
+          ...(item.accountNumber !== undefined ? { accountNumber: sf.accountNumber } : {}),
+          ...(item.reason        !== undefined ? { reason:        sf.reason        } : {}),
+        }
+      })
     } catch {
       return NextResponse.json(
         { success: false, error: 'Invalid input detected. Please revise your submission.' },
