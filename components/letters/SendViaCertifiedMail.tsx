@@ -223,7 +223,6 @@ function PaymentForm({ bureauList, tier, letterContent, letterType, recipientNam
                 <CardElement options={{ style: { base: { fontSize: '14px', color: '#1f2937', fontFamily: 'system-ui, sans-serif', '::placeholder': { color: '#9ca3af' } }, invalid: { color: '#ef4444' } } }} />
               </div>
               {!clientSecret && <p className="text-xs text-gray-400 mt-1">Setting up secure payment...</p>}
-            </div>
             <details className="mb-4"><summary className="text-xs text-blue-500 cursor-pointer">Test cards (sandbox)</summary><div className="mt-2 space-y-1">{[{n:'4242 4242 4242 4242',l:'Visa — succeeds'},{n:'5555 5555 5555 4444',l:'Mastercard — succeeds'},{n:'4000 0000 0000 9995',l:'Visa — declined'}].map(tc=><div key={tc.n} className="text-xs bg-gray-50 rounded p-2"><span className="font-mono font-bold">{tc.n}</span> <span className="text-gray-500">— {tc.l}</span></div>)}<p className="text-xs text-gray-400 mt-1">Any future date · Any 3-digit CVC · Any ZIP</p></div></details>
         <button onClick={handlePay} disabled={loading || step === 'processing' || !stripe} className="w-full py-2.5 rounded-lg font-semibold text-sm text-white disabled:opacity-60 flex items-center justify-center gap-2" style={{background:'linear-gradient(135deg,#667eea,#764ba2)'}}>
           {loading || step === 'processing' ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</> : <><Mail className="h-4 w-4" /> Pay {costBreakdown?.totalDollars || ''} &amp; Send Letter{bureauList.length > 1 ? 's' : ''}</>}
