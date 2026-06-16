@@ -11,7 +11,7 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 interface Rate { carrier: string; service: string; serviceCode: string; days: string; cents: number; dollars: string; objectId: string; recommended?: boolean; simulated?: boolean }
 interface CostBreakdown { bureauCount: number; tierName: string; totalCents: number; totalDollars: string; perBureauDollars: string; discountPercent: number; discountAmount: number; lineItems: { label: string; cents: number; dollars: string }[] }
 interface SentResult { bureau: string; bureauName: string; trackingNumber: string; trackingUrl?: string; labelUrl?: string }
-interface Props { letterContent: string; letterType: string; recipientName: string; recipientAddress: string; bureaus?: string[]; tier?: string; userId?: string; personalInfo?: { firstName: string; lastName: string; address: string; city: string; state: string; zip: string; email: string; phone: string }; onSuccess?: (t: string) => void; onError?: (e: string) => void }
+interface Props { letterContent: string; letterType: string; recipientName: string; recipientAddress: string; bureaus?: string[]; customRecipients?: Array<{ id?: string; name: string; address: string; city: string; state: string; zip: string }>; tier?: string; userId?: string; personalInfo?: { firstName: string; lastName: string; address: string; city: string; state: string; zip: string; email: string; phone: string }; onSuccess?: (t: string) => void; onError?: (e: string) => void }
 
 const BUREAU_ADDRESSES: Record<string, { name: string; street1: string; city: string; state: string; zip: string }> = {
   experian:   { name: 'Experian',   street1: '475 Anton Blvd',          city: 'Costa Mesa', state: 'CA', zip: '92626' },
@@ -238,9 +238,11 @@ function PaymentForm({ bureauList, tier, letterContent, letterType, recipientNam
   )
 }
 
-export default function SendViaCertifiedMail({ letterContent, letterType, recipientName, recipientAddress, bureaus = [], tier = 'certified', userId, personalInfo, onSuccess, onError }: Props) {
+export default function SendViaCertifiedMail({ letterContent, letterType, recipientName, recipientAddress, bureaus = [], customRecipients = [], tier = 'certified', userId, personalInfo, onSuccess, onError }: Props) {
   const bureauList = bureaus.length > 0 ? bureaus : ['experian']
   const bureauCount = bureauList.length
+  const customList = Array.isArray(customRecipients) ? customRecipients : []
+  const totalRecipients = bureauCount + customList.length
   const tierInfo = TIER_INFO[tier] || TIER_INFO.certified
   const [rates, setRates] = useState<Rate[]>([])
   const [selectedRate, setSelectedRate] = useState<Rate | null>(null)
@@ -252,8 +254,8 @@ export default function SendViaCertifiedMail({ letterContent, letterType, recipi
     setLoadingRates(true)
     try {
       const [rr, cr] = await Promise.all([
-        fetch('/api/certified-mail/rates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bureauCount, toAddress: BUREAU_ADDRESSES[bureauList[0]] }) }),
-        fetch('/api/certified-mail/calculate-cost', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tier, bureauCount, bureaus: bureauList }) }),
+        fetch('/api/certified-mail/rates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bureauCount: totalRecipients, toAddress: BUREAU_ADDRESSES[bureauList[0]] }) }),
+        fetch('/api/certified-mail/calculate-cost', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tier, bureauCount: totalRecipients, bureaus: bureauList }) }),
       ])
       const [rd, cd] = await Promise.all([rr.json(), cr.json()])
       const rl = rd.rates || []
@@ -273,12 +275,18 @@ export default function SendViaCertifiedMail({ letterContent, letterType, recipi
       </div>
       <div>
         <p className="text-xs text-gray-500 uppercase tracking-wide mb-2 font-semibold">Sending To</p>
-        <div className="flex flex-wrap gap-2">{bureauList.map((b: string) => { const addr = BUREAU_ADDRESSES[b]; return (<div key={b} className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm"><div className="font-semibold text-blue-800">{addr?.name || b}</div><div className="text-blue-600 text-xs">{addr ? addr.street1 + ', ' + addr.city + ', ' + addr.state : recipientAddress}</div></div>) })}</div>
+        <div className="flex flex-wrap gap-2">{bureauList.map((b: string) => { const addr = BUREAU_ADDRESSES[b]; return (<div key={b} className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm"><div className="font-semibold text-blue-800">{addr?.name || b}</div><div className="text-blue-600 text-xs">{addr ? addr.street1 + ', ' + addr.city + ', ' + addr.state : recipientAddress}</div></div>) })}
+          {customList.map((r: any, i: number) => (
+            <div key={'custom-'+(r.id || i)} className="bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+              <p className="text-sm font-semibold text-gray-800">{r.name}</p>
+              <p className="text-xs text-gray-500">{r.address}, {r.city}, {r.state} {r.zip}</p>
+            </div>
+          ))}</div>
       </div>
       {costBreakdown && (
         <div className="bg-gray-50 rounded-lg p-4 cursor-pointer" onClick={() => setShowBreakdown(!showBreakdown)}>
           <div className="flex items-center justify-between">
-            <div><span className="text-sm text-gray-600">{tierInfo.label} — {bureauCount} bureau{bureauCount > 1 ? 's' : ''}</span><div className="text-xl font-bold text-gray-900 mt-0.5">{costBreakdown.totalDollars}</div></div>
+            <div><span className="text-sm text-gray-600">{tierInfo.label} — {totalRecipients} recipient{totalRecipients > 1 ? 's' : ''}</span><div className="text-xl font-bold text-gray-900 mt-0.5">{costBreakdown.totalDollars}</div></div>
             <div className="text-right">{bureauCount > 1 && <div className="text-xs text-gray-400">{costBreakdown.perBureauDollars}/bureau</div>}{costBreakdown.discountPercent > 0 && <Badge className="bg-green-100 text-green-700 mt-1">{costBreakdown.discountPercent}% discount</Badge>}{showBreakdown ? <ChevronUp className="h-4 w-4 text-gray-400 mt-1 ml-auto" /> : <ChevronDown className="h-4 w-4 text-gray-400 mt-1 ml-auto" />}</div>
           </div>
           {showBreakdown && <div className="mt-3 border-t border-gray-200 pt-3 space-y-1.5">{costBreakdown.lineItems.map((item, i) => (<div key={i} className="flex justify-between text-sm"><span className={item.cents < 0 ? 'text-green-600' : 'text-gray-600'}>{item.label}</span><span className={item.cents < 0 ? 'text-green-600 font-medium' : 'text-gray-800 font-medium'}>{item.dollars}</span></div>))}<div className="flex justify-between font-bold text-sm border-t border-gray-200 pt-2 mt-2"><span>Total</span><span>{costBreakdown.totalDollars}</span></div></div>}
