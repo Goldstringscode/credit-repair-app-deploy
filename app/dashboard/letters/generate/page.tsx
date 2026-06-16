@@ -1652,8 +1652,9 @@ Enclosures: Credit Report Copy`
                             <SendViaCertifiedMail
                               letterContent={generatedLetters[currentBureau] || ''}
                               letterType={letterType}
-                              tier={letterType.split('_')[0] || 'standard'}
+                              tier={'certified'}
                               bureaus={disputeInfo.bureaus}
+                              customRecipients={customRecipients}
                               recipientName={creditBureaus.find(b => b.id === currentBureau)?.name || currentBureau}
                               recipientAddress={creditBureaus.find(b => b.id === currentBureau)?.address || ''}
                               userId={user?.id}
