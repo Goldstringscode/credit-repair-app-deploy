@@ -210,8 +210,8 @@ class ShippoService {
           state: sender.state,
           zip: sender.zip,
           country: sender.country || 'US',
-          phone: sender.phone || '',
-          email: sender.email || '',
+          phone: sender.phone || process.env.CERTIFIED_MAIL_FROM_PHONE || '5555555555',
+          email: sender.email || process.env.CERTIFIED_MAIL_FROM_EMAIL || 'support@creditrepair.app',
         },
         address_to: {
           name: recipient.name,
