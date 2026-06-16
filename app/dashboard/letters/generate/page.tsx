@@ -135,35 +135,56 @@ export default function GenerateLetterPage() {
     loadUserData()
   }, [])
 
-  const loadUserData = () => {
-    // In a real app, this would fetch from user profile/database
-    // For now, we'll use mock data or localStorage
-    const mockUserData = {
-      firstName: 'John',
-      lastName: 'Doe',
-      address: '123 Main Street',
-      city: 'Anytown',
-      state: 'CA',
-      zipCode: '12345',
-      phone: '(555) 123-4567',
-      email: 'john.doe@example.com',
-      ssnLast4: '1234',
-      dateOfBirth: '1990-01-01'
+  const loadUserData = async () => {
+    // Empty defaults — never pre-fill fake data, since these values get printed on
+    // real mailed letters and used as the USPS sender (email + phone required).
+    const emptyInfo = {
+      firstName: '', lastName: '', address: '', city: '', state: '',
+      zipCode: '', phone: '', email: '', ssnLast4: '', dateOfBirth: ''
     }
 
-    // Check if we have user data in localStorage (from credit reports)
+    // 1) Seed from the authenticated user profile where available.
+    //    /api/auth/me currently returns { email, name } reliably; address/phone
+    //    are collected in the form below (and should move to the profile later).
+    let seeded = { ...emptyInfo }
+    try {
+      const me = await fetch('/api/auth/me', { credentials: 'include' }).then(r => r.json()).catch(() => null)
+      const u = me?.user
+      if (u) {
+        const nameParts = (u.name || '').trim().split(/\s+/)
+        seeded = {
+          ...seeded,
+          firstName: u.first_name || u.firstName || nameParts[0] || '',
+          lastName:  u.last_name  || u.lastName  || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : ''),
+          email:     u.email || '',
+          phone:     u.phone || u.phone_number || '',
+          address:   u.address || '',
+          city:      u.city || '',
+          state:     u.state || '',
+          zipCode:   u.zipCode || u.zip || '',
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error)
+    }
+
+    // 2) Overlay any locally-saved info (e.g. from the credit-report flow),
+    //    but never let blank saved fields wipe out real profile values.
     const savedPersonalInfo = localStorage.getItem('personalInfo')
     if (savedPersonalInfo) {
       try {
         const parsed = JSON.parse(savedPersonalInfo)
-        setPersonalInfo(parsed)
+        const merged = { ...seeded }
+        for (const k of Object.keys(parsed)) {
+          if (parsed[k] != null && String(parsed[k]).trim() !== '') merged[k] = parsed[k]
+        }
+        setPersonalInfo(merged)
+        return
       } catch (error) {
         console.error('Error parsing saved personal info:', error)
-        setPersonalInfo(mockUserData)
       }
-    } else {
-      setPersonalInfo(mockUserData)
     }
+    setPersonalInfo(seeded)
   }
 
   const loadNegativeItems = async () => {
@@ -955,7 +976,7 @@ Enclosures: Credit Report Copy`
                 </Button>
                 <Button
                   onClick={() => setCurrentStep(3)}
-                  disabled={!personalInfo.firstName || !personalInfo.lastName || !personalInfo.address}
+                  disabled={!personalInfo.firstName || !personalInfo.lastName || !personalInfo.address || !personalInfo.city || !personalInfo.state || !personalInfo.zipCode || !personalInfo.phone || !personalInfo.email}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   Continue
