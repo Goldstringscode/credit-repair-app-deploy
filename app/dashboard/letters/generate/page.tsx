@@ -524,9 +524,9 @@ Enclosures: Credit Report Copy`
             firstBureau = bureau
           }
           
-          console.log(`✅ Letter generated for ${bureau} with quality score:`, result.data.letter.metadata.qualityScore)
-          console.log(`🔄 Uniqueness score for ${bureau}:`, result.data.letter.metadata.uniquenessScore)
-          console.log(`📊 Customization level for ${bureau}:`, result.data.letter.metadata.customizationLevel)
+          console.log(`✅ Letter generated for ${bureau} with quality score:`, result.data.letter.metadata?.qualityScore ?? 'n/a')
+          console.log(`🔄 Uniqueness score for ${bureau}:`, result.data.letter.metadata?.uniquenessScore ?? 'n/a')
+          console.log(`📊 Customization level for ${bureau}:`, result.data.letter.metadata?.customizationLevel ?? 'n/a')
         } else {
           throw new Error(result.error || "Failed to generate letter")
         }
@@ -1079,7 +1079,7 @@ Enclosures: Credit Report Copy`
                         <div className="flex items-center space-x-2">
                           <h4 className="font-medium text-blue-800">AI Enhanced Explanation</h4>
                           <Badge variant="secondary" className="text-xs">
-                            {Math.round(((enhancedExplanation.length - disputeInfo.disputeDetails.length) / disputeInfo.disputeDetails.length) * 100)}% longer
+                            {(() => { const orig = (disputeInfo.disputeDetails || '').trim().length; const enh = (enhancedExplanation || '').trim().length; if (orig === 0) return enh > 0 ? 'expanded' : ''; const pct = Math.round(((enh - orig) / orig) * 100); if (pct <= 0) return 'refined'; return `${Math.min(pct, 500)}% longer`; })()}
                           </Badge>
                         </div>
                         <div className="flex items-center space-x-2">
