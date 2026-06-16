@@ -53,7 +53,12 @@ function PaymentForm({ bureauList, tier, letterContent, letterType, recipientNam
         state:   personalInfo.state || '',
         zip:     personalInfo.zipCode || personalInfo.zip || '',
         country: 'US',
-      } : { name: 'User', street1: '', city: '', state: 'CA', zip: '90001', country: 'US' }
+        // USPS (via Shippo) requires a sender email AND phone. Pass them through when
+        // the profile has them; the API also has a server-side fallback so the label
+        // purchase never fails on a missing contact field.
+        email:   personalInfo.email || '',
+        phone:   personalInfo.phone || personalInfo.phoneNumber || '',
+      } : { name: 'User', street1: '', city: '', state: 'CA', zip: '90001', country: 'US', email: '', phone: '' }
       const res = await fetch('/api/certified-mail/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
