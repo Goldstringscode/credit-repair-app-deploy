@@ -12,7 +12,6 @@ export async function GET(request: NextRequest) {
   const userId = user.id
   try {
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId') || userId
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
 
@@ -98,7 +97,7 @@ export async function POST(request: NextRequest) {
   const userId = user.id
   try {
     const body = await request.json()
-    const { title, message, type = 'info', priority = 'medium', userId = userId, data, actions } = body
+              const { title, message, type = 'info', priority = 'medium', data, actions } = body
 
     if (!title || !message) {
       return NextResponse.json({ error: "Title and message are required" }, { status: 400 })
