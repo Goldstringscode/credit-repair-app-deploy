@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     const { data: actionPlan, error } = await supabase
       .from("action_plans")
       .select("*")
-      .eq("user_id", user.userId)
+      .eq("user_id", user.id)
       .eq("status", "active")
       .single()
 
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       const { data: newPlan, error: createError } = await supabase
         .from("action_plans")
         .insert({
-          user_id: user.userId,
+          user_id: user.id,
           plan_data: defaultPlan,
           status: "active",
           created_at: new Date().toISOString(),
