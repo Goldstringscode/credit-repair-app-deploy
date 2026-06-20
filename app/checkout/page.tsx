@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { CheckoutForm } from '@/components/checkout-form'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { AlertCircle, Loader2 } from 'lucide-react'
 
 interface Plan {
   id: string
@@ -21,7 +21,6 @@ export default function CheckoutPage() {
   const router = useRouter()
   const [plan, setPlan] = useState<Plan | null>(null)
   const [loading, setLoading] = useState(true)
-  const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const plans: Plan[] = [
@@ -87,13 +86,15 @@ export default function CheckoutPage() {
   }, [searchParams])
 
   const handleSuccess = (paymentData: any) => {
-    // paymentData now contains real Stripe identifiers (customerId,
-    // subscriptionId, paymentIntentId) from a completed charge — see
-    // components/checkout-form.tsx. No raw card data is ever passed here.
-    setSuccess(true)
-    setTimeout(() => {
-      router.push('/dashboard/billing')
-    }, 3000)
+    // paymentData contains real Stripe identifiers from a completed charge
+    // (see components/checkout-form.tsx). We never show "success" ourselves —
+    // the success page independently re-verifies the PaymentIntent with
+    // Stripe before displaying anything or firing notifications.
+    const params = new URLSearchParams()
+    if (paymentData?.paymentIntentId) {
+      params.set('paymentIntentId', paymentData.paymentIntentId)
+    }
+    router.push(`/checkout/success?${params.toString()}`)
   }
 
   const handleCancel = () => {
@@ -129,40 +130,6 @@ export default function CheckoutPage() {
             <button
               onClick={() => router.push('/dashboard/billing')}
               className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
-            >
-              Back to Billing
-            </button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  if (success) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-600">
-              <CheckCircle className="h-5 w-5" />
-              Payment Successful!
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Alert>
-              <CheckCircle className="h-4 w-4" />
-              <AlertDescription>
-                Your payment has been processed successfully. You will receive a confirmation email shortly.
-              </AlertDescription>
-            </Alert>
-            <div className="space-y-2">
-              <p><strong>Plan:</strong> {plan?.name}</p>
-              <p><strong>Amount:</strong> ${plan?.price}/{plan?.interval}</p>
-              <p><strong>Status:</strong> Active</p>
-            </div>
-            <button
-              onClick={() => router.push('/dashboard/billing')}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
             >
               Back to Billing
             </button>
