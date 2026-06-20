@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { database } from '@/lib/database'
 import { withRateLimit } from '@/lib/rate-limiter'
+import { stripe } from '@/lib/stripe/config'
 
 export const GET = withRateLimit(
   requireAuth(async (request: NextRequest, user) => {
     try {
       const cards = await database.getCards(user.id)
-      
+
       return NextResponse.json({
         success: true,
         cards: cards.map(card => ({
@@ -36,65 +37,67 @@ export const GET = withRateLimit(
 export const POST = withRateLimit(
   requireAuth(async (request: NextRequest, user) => {
     try {
+      if (!stripe) {
+        return NextResponse.json({
+          success: false,
+          error: 'Stripe is not configured'
+        }, { status: 500 })
+      }
+
+      // The client tokenizes the card directly with Stripe (CardElement +
+      // stripe.createPaymentMethod) and only ever sends us the resulting
+      // paymentMethodId. Raw card numbers and CVCs never reach this server.
       const body = await request.json()
-      const { cardNumber, expiryMonth, expiryYear, cvc, name, zipCode } = body
+      const { paymentMethodId } = body
 
-      if (!cardNumber || !expiryMonth || !expiryYear || !cvc || !name || !zipCode) {
+      if (!paymentMethodId) {
         return NextResponse.json({
           success: false,
-          error: 'All card fields are required'
+          error: 'paymentMethodId is required'
         }, { status: 400 })
       }
 
-      // Basic validation
-      const cleanCardNumber = cardNumber.replace(/\s/g, '')
-      if (cleanCardNumber.length < 13 || cleanCardNumber.length > 19) {
+      // Get or create the Stripe customer for this user.
+      let customerId = user.customerId
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email,
+          name: user.name,
+        })
+        customerId = customer.id
+        await database.updateUser(user.id, { customerId })
+      }
+
+      const paymentMethod = await stripe.paymentMethods.attach(paymentMethodId, {
+        customer: customerId,
+      })
+
+      if (!paymentMethod.card) {
         return NextResponse.json({
           success: false,
-          error: 'Invalid card number'
+          error: 'Payment method is not a card'
         }, { status: 400 })
       }
 
-      if (expiryMonth < 1 || expiryMonth > 12) {
-        return NextResponse.json({
-          success: false,
-          error: 'Invalid expiry month'
-        }, { status: 400 })
-      }
-
-      const currentYear = new Date().getFullYear()
-      if (expiryYear < currentYear) {
-        return NextResponse.json({
-          success: false,
-          error: 'Card has expired'
-        }, { status: 400 })
-      }
-
-      // Determine card brand
-      const getCardBrand = (number: string) => {
-        if (number.startsWith('4')) return 'Visa'
-        if (number.startsWith('5')) return 'Mastercard'
-        if (number.startsWith('3')) return 'American Express'
-        return 'Card'
-      }
+      const existingCards = await database.getCards(user.id)
+      const isFirstCard = existingCards.length === 0
 
       const card = await database.createCard({
         userId: user.id,
-        last4: cleanCardNumber.slice(-4),
-        brand: getCardBrand(cleanCardNumber),
-        expMonth: parseInt(expiryMonth),
-        expYear: parseInt(expiryYear),
-        isDefault: false, // Will be set as default if it's the first card
-        name,
-        zipCode,
-        metadata: {}
+        last4: paymentMethod.card.last4,
+        brand: paymentMethod.card.brand,
+        expMonth: paymentMethod.card.exp_month,
+        expYear: paymentMethod.card.exp_year,
+        isDefault: isFirstCard,
+        name: paymentMethod.billing_details?.name || user.name,
+        zipCode: paymentMethod.billing_details?.address?.postal_code || '',
+        metadata: { stripePaymentMethodId: paymentMethod.id }
       })
 
-      // If this is the first card, set it as default
-      const allCards = await database.getCards(user.id)
-      if (allCards.length === 1) {
-        await database.setDefaultCard(user.id, card.id)
-        card.isDefault = true
+      if (isFirstCard) {
+        await stripe.customers.update(customerId, {
+          invoice_settings: { default_payment_method: paymentMethod.id }
+        })
       }
 
       return NextResponse.json({
