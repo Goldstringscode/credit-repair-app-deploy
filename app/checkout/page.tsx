@@ -87,14 +87,13 @@ export default function CheckoutPage() {
   }, [searchParams])
 
   const handleSuccess = (paymentData: any) => {
-    console.log('Payment successful:', paymentData)
+    // paymentData now contains real Stripe identifiers (customerId,
+    // subscriptionId, paymentIntentId) from a completed charge — see
+    // components/checkout-form.tsx. No raw card data is ever passed here.
     setSuccess(true)
-    
-    // In a real app, you would:
-    // 1. Create the subscription
-    // 2. Send confirmation email
-    // 3. Redirect to dashboard
-    // 4. Update user's subscription status
+    setTimeout(() => {
+      router.push('/dashboard/billing')
+    }, 3000)
   }
 
   const handleCancel = () => {
@@ -165,7 +164,7 @@ export default function CheckoutPage() {
               onClick={() => router.push('/dashboard/billing')}
               className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
             >
-              Go to Billing Dashboard
+              Back to Billing
             </button>
           </CardContent>
         </Card>
