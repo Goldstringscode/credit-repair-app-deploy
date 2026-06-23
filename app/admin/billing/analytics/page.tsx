@@ -35,6 +35,13 @@ interface BillingMetrics {
   newSubscriptions: number
   canceledSubscriptions: number
   growthRate: number
+  // Customer-oriented metrics derived from subscription data
+  totalCustomers: number
+  newCustomers: number
+  customerRetentionRate: number
+  annualRecurringRevenue: number
+  lifetimeValue: number
+  planMetrics: PlanMetrics[]
 }
 
 interface PlanMetrics {
@@ -115,7 +122,16 @@ export default function AnalyticsDashboard() {
           paymentSuccessRate: 99.0, // Static for now
           newSubscriptions: newSubscriptions.length,
           canceledSubscriptions: canceledSubscriptions.length,
-          growthRate: Math.round(growthRate * 10) / 10
+          growthRate: Math.round(growthRate * 10) / 10,
+          // Customer-oriented metrics derived from the same subscription data.
+          // We don't track distinct customers separately yet, so each
+          // subscription is treated as one customer.
+          totalCustomers: subscriptions.length,
+          newCustomers: newSubscriptions.length,
+          customerRetentionRate: Math.round((100 - churnRate) * 10) / 10,
+          annualRecurringRevenue: arr,
+          lifetimeValue: churnRate > 0 ? Math.round((arpu / (churnRate / 100)) * 100) / 100 : Math.round(arpu * 100) / 100,
+          planMetrics: []
         }
         
         setMetrics(billingMetrics)
@@ -535,4 +551,4 @@ export default function AnalyticsDashboard() {
       </Tabs>
     </div>
   )
-}
+              }
