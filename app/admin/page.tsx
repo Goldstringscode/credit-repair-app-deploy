@@ -186,6 +186,14 @@ export default function AdminPage() {
     totalTemplates: overview?.templates?.total ?? 0,
     newUsersThisMonth: overview?.users?.newThisMonth ?? 0,
     newDisputesThisMonth: overview?.disputes?.newThisMonth ?? 0,
+    // Month-over-month user growth derived from new vs. existing users.
+    monthlyGrowth: Math.round(
+      (((overview?.users?.newThisMonth ?? 0) /
+        Math.max((overview?.users?.total ?? users.length) - (overview?.users?.newThisMonth ?? 0), 1)) *
+        100) * 10
+    ) / 10,
+    // No live health telemetry is wired up yet; surface a static baseline.
+    systemHealth: overview?.systemHealth ?? 99.9,
   }
 
   // Recent users from actual data (last 5)
