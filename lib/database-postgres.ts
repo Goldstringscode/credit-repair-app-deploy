@@ -100,6 +100,16 @@ class PostgreSQLDatabaseService implements DatabaseService {
         )
       `)
 
+      // Ensure payment_cards has the columns the PaymentCard model expects.
+      // These run idempotently so existing deployments are upgraded in place.
+      await client.query(`
+        ALTER TABLE payment_cards
+          ADD COLUMN IF NOT EXISTS name VARCHAR(255),
+          ADD COLUMN IF NOT EXISTS zip_code VARCHAR(20),
+          ADD COLUMN IF NOT EXISTS stripe_payment_method_id VARCHAR(255),
+          ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb
+      `)
+
       // Create mail_payments table
       await client.query(`
         CREATE TABLE IF NOT EXISTS mail_payments (
@@ -629,6 +639,264 @@ class PostgreSQLDatabaseService implements DatabaseService {
         createdAt: now,
         updatedAt: now
       }
+    } finally {
+      client.release()
+    }
+  }
+
+  // Card operations (PaymentCard model)
+  async getCards(userId: string): Promise<PaymentCard[]> {
+    const client = await this.pool.connect()
+    try {
+      const result = await client.query(
+        'SELECT * FROM payment_cards WHERE user_id = $1 ORDER BY is_default DESC, created_at DESC',
+        [userId]
+      )
+      return result.rows.map(row => this.mapCardRow(row))
+    } finally {
+      client.release()
+    }
+  }
+
+  async createCard(card: Omit<PaymentCard, 'id' | 'createdAt'>): Promise<PaymentCard> {
+    const client = await this.pool.connect()
+    try {
+      const id = `card_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const now = new Date().toISOString()
+      await client.query(`
+        INSERT INTO payment_cards
+          (id, user_id, stripe_card_id, stripe_payment_method_id, last_four, brand, exp_month, exp_year, is_default, name, zip_code, metadata, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      `, [
+        id,
+        card.userId,
+        card.metadata?.stripePaymentMethodId || null,
+        card.metadata?.stripePaymentMethodId || null,
+        card.last4,
+        card.brand,
+        card.expMonth,
+        card.expYear,
+        card.isDefault,
+        card.name,
+        card.zipCode,
+        JSON.stringify(card.metadata || {}),
+        now,
+        now
+      ])
+      return {
+        id,
+        userId: card.userId,
+        last4: card.last4,
+        brand: card.brand,
+        expMonth: card.expMonth,
+        expYear: card.expYear,
+        isDefault: card.isDefault,
+        name: card.name,
+        zipCode: card.zipCode,
+        metadata: card.metadata || {},
+        createdAt: now
+      }
+    } finally {
+      client.release()
+    }
+  }
+
+  async updateCard(cardId: string, updates: Partial<PaymentCard>): Promise<PaymentCard> {
+    const client = await this.pool.connect()
+    try {
+      const fields: string[] = []
+      const values: any[] = []
+      let i = 1
+      const colMap: Record<string, string> = {
+        last4: 'last_four',
+        brand: 'brand',
+        expMonth: 'exp_month',
+        expYear: 'exp_year',
+        isDefault: 'is_default',
+        name: 'name',
+        zipCode: 'zip_code'
+      }
+      for (const [key, col] of Object.entries(colMap)) {
+        if (key in updates) {
+          fields.push(`${col} = ${i++}`)
+          values.push((updates as any)[key])
+        }
+      }
+      if ('metadata' in updates) {
+        fields.push(`metadata = ${i++}`)
+        values.push(JSON.stringify(updates.metadata || {}))
+      }
+      fields.push(`updated_at = ${i++}`)
+      values.push(new Date().toISOString())
+      values.push(cardId)
+      await client.query(
+        `UPDATE payment_cards SET ${fields.join(', ')} WHERE id = ${i}`,
+        values
+      )
+      const result = await client.query('SELECT * FROM payment_cards WHERE id = $1', [cardId])
+      if (result.rows.length === 0) throw new Error('Card not found')
+      return this.mapCardRow(result.rows[0])
+    } finally {
+      client.release()
+    }
+  }
+
+  async deleteCard(cardId: string): Promise<boolean> {
+    const client = await this.pool.connect()
+    try {
+      const result = await client.query('DELETE FROM payment_cards WHERE id = $1', [cardId])
+      return (result.rowCount || 0) > 0
+    } finally {
+      client.release()
+    }
+  }
+
+  async setDefaultCard(userId: string, cardId: string): Promise<boolean> {
+    const client = await this.pool.connect()
+    try {
+      await client.query('BEGIN')
+      await client.query('UPDATE payment_cards SET is_default = false WHERE user_id = $1', [userId])
+      const result = await client.query(
+        'UPDATE payment_cards SET is_default = true WHERE id = $1 AND user_id = $2',
+        [cardId, userId]
+      )
+      await client.query('COMMIT')
+      return (result.rowCount || 0) > 0
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  }
+
+  private mapCardRow(row: any): PaymentCard {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      last4: row.last_four,
+      brand: row.brand,
+      expMonth: row.exp_month,
+      expYear: row.exp_year,
+      isDefault: row.is_default,
+      name: row.name || '',
+      zipCode: row.zip_code || '',
+      metadata: row.metadata || {},
+      createdAt: row.created_at?.toISOString?.() || new Date().toISOString()
+    }
+  }
+
+  // Additional subscription / payment / mail-payment operations required by DatabaseService
+  async getCustomerSubscriptions(customerId: string): Promise<Subscription[]> {
+    const client = await this.pool.connect()
+    try {
+      const result = await client.query(
+        'SELECT * FROM subscriptions WHERE user_id = $1 ORDER BY created_at DESC',
+        [customerId]
+      )
+      return result.rows.map(row => ({
+        id: row.id,
+        customerId: row.user_id,
+        planId: row.plan_id,
+        status: row.status,
+        currentPeriodStart: row.current_period_start?.toISOString(),
+        currentPeriodEnd: row.current_period_end?.toISOString(),
+        cancelAtPeriodEnd: row.cancel_at_period_end,
+        createdAt: row.created_at?.toISOString?.(),
+        updatedAt: row.updated_at?.toISOString?.()
+      })) as any
+    } finally {
+      client.release()
+    }
+  }
+
+  async updatePayment(paymentId: string, updates: Partial<Payment>): Promise<Payment> {
+    const client = await this.pool.connect()
+    try {
+      const fields: string[] = []
+      const values: any[] = []
+      let i = 1
+      const colMap: Record<string, string> = {
+        status: 'status',
+        amount: 'amount',
+        currency: 'currency'
+      }
+      for (const [key, col] of Object.entries(colMap)) {
+        if (key in updates) {
+          fields.push(`${col} = ${i++}`)
+          values.push((updates as any)[key])
+        }
+      }
+      fields.push(`updated_at = ${i++}`)
+      values.push(new Date().toISOString())
+      values.push(paymentId)
+      await client.query(
+        `UPDATE payments SET ${fields.join(', ')} WHERE id = ${i}`,
+        values
+      )
+      const result = await client.query('SELECT * FROM payments WHERE id = $1', [paymentId])
+      if (result.rows.length === 0) throw new Error('Payment not found')
+      const row = result.rows[0]
+      return {
+        id: row.id,
+        userId: row.user_id,
+        subscriptionId: row.subscription_id,
+        amount: row.amount,
+        currency: row.currency,
+        status: row.status,
+        createdAt: row.created_at?.toISOString?.()
+      } as any
+    } finally {
+      client.release()
+    }
+  }
+
+  async updateMailPayment(mailPaymentId: string, updates: Partial<MailPayment>): Promise<MailPayment> {
+    const client = await this.pool.connect()
+    try {
+      const fields: string[] = []
+      const values: any[] = []
+      let i = 1
+      const colMap: Record<string, string> = {
+        status: 'status',
+        trackingNumber: 'tracking_number'
+      }
+      for (const [key, col] of Object.entries(colMap)) {
+        if (key in updates) {
+          fields.push(`${col} = ${i++}`)
+          values.push((updates as any)[key])
+        }
+      }
+      fields.push(`updated_at = ${i++}`)
+      values.push(new Date().toISOString())
+      values.push(mailPaymentId)
+      await client.query(
+        `UPDATE mail_payments SET ${fields.join(', ')} WHERE id = ${i}`,
+        values
+      )
+      const result = await client.query('SELECT * FROM mail_payments WHERE id = $1', [mailPaymentId])
+      if (result.rows.length === 0) throw new Error('Mail payment not found')
+      const row = result.rows[0]
+      return {
+        id: row.id,
+        userId: row.user_id,
+        type: row.type,
+        amount: row.amount,
+        status: row.status,
+        trackingNumber: row.tracking_number,
+        sentDate: row.sent_date?.toISOString?.(),
+        createdAt: row.created_at?.toISOString?.()
+      } as any
+    } finally {
+      client.release()
+    }
+  }
+
+  async deleteMailPayment(mailPaymentId: string): Promise<boolean> {
+    const client = await this.pool.connect()
+    try {
+      const result = await client.query('DELETE FROM mail_payments WHERE id = $1', [mailPaymentId])
+      return (result.rowCount || 0) > 0
     } finally {
       client.release()
     }
