@@ -1501,10 +1501,10 @@ export default function VoiceLearningPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              const module = modules.find((m) => m.id === bookmark.moduleId)
-                              const lesson = module?.lessons.find((l) => l.id === bookmark.lessonId)
-                              if (module && lesson) {
-                                setSelectedModule(module)
+                                                            const bookmarkModule = modules.find((m) => m.id === bookmark.moduleId)
+                                                            const lesson = bookmarkModule?.lessons.find((l) => l.id === bookmark.lessonId)
+                                                            if (bookmarkModule && lesson) {
+                                                                setSelectedModule(bookmarkModule)
                                 setCurrentLesson(lesson)
                                 // TODO: Seek to bookmark timestamp
                               }
