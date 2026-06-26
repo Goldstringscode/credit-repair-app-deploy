@@ -298,14 +298,14 @@ export default function AdminPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {recentUsers.slice(0, 5).map((user) => (
+                  {recentUsers.slice(0, 5).map((user: any) => (
                     <div key={user.id} className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                           <span className="text-white text-xs font-medium">
                             {user.name
                               .split(" ")
-                              .map((n) => n[0])
+                                                            .map((n: string) => n[0])
                               .join("")}
                           </span>
                         </div>
@@ -441,14 +441,14 @@ export default function AdminPage() {
                   <div>Revenue</div>
                   <div>Actions</div>
                 </div>
-                {recentUsers.map((user) => (
+                {recentUsers.map((user: any) => (
                   <div key={user.id} className="grid grid-cols-6 gap-4 p-4 border-t">
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                         <span className="text-white text-xs font-medium">
                           {user.name
                             .split(" ")
-                            .map((n) => n[0])
+                                                        .map((n: string) => n[0])
                             .join("")}
                         </span>
                       </div>
