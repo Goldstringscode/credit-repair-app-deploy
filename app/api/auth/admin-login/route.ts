@@ -23,11 +23,12 @@ export const POST = withRateLimit(
         const supabase = getSupabaseClient()
 
         // Look up user by email — must exist and have role = 'admin'
-        const { data: user, error: lookupError } = await supabase
+                const { data: rawUser, error: lookupError } = await supabase
           .from('users')
           .select('id, email, password_hash, first_name, last_name, role')
           .eq('email', email.toLowerCase())
           .maybeSingle()
+        const user = rawUser as { id: string; email: string; password_hash: string; first_name: string; last_name: string; role: string } | null
 
         if (lookupError || !user) {
           return NextResponse.json(
