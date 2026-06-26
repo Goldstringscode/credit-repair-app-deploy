@@ -440,11 +440,11 @@ export default function MLMTrainingPage() {
   )
 
   const handleStartModule = (moduleId: string) => {
-    const module = trainingModules.find((m) => m.id === moduleId)
-    if (module?.locked) {
+        const trainingModule = trainingModules.find((m) => m.id === moduleId)
+        if (trainingModule?.locked) {
       toast({
         title: "Module Locked",
-        description: module.requirements || "Complete prerequisite modules to unlock this content.",
+                description: trainingModule.requirements || "Complete prerequisite modules to unlock this content.",
         variant: "destructive",
       })
       return
@@ -452,7 +452,7 @@ export default function MLMTrainingPage() {
 
     toast({
       title: "Starting Module",
-      description: `Beginning ${module?.title}. Good luck with your training!`,
+            description: `Beginning ${trainingModule?.title}. Good luck with your training!`,
     })
 
     // In a real app, this would navigate to the module content
@@ -661,22 +661,22 @@ export default function MLMTrainingPage() {
                 <div className="flex items-center space-x-4 overflow-x-auto pb-2">
                   {["mlm-fundamentals", "credit-repair-mastery", "prospecting-lead-generation", "sales-psychology"].map(
                     (moduleId, index) => {
-                      const module = trainingModules.find((m) => m.id === moduleId)
-                      if (!module) return null
+                                            const trainingModule = trainingModules.find((m) => m.id === moduleId)
+                                            if (!trainingModule) return null
                       return (
                         <div key={moduleId} className="flex items-center space-x-2 flex-shrink-0">
                           <div
                             className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                              module.completed
+                                                            trainingModule.completed
                                 ? "bg-green-500 text-white"
-                                : module.progress > 0
+                                                                : trainingModule.progress > 0
                                   ? "bg-blue-500 text-white"
                                   : "bg-gray-200 text-gray-600"
                             }`}
                           >
                             {index + 1}
                           </div>
-                          <span className="text-sm font-medium">{module.title}</span>
+                          <span className="text-sm font-medium">{trainingModule.title}</span>
                           {index < 3 && <div className="w-4 h-0.5 bg-gray-300"></div>}
                         </div>
                       )
