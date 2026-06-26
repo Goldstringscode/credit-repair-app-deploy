@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     // Look up user — always return success to prevent email enumeration
     const { data: user } = await supabase
-      .from('users').select('id, email').eq('email', email.toLowerCase()).single()
+            .from('users').select('id, email, first_name').eq('email', email.toLowerCase()).single()
 
     if (!user) {
       // Audit the failed attempt (unknown email) but don't reveal it
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
 
     // Send reset email
     try {
-      await sendPasswordResetEmail(email, resetLink)
+            await sendPasswordResetEmail({ to: email, name: user.first_name || 'there', resetToken: resetToken })
     } catch(emailErr) {
       console.error('[ForgotPassword] Email send failed:', emailErr)
       await writeAudit(supabase, 'request', { userId: user.id, email, ip, ua, token: resetToken, success: false, reason: 'email_send_failed' })
