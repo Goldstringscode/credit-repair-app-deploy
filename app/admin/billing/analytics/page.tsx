@@ -52,6 +52,7 @@ interface PlanMetrics {
   revenuePercentage: number
   averageRevenuePerUser: number
   churnRate: number
+  growthRate: number
 }
 
 interface AnalyticsDashboardProps {}
