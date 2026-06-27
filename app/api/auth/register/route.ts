@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: userResult.error?.message ?? 'Registration failed' }, { status: 500 })
     }
 
-    const newUser = userResult.data
+        const newUser = userResult.data as { id: string; email: string; first_name: string; last_name: string; subscription_status: string; subscription_tier: string }
 
     // ── MLM REFERRAL INTEGRATION ──
     let newMlmCode: string = ''
