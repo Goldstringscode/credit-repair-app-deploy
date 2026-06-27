@@ -91,9 +91,10 @@ export async function POST(req: NextRequest) {
           .eq('mlm_code', referralCode.toUpperCase())
           .eq('status', 'active')
           .maybeSingle()
-        if (sponsorResult.data) {
-          sponsorMlmId = sponsorResult.data.id
-          teamId = sponsorResult.data.team_id
+        const sponsor = sponsorResult.data as { id: string; team_id: string; status: string } | null
+                if (sponsor) {
+                    sponsorMlmId = sponsor.id
+                            teamId = sponsor.team_id
         }
       }
 
@@ -105,7 +106,8 @@ export async function POST(req: NextRequest) {
           .eq('team_code', 'CREDITPRO')
           .eq('is_active', true)
           .maybeSingle()
-        teamId = teamResult.data?.id || null
+        const team = teamResult.data as { id: string } | null
+                teamId = team?.id || null
       }
 
       // Create MLM user record
