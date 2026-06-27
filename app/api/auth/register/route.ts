@@ -143,15 +143,17 @@ export async function POST(req: NextRequest) {
             .select('user_id')
             .eq('id', sponsorMlmId)
             .maybeSingle()
+          const sponsorUser = sponsorUserResult.data as { user_id: string } | null
 
           let newDepth = 1
-          if (sponsorUserResult.data?.user_id) {
+                    if (sponsorUser?.user_id) {
             const sponsorGenResult = await supabase
               .from('mlm_genealogy')
               .select('depth')
-              .eq('user_id', sponsorUserResult.data.user_id)
+                            .eq('user_id', sponsorUser.user_id)
               .maybeSingle()
-            newDepth = (sponsorGenResult.data?.depth || 0) + 1
+          const sponsorGen = sponsorGenResult.data as { depth: number } | null
+                        newDepth = (sponsorGen?.depth || 0) + 1
           }
 
           await supabase.from('mlm_genealogy').insert({
