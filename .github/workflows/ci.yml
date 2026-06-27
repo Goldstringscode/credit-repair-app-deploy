@@ -46,6 +46,7 @@ jobs:
           OPENAI_API_KEY: sk-placeholder-openai-key
 
       - name: TypeScript type check
+        if: always()
         run: npx tsc --noEmit
 
       - name: Test

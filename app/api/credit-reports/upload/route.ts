@@ -23,7 +23,6 @@ interface ParsedNegativeItem {
 async function extractTextFromPdfBuffer(buffer: Buffer): Promise<string> {
   try {
     // pdf-parse is a CommonJS module; use require to avoid ESM interop issues
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const pdfParse = require('pdf-parse')
     const data = await pdfParse(buffer)
     return data.text || ''

@@ -69,11 +69,12 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseClient()
 
     // Check if user already exists
-    const { data: existing } = await supabase
+        const { data: rawExisting } = await supabase
       .from("users")
       .select("id, role")
       .eq("email", email)
       .maybeSingle()
+    const existing = rawExisting as { id: string } | null
 
     if (existing) {
       // Update their role to the new staff role

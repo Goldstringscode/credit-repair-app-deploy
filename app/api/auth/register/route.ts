@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: userResult.error?.message ?? 'Registration failed' }, { status: 500 })
     }
 
-    const newUser = userResult.data
+        const newUser = userResult.data as { id: string; email: string; first_name: string; last_name: string; subscription_status: string; subscription_tier: string }
 
     // ── MLM REFERRAL INTEGRATION ──
     let newMlmCode: string = ''
@@ -91,9 +91,10 @@ export async function POST(req: NextRequest) {
           .eq('mlm_code', referralCode.toUpperCase())
           .eq('status', 'active')
           .maybeSingle()
-        if (sponsorResult.data) {
-          sponsorMlmId = sponsorResult.data.id
-          teamId = sponsorResult.data.team_id
+        const sponsor = sponsorResult.data as { id: string; team_id: string; status: string } | null
+                if (sponsor) {
+                    sponsorMlmId = sponsor.id
+                            teamId = sponsor.team_id
         }
       }
 
@@ -105,7 +106,8 @@ export async function POST(req: NextRequest) {
           .eq('team_code', 'CREDITPRO')
           .eq('is_active', true)
           .maybeSingle()
-        teamId = teamResult.data?.id || null
+        const team = teamResult.data as { id: string } | null
+                teamId = team?.id || null
       }
 
       // Create MLM user record
@@ -143,15 +145,17 @@ export async function POST(req: NextRequest) {
             .select('user_id')
             .eq('id', sponsorMlmId)
             .maybeSingle()
+          const sponsorUser = sponsorUserResult.data as { user_id: string } | null
 
           let newDepth = 1
-          if (sponsorUserResult.data?.user_id) {
+                    if (sponsorUser?.user_id) {
             const sponsorGenResult = await supabase
               .from('mlm_genealogy')
               .select('depth')
-              .eq('user_id', sponsorUserResult.data.user_id)
+                            .eq('user_id', sponsorUser.user_id)
               .maybeSingle()
-            newDepth = (sponsorGenResult.data?.depth || 0) + 1
+          const sponsorGen = sponsorGenResult.data as { depth: number } | null
+                        newDepth = (sponsorGen?.depth || 0) + 1
           }
 
           await supabase.from('mlm_genealogy').insert({

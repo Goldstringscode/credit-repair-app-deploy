@@ -352,7 +352,6 @@ function createDatabaseService(): DatabaseService {
   if (useProductionDB || dbType === 'postgres') {
     try {
       // Dynamically require to avoid loading pg in environments without it
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { postgresDatabase } = require('./database-postgres') as { postgresDatabase: { instance: DatabaseService } }
       return postgresDatabase.instance
     } catch (err) {
