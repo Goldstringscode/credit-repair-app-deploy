@@ -2,30 +2,30 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
-// ─── Pricing constants ────────────────────────────────────────────────────────
+// --- Pricing constants (local to this route; not exported) ---
 
-export const LETTER_TIERS = {
+const LETTER_TIERS = {
   standard: { name: 'Standard', basePriceCents: 299, description: 'AI-generated letter', badge: null },
   certified: { name: 'Certified', basePriceCents: 799, description: 'Certified mail + tracking', badge: 'Most Popular' },
-  priority:  { name: 'Priority', basePriceCents: 1299, description: 'Priority mail + return receipt', badge: 'Fastest' },
+  priority: { name: 'Priority', basePriceCents: 1299, description: 'Priority mail + return receipt', badge: 'Fastest' },
 }
 
 // Per-bureau postage add-on (applied after the first bureau)
-export const ADDITIONAL_BUREAU_CENTS = 350   // $3.50 per extra bureau
+const ADDITIONAL_BUREAU_CENTS = 350 // $3.50 per extra bureau
 
 // Multi-bureau discount schedule
-export const BUREAU_DISCOUNTS: Record<number, number> = {
-  1: 0,    // No discount for 1
-  2: 5,    // 5% discount for 2
-  3: 10,   // 10% discount for all 3
+const BUREAU_DISCOUNTS: Record<number, number> = {
+  1: 0, // No discount for 1
+  2: 5, // 5% discount for 2
+  3: 10, // 10% discount for all 3
 }
 
-export interface CostBreakdown {
+interface CostBreakdown {
   bureauCount: number
   tier: string
   tierName: string
-  basePrice: number           // Cents — one letter
-  additionalBureauPrice: number  // Cents — extra letters
+  basePrice: number // Cents - one letter
+  additionalBureauPrice: number // Cents - extra letters
   subtotalBeforeDiscount: number
   discountPercent: number
   discountAmount: number
@@ -36,7 +36,7 @@ export interface CostBreakdown {
   lineItems: { label: string; cents: number; dollars: string }[]
 }
 
-export function calculateCost(tier: string, bureauCount: number): CostBreakdown {
+function calculateCost(tier: string, bureauCount: number): CostBreakdown {
   const tierConfig = LETTER_TIERS[tier as keyof typeof LETTER_TIERS] || LETTER_TIERS.standard
   const count = Math.max(1, Math.min(bureauCount, 3))
 
@@ -49,9 +49,9 @@ export function calculateCost(tier: string, bureauCount: number): CostBreakdown 
   const perBureau = Math.round(total / count)
 
   const lineItems = [
-    { label: tierConfig.name + ' Letter (1 bureau)', cents: basePrice, dollars: '$' + (basePrice/100).toFixed(2) },
-    ...(count > 1 ? [{ label: 'Additional bureaus ×' + (count-1) + ' ($3.50 each)', cents: additionalBureauPrice, dollars: '$' + (additionalBureauPrice/100).toFixed(2) }] : []),
-    ...(discountAmount > 0 ? [{ label: count + '-bureau discount (' + discountPercent + '% off)', cents: -discountAmount, dollars: '-$' + (discountAmount/100).toFixed(2) }] : []),
+    { label: tierConfig.name + ' Letter (1 bureau)', cents: basePrice, dollars: '$' + (basePrice / 100).toFixed(2) },
+    ...(count > 1 ? [{ label: 'Additional bureaus x' + (count - 1) + ' ($3.50 each)', cents: additionalBureauPrice, dollars: '$' + (additionalBureauPrice / 100).toFixed(2) }] : []),
+    ...(discountAmount > 0 ? [{ label: count + '-bureau discount (' + discountPercent + '% off)', cents: -discountAmount, dollars: '-$' + (discountAmount / 100).toFixed(2) }] : []),
   ]
 
   return {
@@ -64,9 +64,9 @@ export function calculateCost(tier: string, bureauCount: number): CostBreakdown 
     discountPercent,
     discountAmount,
     totalCents: total,
-    totalDollars: '$' + (total/100).toFixed(2),
+    totalDollars: '$' + (total / 100).toFixed(2),
     perBureauCents: perBureau,
-    perBureauDollars: '$' + (perBureau/100).toFixed(2),
+    perBureauDollars: '$' + (perBureau / 100).toFixed(2),
     lineItems,
   }
 }
