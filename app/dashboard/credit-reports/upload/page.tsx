@@ -26,17 +26,18 @@ interface CreditScore {
 interface NegativeItem {
   id: string
   creditor: string
-  accountNumber: string
-  originalAmount: number | null
-  currentBalance: number | null
-  dateOpened: string
-  dateReported: string
-  status: string
-  itemType: string
-  disputeReason: string
+  accountNumber?: string
+  originalAmount?: number | null
+  currentBalance?: number | null
+  dateOpened?: string
+  dateReported?: string
+  status?: string
+  itemType?: string
+  disputeReason?: string
   notes?: string
 }
 
+// Map snake_case DB rows to camelCase view model
 function mapItem(raw: any): NegativeItem {
   return {
     id: raw.id,
@@ -126,17 +127,12 @@ export default function CreditReportUpload() {
     } catch (err) { alert('Failed to delete credit score. Please try again.') }
   }
 
+  // Send camelCase — the API and databaseService both expect camelCase
   const handleAddItem = async (item: Omit<NegativeItem, 'id'>) => {
     try {
       const res = await fetch('/api/credit-reports/negative-items', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-        body: JSON.stringify({
-          creditor: item.creditor, account_number: item.accountNumber,
-          original_amount: item.originalAmount, current_balance: item.currentBalance,
-          date_opened: item.dateOpened, date_reported: item.dateReported,
-          status: item.status, item_type: item.itemType,
-          dispute_reason: item.disputeReason, notes: item.notes,
-        }),
+        body: JSON.stringify(item),
       })
       const data = await res.json()
       if (data.success) {
@@ -191,7 +187,10 @@ export default function CreditReportUpload() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Add Negative Items</h1>
-              <p className="text-gray-600 mt-2">Enter your credit information to generate personalized dispute letters</p>
+              <p className="text-gray-600 mt-2">
+                Enter creditor name to save — you can fill in the rest of the details later.
+                Items will be pre-filled when you generate dispute letters.
+              </p>
             </div>
             <div className="flex space-x-3">
               <Button variant="outline" onClick={() => window.location.href = '/dashboard/credit-reports/guide'}>
@@ -287,7 +286,10 @@ export default function CreditReportUpload() {
                   <div className="text-center py-8">
                     <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No Negative Items Added</h3>
-                    <p className="text-gray-600 mb-4">Add negative items from your credit report to generate dispute letters</p>
+                    <p className="text-gray-600 mb-4">
+                      Add negative items from your credit report. Only the creditor name is required — 
+                      you can fill in the rest of the details later by clicking Edit.
+                    </p>
                     <Button onClick={() => setIsAddingItem(true)}><Plus className="h-4 w-4 mr-2" />Add Your First Item</Button>
                   </div>
                 ) : (
@@ -298,16 +300,19 @@ export default function CreditReportUpload() {
                           <div className="flex-1">
                             <div className="flex items-center space-x-3 mb-2">
                               <h4 className="font-medium text-gray-900">{item.creditor}</h4>
-                              <Badge className={getItemTypeColor(item.itemType)}>{item.itemType.replace(/_/g,' ')}</Badge>
+                              {item.itemType && <Badge className={getItemTypeColor(item.itemType)}>{item.itemType.replace(/_/g,' ')}</Badge>}
                               {item.status && <Badge variant="outline">{item.status}</Badge>}
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
                               <div><span className="font-medium">Original:</span> {fmt(item.originalAmount)}</div>
                               <div><span className="font-medium">Balance:</span> {fmt(item.currentBalance)}</div>
-                              <div><span className="font-medium">Reported:</span> {item.dateReported || 'N/A'}</div>
-                              <div><span className="font-medium">Account:</span> {item.accountNumber || 'N/A'}</div>
+                              <div><span className="font-medium">Reported:</span> {item.dateReported || 'Not set'}</div>
+                              <div><span className="font-medium">Account:</span> {item.accountNumber || 'Not set'}</div>
                             </div>
                             {item.disputeReason && <div className="mt-2"><span className="font-medium text-sm">Dispute Reason:</span><p className="text-sm text-gray-600">{item.disputeReason}</p></div>}
+                            {(!item.accountNumber || !item.disputeReason || !item.originalAmount) && (
+                              <p className="text-xs text-amber-600 mt-2">Some fields not filled in yet — click Edit to complete.</p>
+                            )}
                           </div>
                           <div className="flex items-center space-x-2 ml-4">
                             <Button variant="outline" size="sm" onClick={() => setEditingItem(item)}><Edit className="h-4 w-4" /></Button>
@@ -378,24 +383,32 @@ const DISPUTE_REASONS = ["Inaccurate Information","Identity Theft","Outdated Inf
 function ItemFormModal({ item, onSave, onCancel }: { item?: NegativeItem; onSave: (i: Omit<NegativeItem,'id'>) => void; onCancel: () => void }) {
   const [f, setF] = useState({
     creditor: item?.creditor||'', accountNumber: item?.accountNumber||'',
-    originalAmount: item?.originalAmount??0, currentBalance: item?.currentBalance??0,
+    originalAmount: item?.originalAmount ?? null as number|null,
+    currentBalance: item?.currentBalance ?? null as number|null,
     dateOpened: item?.dateOpened||'', dateReported: item?.dateReported||'',
-    status: item?.status||'Open', itemType: item?.itemType||'Late Payment',
+    status: item?.status||'Open', itemType: item?.itemType||'',
     disputeReason: item?.disputeReason||'', notes: item?.notes||''
   })
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <h3 className="text-lg font-semibold mb-4">{item ? 'Edit Negative Item' : 'Add Negative Item'}</h3>
+        <p className="text-sm text-gray-500 mb-4">Only the creditor name is required. Fill in the rest now or come back and edit later.</p>
         <form onSubmit={(e) => { e.preventDefault(); onSave(f) }} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><Label>Creditor Name</Label><Input value={f.creditor} onChange={(e) => setF(p=>({...p,creditor:e.target.value}))} required /></div>
-            <div><Label>Account Number</Label><Input value={f.accountNumber} onChange={(e) => setF(p=>({...p,accountNumber:e.target.value}))} /></div>
-            <div><Label>Original Amount</Label><Input type="number" min="0" step="0.01" value={f.originalAmount??''} onChange={(e) => setF(p=>({...p,originalAmount:parseFloat(e.target.value)||0}))} /></div>
-            <div><Label>Current Balance</Label><Input type="number" min="0" step="0.01" value={f.currentBalance??''} onChange={(e) => setF(p=>({...p,currentBalance:parseFloat(e.target.value)||0}))} /></div>
-            <div><Label>Date Opened</Label><Input type="date" value={f.dateOpened} onChange={(e) => setF(p=>({...p,dateOpened:e.target.value}))} /></div>
-            <div><Label>Date Reported</Label><Input type="date" value={f.dateReported} onChange={(e) => setF(p=>({...p,dateReported:e.target.value}))} /></div>
-            <div><Label>Status</Label>
+            <div><Label>Creditor Name <span className="text-red-500">*</span></Label>
+              <Input value={f.creditor} onChange={(e) => setF(p=>({...p,creditor:e.target.value}))} required placeholder="e.g. Capital One, LVNV Funding" /></div>
+            <div><Label>Account Number <span className="text-gray-400 text-xs">(optional)</span></Label>
+              <Input value={f.accountNumber} onChange={(e) => setF(p=>({...p,accountNumber:e.target.value}))} placeholder="Last 4 digits or full number" /></div>
+            <div><Label>Original Amount <span className="text-gray-400 text-xs">(optional)</span></Label>
+              <Input type="number" min="0" step="0.01" value={f.originalAmount ?? ''} onChange={(e) => setF(p=>({...p,originalAmount:e.target.value ? parseFloat(e.target.value) : null}))} placeholder="0.00" /></div>
+            <div><Label>Current Balance <span className="text-gray-400 text-xs">(optional)</span></Label>
+              <Input type="number" min="0" step="0.01" value={f.currentBalance ?? ''} onChange={(e) => setF(p=>({...p,currentBalance:e.target.value ? parseFloat(e.target.value) : null}))} placeholder="0.00" /></div>
+            <div><Label>Date Opened <span className="text-gray-400 text-xs">(optional)</span></Label>
+              <Input type="date" value={f.dateOpened} onChange={(e) => setF(p=>({...p,dateOpened:e.target.value}))} /></div>
+            <div><Label>Date Reported <span className="text-gray-400 text-xs">(optional)</span></Label>
+              <Input type="date" value={f.dateReported} onChange={(e) => setF(p=>({...p,dateReported:e.target.value}))} /></div>
+            <div><Label>Status <span className="text-gray-400 text-xs">(optional)</span></Label>
               <Select value={f.status} onValueChange={(v) => setF(p=>({...p,status:v}))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -406,9 +419,9 @@ function ItemFormModal({ item, onSave, onCancel }: { item?: NegativeItem; onSave
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>Item Type</Label>
+            <div><Label>Item Type <span className="text-gray-400 text-xs">(optional)</span></Label>
               <Select value={f.itemType} onValueChange={(v) => setF(p=>({...p,itemType:v}))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Late Payment">Late Payment</SelectItem>
                   <SelectItem value="Collection">Collection</SelectItem>
@@ -421,19 +434,20 @@ function ItemFormModal({ item, onSave, onCancel }: { item?: NegativeItem; onSave
               </Select>
             </div>
           </div>
-          <div><Label>Dispute Reason</Label>
+          <div><Label>Dispute Reason <span className="text-gray-400 text-xs">(optional — can add at letter generation)</span></Label>
             <div className="space-y-2">
               <Select value={DISPUTE_REASONS.includes(f.disputeReason) ? f.disputeReason : ''} onValueChange={(v) => setF(p=>({...p,disputeReason:v}))}>
                 <SelectTrigger><SelectValue placeholder="Select a common reason or write your own below" /></SelectTrigger>
                 <SelectContent>{DISPUTE_REASONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
               </Select>
-              <Textarea value={f.disputeReason} onChange={(e) => setF(p=>({...p,disputeReason:e.target.value}))} rows={3} placeholder="Describe why you are disputing this item..." required />
+              <Textarea value={f.disputeReason} onChange={(e) => setF(p=>({...p,disputeReason:e.target.value}))} rows={3} placeholder="Optional — you can add or edit this when generating your letter" />
             </div>
           </div>
-          <div><Label>Notes (Optional)</Label><Textarea value={f.notes||''} onChange={(e) => setF(p=>({...p,notes:e.target.value}))} rows={2} /></div>
+          <div><Label>Notes <span className="text-gray-400 text-xs">(optional)</span></Label>
+            <Textarea value={f.notes||''} onChange={(e) => setF(p=>({...p,notes:e.target.value}))} rows={2} placeholder="Any additional notes..." /></div>
           <div className="flex justify-end space-x-2">
             <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-            <Button type="submit"><Save className="h-4 w-4 mr-2" />Save</Button>
+            <Button type="submit"><Save className="h-4 w-4 mr-2" />Save Item</Button>
           </div>
         </form>
       </div>
