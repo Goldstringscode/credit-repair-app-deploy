@@ -36,6 +36,23 @@ import {
 import { toast } from "sonner"
 import SendViaCertifiedMail from "@/components/letters/SendViaCertifiedMail"
 
+
+function mapNegativeItem(raw: any) {
+  return {
+    id: raw.id,
+    creditor: raw.creditor ?? '',
+    accountNumber: raw.account_number ?? raw.accountNumber ?? '',
+    originalAmount: raw.original_amount ?? raw.originalAmount ?? null,
+    currentBalance: raw.current_balance ?? raw.currentBalance ?? null,
+    dateOpened: raw.date_opened ?? raw.dateOpened ?? '',
+    dateReported: raw.date_reported ?? raw.dateReported ?? '',
+    status: raw.status ?? '',
+    itemType: raw.item_type ?? raw.itemType ?? '',
+    disputeReason: raw.dispute_reason ?? raw.disputeReason ?? '',
+    notes: raw.notes ?? '',
+  }
+}
+
 export default function GenerateLetterPage() {
   const { user } = useCurrentUser()
   const [currentStep, setCurrentStep] = useState(1)
@@ -190,11 +207,12 @@ export default function GenerateLetterPage() {
   const loadNegativeItems = async () => {
     setIsLoadingNegativeItems(true)
     try {
-      const response = await fetch('/api/credit-reports/negative-items?userId=1')
+      const response = await fetch('/api/credit-reports/negative-items', { credentials: 'include' })
       const data = await response.json()
       
       if (data.success) {
-        setNegativeItems(data.data.negativeItems)
+        const rows = data.data?.negativeItems ?? data.data ?? []
+        setNegativeItems(Array.isArray(rows) ? rows.map(mapNegativeItem) : [])
       } else {
         console.error('Failed to load negative items:', data.error)
       }
@@ -1020,14 +1038,14 @@ Enclosures: Credit Report Copy`
                         ) : (
                           <>
                             <FileText className="h-4 w-4 mr-1" />
-                            Select from Credit Reports
+                            Select from Negative Items
                           </>
                         )}
                       </Button>
                     </div>
                     {negativeItems.length > 0 && (
                       <p className="text-xs text-gray-500">
-                        {negativeItems.length} negative items available from your credit reports
+                        {negativeItems.length} negative items saved to your profile
                       </p>
                     )}
                   </div>
@@ -1849,7 +1867,7 @@ Enclosures: Credit Report Copy`
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Select Negative Item from Credit Reports</h3>
+                <h3 className="text-lg font-semibold">Select from Negative Items</h3>
                 <Button variant="outline" onClick={() => setShowNegativeItemsModal(false)}>
                   <X className="h-4 w-4" />
                 </Button>
@@ -1865,7 +1883,7 @@ Enclosures: Credit Report Copy`
                   <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <h4 className="text-lg font-medium text-gray-900 mb-2">No Negative Items Found</h4>
                   <p className="text-gray-600 mb-4">
-                    You haven't added any negative items to your credit reports yet.
+                    You haven't added any negative items to your profile yet.
                   </p>
                   <Button 
                     onClick={() => {
@@ -1905,7 +1923,7 @@ Enclosures: Credit Report Copy`
                                   <span className="font-medium">Account:</span> {item.accountNumber}
                                 </div>
                                 <div>
-                                  <span className="font-medium">Amount:</span> ${item.originalAmount.toLocaleString()}
+                                  <span className="font-medium">Amount:</span>{item.originalAmount != null ? item.originalAmount.toLocaleString() : 'N/A'}
                                 </div>
                                 <div>
                                   <span className="font-medium">Opened:</span> {item.dateOpened}
