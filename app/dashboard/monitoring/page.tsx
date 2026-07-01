@@ -1006,8 +1006,7 @@ export default function LetterMonitoringPage() {
             </Card>
           </TabsContent>
         </Tabs>
-      </div>
-    </>
+      </>
     </div>
   )
 }
