@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -12,6 +12,8 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { useCurrentUser } from "@/hooks/useCurrentUser"
+import { useRealtimeTracking, type TrackingUpdate } from "@/hooks/useRealtimeTracking"
 import { toast } from "sonner"
 import {
   FileText,
@@ -35,7 +37,7 @@ import {
   BarChart3,
   Bell,
   Activity,
-  Copy
+  Copy, Wifi, WifiOff, RefreshCw
 } from "lucide-react"
 
 interface LetterTracking {
@@ -80,117 +82,61 @@ export default function LetterMonitoringPage() {
   })
 
   // Mock data - in real app, this would come from API
-  const [letters] = useState<LetterTracking[]>([
-    {
-      id: "1",
-      letterType: "Dispute Letter - Collection Account",
-      recipient: "Experian Information Solutions",
-      recipientAddress: "P.O. Box 4500, Allen, TX 75013",
-      trackingNumber: "9405 5036 9930 0000 0000 00",
-      status: "delivered",
-      sentDate: "2024-01-15",
-      expectedDelivery: "2024-01-18",
-      actualDelivery: "2024-01-17",
-      currentLocation: "Delivered to Allen, TX",
-      lastUpdate: "2024-01-17 14:32",
-      disputeType: "Collection Account Removal",
-      creditBureau: "Experian",
-      certifiedMail: true,
-      returnReceipt: true,
-      notes: "Account #123456789 - Capital One Collection"
-    },
-    {
-      id: "2",
-      letterType: "Dispute Letter - Late Payment",
-      recipient: "Equifax Information Services",
-      recipientAddress: "P.O. Box 740256, Atlanta, GA 30374",
-      trackingNumber: "9405 5036 9930 0000 0000 01",
-      status: "in_transit",
-      sentDate: "2024-01-20",
-      expectedDelivery: "2024-01-23",
-      currentLocation: "In Transit - Memphis, TN",
-      lastUpdate: "2024-01-22 09:15",
-      disputeType: "Late Payment Dispute",
-      creditBureau: "Equifax",
-      certifiedMail: true,
-      returnReceipt: false,
-      notes: "Account #987654321 - Chase Credit Card"
-    },
-    {
-      id: "3",
-      letterType: "Dispute Letter - Identity Theft",
-      recipient: "TransUnion LLC",
-      recipientAddress: "P.O. Box 2000, Chester, PA 19016",
-      trackingNumber: "9405 5036 9930 0000 0000 02",
-      status: "sent",
-      sentDate: "2024-01-25",
-      expectedDelivery: "2024-01-28",
-      currentLocation: "Processing at Origin Facility",
-      lastUpdate: "2024-01-25 16:45",
-      disputeType: "Identity Theft Affidavit",
-      creditBureau: "TransUnion",
-      certifiedMail: true,
-      returnReceipt: true,
-      notes: "Identity theft case #IT-2024-001"
-    },
-    {
-      id: "4",
-      letterType: "Dispute Letter - Incorrect Balance",
-      recipient: "Experian Information Solutions",
-      recipientAddress: "P.O. Box 4500, Allen, TX 75013",
-      trackingNumber: "9405 5036 9930 0000 0000 03",
-      status: "returned",
-      sentDate: "2024-01-10",
-      expectedDelivery: "2024-01-13",
-      actualDelivery: "2024-01-12",
-      currentLocation: "Returned to Sender",
-      lastUpdate: "2024-01-15 11:20",
-      disputeType: "Balance Dispute",
-      creditBureau: "Experian",
-      certifiedMail: true,
-      returnReceipt: false,
-      notes: "Account #456789123 - Bank of America - Incorrect balance reported"
-    }
-  ])
+  const { user } = useCurrentUser()
+  const [letters, setLetters] = useState<LetterTracking[]>([])
+  const [loading, setLoading] = useState(true)
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
+  const [isLive, setIsLive] = useState(false)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const filteredLetters = letters.filter(letter => {
-    const matchesSearch = letter.letterType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         letter.recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         letter.trackingNumber.includes(searchTerm) ||
-                         letter.disputeType.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === "all" || letter.status === statusFilter
-    const matchesBureau = bureauFilter === "all" || letter.creditBureau === bureauFilter
-    return matchesSearch && matchesStatus && matchesBureau
+  // Map DB row -> LetterTracking
+  const mapMailRecord = (r: any): LetterTracking => {
+    const addr = typeof r.recipient_address === 'string' ? (() => { try { return JSON.parse(r.recipient_address) } catch { return {} } })() : (r.recipient_address ?? {})
+    const addrStr = [addr.street1, addr.city, addr.state, addr.zip].filter(Boolean).join(', ')
+    const sm: Record<string, LetterTracking['status']> = { pending_payment:'pending', paid:'pending', processing:'processing', sent:'sent', in_transit:'in_transit', shipped:'in_transit', delivered:'delivered', returned:'returned', failed:'failed' }
+    return { id: r.id, source: 'certified_mail' as const, letterType: (r.dispute_type ?? 'Dispute') + ' — ' + (r.bureau_name ?? r.recipient_name ?? ''), recipient: r.recipient_name ?? '', recipientAddress: addrStr, trackingNumber: r.tracking_number ?? '—', status: sm[r.status] ?? 'pending', sentDate: r.sent_at ? new Date(r.sent_at).toLocaleDateString() : (r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'), expectedDelivery: r.estimated_delivery ?? '—', currentLocation: r.status === 'delivered' ? 'Delivered' : r.status === 'in_transit' ? 'In Transit' : r.status === 'sent' ? 'Sent — awaiting scan' : (r.status ?? '—'), lastUpdate: r.updated_at ? new Date(r.updated_at).toLocaleString() : '—', disputeType: r.dispute_type ?? '—', creditBureau: r.bureau_name ?? '—', certifiedMail: true }
+  }
+  const mapLetter = (r: any): LetterTracking => ({
+    id: r.id, source: 'letter' as const, letterType: r.letter_type ?? 'Letter', recipient: r.recipient ?? '—', recipientAddress: r.recipient_address ?? '—', trackingNumber: r.tracking_number ?? '—', status: (r.delivery_status as LetterTracking['status']) ?? 'pending', sentDate: r.sent_date ? new Date(r.sent_date).toLocaleDateString() : (r.generated_at ? new Date(r.generated_at).toLocaleDateString() : '—'), expectedDelivery: '—', currentLocation: '—', lastUpdate: r.generated_at ? new Date(r.generated_at).toLocaleString() : '—', disputeType: '—', creditBureau: r.recipient ?? '—', certifiedMail: false
   })
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "delivered": return "bg-green-100 text-green-800"
-      case "in_transit": return "bg-blue-100 text-blue-800"
-      case "sent": return "bg-yellow-100 text-yellow-800"
-      case "returned": return "bg-red-100 text-red-800"
-      case "pending": return "bg-gray-100 text-gray-800"
-      default: return "bg-gray-100 text-gray-800"
-    }
-  }
+  const loadData = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true)
+    try {
+      const res = await fetch('/api/monitoring/letters', { credentials: 'include' })
+      const data = await res.json()
+      if (data.success) {
+        setLetters([
+          ...(data.data.certifiedMail ?? []).map(mapMailRecord),
+          ...(data.data.letters ?? []).map(mapLetter),
+        ])
+        setLastRefresh(new Date())
+      }
+    } catch (e) { console.error('Monitoring load error:', e) }
+    finally { setLoading(false) }
+  }, [])
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "delivered": return <CheckCircle className="h-4 w-4" />
-      case "in_transit": return <Truck className="h-4 w-4" />
-      case "sent": return <Mail className="h-4 w-4" />
-      case "returned": return <AlertCircle className="h-4 w-4" />
-      case "pending": return <Clock className="h-4 w-4" />
-      default: return <Clock className="h-4 w-4" />
-    }
-  }
+  useEffect(() => {
+    loadData()
+    pollRef.current = setInterval(() => loadData(true), 60_000)
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  }, [loadData])
 
-  const totalLetters = letters.length
-  const deliveredLetters = letters.filter(l => l.status === "delivered").length
-  const inTransitLetters = letters.filter(l => l.status === "in_transit").length
-  const pendingLetters = letters.filter(l => l.status === "sent" || l.status === "pending").length
-  const returnedLetters = letters.filter(l => l.status === "returned").length
+  // Real-time updates
+  const handleRealtimeUpdate = useCallback((update: TrackingUpdate) => {
+    setLetters(prev => prev.map(l => l.id !== update.id ? l : {
+      ...l,
+      status: update.status as LetterTracking['status'],
+      currentLocation: update.current_location,
+      lastUpdate: new Date(update.updated_at).toLocaleString(),
+      expectedDelivery: update.estimated_delivery ?? l.expectedDelivery,
+    }))
+    toast.success('Live update: ' + update.status.replace('_', ' ') + ' — ' + update.current_location)
+  }, [])
+  const connected = useRealtimeTracking(user?.id, handleRealtimeUpdate)
+  useEffect(() => { setIsLive(connected) }, [connected])
 
+  
   // Functional handlers
   const handleViewLetter = (letter: LetterTracking) => {
     setSelectedLetter(letter)
@@ -272,7 +218,10 @@ export default function LetterMonitoringPage() {
           </p>
         </div>
 
-        {/* Stats Overview */}
+        {loading && <div className="flex items-center justify-center h-32"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" /><span className="text-gray-600">Loading tracking data…</span></div>}
+      {!loading && letters.length === 0 && <div className="text-center py-16 text-gray-500"><Mail className="h-16 w-16 text-gray-300 mx-auto mb-4" /><h3 className="text-xl font-semibold text-gray-700 mb-2">No Letters Yet</h3><p className="max-w-sm mx-auto mb-6">Send a letter via certified mail to see real-time tracking here.</p><Button onClick={() => window.location.href = "/dashboard/letters/generate"}>Generate a Letter</Button></div>}
+      {!loading && letters.length > 0 && <>
+      {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardContent className="p-6">
@@ -1058,6 +1007,7 @@ export default function LetterMonitoringPage() {
           </TabsContent>
         </Tabs>
       </div>
+    </>
     </div>
   )
 }
