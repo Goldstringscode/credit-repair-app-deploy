@@ -32,6 +32,12 @@
     "app/api/certified-mail/track/[trackingNumber]/route.ts",
     "app/api/certified-mail/validate-address/route.ts",
     "app/api/compliance/ccpa/route.ts",
-    "app/api/compliance/fcra/route.ts"
+    "app/api/compliance/fcra/route.ts",
+    "app/api/compliance/gdpr/route.ts",
+    "app/api/compliance/hipaa/route.ts",
+    "app/api/compliance/notifications/route.ts",
+    "app/api/compliance/pci/route.ts",
+    "app/api/compliance/retention/route.ts",
+    "app/api/compliance/route.ts"
   ]
 }
