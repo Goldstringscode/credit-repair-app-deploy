@@ -1,13 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  { realtime: { params: { eventsPerSecond: 10 } } }
-)
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 export interface TrackingUpdate {
   id: string
@@ -21,7 +15,8 @@ export interface TrackingUpdate {
 
 /**
  * Subscribes to real-time tracking updates for the current user via Supabase
- * broadcast channels. Updates fire the moment the Shippo webhook updates the DB.
+ * broadcast channels. The Supabase client is created inside useEffect so it
+ * only runs in the browser — safe for Next.js SSR/prerendering.
  *
  * @param userId   The authenticated user's UUID
  * @param onUpdate Called with the updated record on every status change
@@ -37,6 +32,14 @@ export function useRealtimeTracking(
 
   useEffect(() => {
     if (!userId) return
+    if (typeof window === 'undefined') return
+
+    // Create client inside useEffect — browser only, never during SSR
+    const supabase: SupabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { realtime: { params: { eventsPerSecond: 10 } } }
+    )
 
     const channel = supabase
       .channel(`tracking:${userId}`)
