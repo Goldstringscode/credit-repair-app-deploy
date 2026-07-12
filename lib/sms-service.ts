@@ -1,10 +1,26 @@
 import twilio from 'twilio'
 
-// Initialize Twilio client
-const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-)
+// Lazily initialize the Twilio client so a missing/invalid credential at
+// build time doesn't crash Next.js's "collect page data" step, which
+// imports this module without guaranteed runtime env vars. The real
+// client is created only the first time it's actually used.
+let _twilioClient: ReturnType<typeof twilio> | null = null
+function getTwilioClient() {
+  if (!_twilioClient) {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID
+    const authToken = process.env.TWILIO_AUTH_TOKEN
+    if (!accountSid || !authToken) {
+      throw new Error('Twilio is not configured: set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN')
+    }
+    _twilioClient = twilio(accountSid, authToken)
+  }
+  return _twilioClient
+}
+const client = new Proxy({} as ReturnType<typeof twilio>, {
+  get(_target, prop) {
+    return (getTwilioClient() as any)[prop]
+  }
+})
 
 export interface SMSMessage {
   to: string
