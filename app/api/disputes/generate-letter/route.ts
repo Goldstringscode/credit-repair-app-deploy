@@ -2,11 +2,14 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { aiDisputeLetterGenerator } from '@/lib/ai-dispute-letter-generator'
 import { sanitizeAiFields } from '@/lib/sanitize-ai-input'
 import { sanitizeError } from '@/lib/api-error'
+import { requireAuth, type User } from '@/lib/auth'
+import { withRateLimit } from '@/lib/rate-limiter'
+import { getSupabaseClient } from '@/lib/supabase-client'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-export async function POST(request: NextRequest) {
+async function handler(request: NextRequest, user: User) {
   try {
     const body = await request.json()
 
@@ -154,6 +157,33 @@ export async function POST(request: NextRequest) {
 
     const firstLetter = letters[0]
 
+    // Persist each generated letter to the letters table, tied to the
+    // authenticated user's id (not client-supplied), so letters actually
+    // show up in the dashboard and there's a real ownership record. A
+    // persistence failure is logged but does not fail the whole request —
+    // the user already paid the AI generation cost and should still get
+    // their letter content back even if the DB write has a problem.
+    let persisted = true
+    try {
+      const supabase = getSupabaseClient()
+      const { error: insertError } = await supabase.from('letters').insert(
+        letters.map((l) => ({
+          user_id: user.id,
+          letter_type: l.letterType,
+          recipient: l.recipientName,
+          recipient_address: l.recipientAddress,
+          letter_content: l.content,
+        }))
+      )
+      if (insertError) {
+        console.error('[generate-letter] Failed to persist letters:', insertError.message)
+        persisted = false
+      }
+    } catch (persistErr: any) {
+      console.error('[generate-letter] Failed to persist letters:', persistErr.message)
+      persisted = false
+    }
+
     // Return both new shape (letters[]) AND legacy shape (letter) for backward compat
     return NextResponse.json({
       success: true,
@@ -166,6 +196,7 @@ export async function POST(request: NextRequest) {
         },
         // New shape — multi-recipient
         letters,
+        persisted,
         count: letters.length,
         message: `Successfully generated ${letters.length} letter${letters.length !== 1 ? 's' : ''}`,
       }
@@ -179,3 +210,8 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+// Require authentication (blocks anonymous cost-DoS on this AI-backed
+// endpoint entirely) and rate-limit even authenticated callers to 5
+// requests/minute via the existing 'ai' limiter.
+export const POST = withRateLimit(requireAuth(handler), 'ai')
