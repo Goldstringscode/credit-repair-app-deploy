@@ -1,99 +1,59 @@
-import { getCurrentUser } from "@/lib/auth"
+import { requireAuth, type User } from "@/lib/auth"
 import { type NextRequest, NextResponse } from "next/server"
-import jwt from "jsonwebtoken"
+import { getSupabaseClient } from "@/lib/supabase-client"
 
 export const dynamic = 'force-dynamic'
 
-const JWT_SECRET = process.env.JWT_SECRET
-
-function verifyToken(request: NextRequest) {
-  // Try Authorization header first (Bearer token)
-  const authHeader = request.headers.get("authorization")
-  let token: string | null = null
-
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    token = authHeader.substring(7)
-  } else {
-    // Fall back to auth-token cookie (used by the app's session)
-    token = request.cookies.get("auth-token")?.value || null
-  }
-
-  if (!token) return null
-
+// GET /api/disputes — list the authenticated user's disputes, scoped by
+// user_id (previously this read from a shared in-memory mock array with no
+// per-user scoping at all, so every user saw the same hardcoded sample row).
+async function getHandler(request: NextRequest, user: User) {
   try {
-    return jwt.verify(token, JWT_SECRET) as any
-  } catch {
-    return null
-  }
-}
+    const { searchParams } = new URL(request.url)
+    const status = searchParams.get("status")
+    const bureau = searchParams.get("bureau")
+    const limit = Math.min(Number.parseInt(searchParams.get("limit") || "10"), 100)
+    const offset = Number.parseInt(searchParams.get("offset") || "0")
 
-// Mock disputes data
-const disputes = [
-  {
-    id: "dispute_123",
-    creditor: "Capital One",
-    accountNumber: "****1234",
-    type: "late_payment",
-    status: "in_progress",
-    bureau: "experian",
-    dateSubmitted: "2024-01-15T10:30:00Z",
-    expectedResolution: "2024-02-15T10:30:00Z",
-    description: "Disputing late payment that was reported incorrectly",
-    documents: [
-      {
-        id: "doc_123",
-        name: "payment_proof.pdf",
-        type: "evidence",
-        uploadedAt: "2024-01-15T10:30:00Z",
-      },
-    ],
-  },
-]
+    const supabase = getSupabaseClient()
+    let query = supabase
+      .from('disputes')
+      .select('*', { count: 'exact' })
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
 
-export async function GET(request: NextRequest) {
-  try {
-    const user = verifyToken(request)
-    if (!user) {
+    if (status) query = query.eq('status', status)
+    if (bureau) query = query.eq('bureau', bureau)
+
+    const { data, error, count } = await query.range(offset, offset + limit - 1)
+
+    if (error) {
+      console.error("Get disputes error:", error.message)
       return NextResponse.json(
         {
           success: false,
           error: {
-            code: "UNAUTHORIZED",
-            message: "Invalid or missing authentication token",
+            code: "INTERNAL_ERROR",
+            message: "An internal error occurred",
           },
         },
-        { status: 401 },
+        { status: 500 },
       )
     }
 
-    const { searchParams } = new URL(request.url)
-    const status = searchParams.get("status")
-    const bureau = searchParams.get("bureau")
-    const limit = Number.parseInt(searchParams.get("limit") || "10")
-    const offset = Number.parseInt(searchParams.get("offset") || "0")
+    const total = count ?? 0
 
-    let filteredDisputes = disputes
-
-    if (status) {
-      filteredDisputes = filteredDisputes.filter((d) => d.status === status)
-    }
-
-    if (bureau) {
-      filteredDisputes = filteredDisputes.filter((d) => d.bureau === bureau)
-    }
-
-    const paginatedDisputes = filteredDisputes.slice(offset, offset + limit)
-
+    // Top-level 'disputes' (not nested under data.data) to match what the
+    // dashboard's letters page already expects, reading real DB column
+    // names (dispute_type, account_name, bureau, created_at, etc.) directly.
     return NextResponse.json({
       success: true,
-      data: {
-        disputes: paginatedDisputes,
-        pagination: {
-          total: filteredDisputes.length,
-          limit,
-          offset,
-          hasMore: offset + limit < filteredDisputes.length,
-        },
+      disputes: data ?? [],
+      pagination: {
+        total,
+        limit,
+        offset,
+        hasMore: offset + limit < total,
       },
     })
   } catch (error) {
@@ -111,28 +71,26 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+// POST /api/disputes — create a dispute for the authenticated user,
+// persisted to the real disputes table (previously pushed to a
+// module-level array that reset on every cold start and was never the
+// same table the dashboard actually reads from).
+async function postHandler(request: NextRequest, user: User) {
   try {
-    const user = verifyToken(request)
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "UNAUTHORIZED",
-            message: "Invalid or missing authentication token",
-          },
-        },
-        { status: 401 },
-      )
-    }
+    const body = await request.json()
 
-    const disputeData = await request.json()
+    // Accept either the legacy camelCase field names this route originally
+    // used, or the DB's native snake_case names, so existing callers keep
+    // working either way.
+    const creditor = body.creditor ?? body.accountName ?? body.account_name
+    const accountNumber = body.accountNumber ?? body.account_number ?? null
+    const disputeType = body.type ?? body.disputeType ?? body.dispute_type
+    const bureau = body.bureau
+    const description = body.description ?? body.disputeReason ?? body.dispute_reason
 
-    // Validate required fields
-    const requiredFields = ["creditor", "accountNumber", "type", "bureau", "description"]
-    for (const field of requiredFields) {
-      if (!disputeData[field]) {
+    const requiredFields: Record<string, unknown> = { creditor, disputeType, bureau, description }
+    for (const [field, value] of Object.entries(requiredFields)) {
+      if (!value) {
         return NextResponse.json(
           {
             success: false,
@@ -147,24 +105,48 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create new dispute
-    const newDispute = {
-      id: `dispute_${Date.now()}`,
-      ...disputeData,
-      status: "pending",
-      dateSubmitted: new Date().toISOString(),
-      expectedResolution: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    const submittedDate = new Date().toISOString().slice(0, 10)
+    const expectedResolutionDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+    const supabase = getSupabaseClient()
+    const { data: newDispute, error } = await supabase
+      .from('disputes')
+      .insert({
+        user_id: user.id,
+        dispute_type: disputeType,
+        account_name: creditor,
+        account_number: accountNumber,
+        dispute_reason: description,
+        bureau,
+        status: 'pending',
+        submitted_date: submittedDate,
+        expected_resolution_date: expectedResolutionDate,
+      })
+      .select()
+      .single()
+
+    if (error || !newDispute) {
+      console.error("Create dispute error:", error?.message)
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "An internal error occurred",
+          },
+        },
+        { status: 500 },
+      )
     }
 
-    disputes.push(newDispute)
-
-    // Send dispute submission notification
+    // Send dispute submission notification (best-effort — a notification
+    // failure shouldn't fail the whole request; the dispute is already saved).
     try {
       const { notificationService } = await import('@/lib/notification-service')
       await notificationService.notifyDisputeSubmitted(newDispute)
       console.log("Dispute submission notification sent successfully")
-    } catch (error) {
-      console.error("Failed to send dispute submission notification:", error)
+    } catch (notifyErr) {
+      console.error("Failed to send dispute submission notification:", notifyErr)
     }
 
     return NextResponse.json(
@@ -188,3 +170,7 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+export const GET = requireAuth(getHandler)
+export const POST = requireAuth(postHandler)
+
