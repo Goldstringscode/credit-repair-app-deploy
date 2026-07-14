@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { jwtVerify } from 'jose'
 
 // Routes always accessible without auth
 const PUBLIC_ROUTES = [
@@ -106,84 +107,82 @@ const DEBUG_ROUTE_PREFIXES = [
   '/dashboard/test-automation',
 ]
 
-/**
- * Manually decode a JWT payload (base64url) without external dependencies.
- * Returns the payload object or null if invalid.
- */
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    // base64url → base64 → decode
-    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-    const decoded = atob(padded);
-    return JSON.parse(decoded);
-  } catch {
-    return null;
+// Cached JWT secret as a Uint8Array for jose. Verification will throw if
+// JWT_SECRET is unset, which is what we want — no insecure fallback.
+let cachedSecretKey: Uint8Array | null = null
+function getSecretKey(): Uint8Array {
+  if (!cachedSecretKey) {
+    const secret = process.env.JWT_SECRET
+    if (!secret) {
+      throw new Error('JWT_SECRET environment variable is not set')
+    }
+    cachedSecretKey = new TextEncoder().encode(secret)
   }
+  return cachedSecretKey
 }
 
 /**
- * Extract and validate the JWT token from the request.
- * Returns the decoded payload if valid and not expired, null otherwise.
+ * Verify a JWT's signature and claims using jose (Edge-runtime compatible —
+ * unlike the jsonwebtoken package used elsewhere in the app, which relies on
+ * Node's crypto module and cannot run in Edge middleware). Mirrors the
+ * issuer/audience/secret used to sign tokens in lib/jwt.ts, so tokens issued
+ * by the real login flow verify correctly here.
+ *
+ * This replaces the previous decodeJwtPayload()/getValidToken() pair, which
+ * only base64url-decoded the token and checked its exp claim — it never
+ * verified the signature at all, so any client could forge a cookie with an
+ * arbitrary payload (e.g. { userId: 'victim-id', role: 'admin' }) and the
+ * middleware would treat it as a valid, authenticated request.
  */
-function getValidToken(request: NextRequest): Record<string, unknown> | null {
+async function getValidToken(request: NextRequest): Promise<Record<string, unknown> | null> {
   try {
-    let token: string | undefined;
+    let token: string | undefined
 
     // Primary: check the app's own auth-token cookie (set by /api/auth routes)
-    token = request.cookies.get('auth-token')?.value;
-
-    // Fallback: app's accessToken cookie (legacy name used by createTokenCookies)
-    if (!token) {
-      token = request.cookies.get('accessToken')?.value;
-    }
+    token = request.cookies.get('auth-token')?.value
 
     // Fallback: Supabase sb-access-token cookie
     if (!token) {
-      token = request.cookies.get('sb-access-token')?.value;
+      token = request.cookies.get('sb-access-token')?.value
     }
 
     // Fallback: Supabase default session cookie pattern (sb-<project>-auth-token)
     if (!token) {
-      const allCookies = request.cookies.getAll();
+      const allCookies = request.cookies.getAll()
       for (const cookie of allCookies) {
         if (cookie.name.startsWith('sb-') && cookie.name.endsWith('-auth-token')) {
           try {
-            const session = JSON.parse(cookie.value);
-            token = session?.access_token;
+            const session = JSON.parse(cookie.value)
+            token = session?.access_token
           } catch {
-            token = cookie.value;
+            // not JSON, skip
           }
-          break;
+          if (token) break
         }
       }
     }
 
     // Fallback: Authorization header
     if (!token) {
-      const authHeader = request.headers.get('authorization');
+      const authHeader = request.headers.get('authorization')
       if (authHeader?.startsWith('Bearer ')) {
-        token = authHeader.slice(7);
+        token = authHeader.slice(7)
       }
     }
 
-    if (!token) return null;
+    if (!token) return null
 
-    const payload = decodeJwtPayload(token);
-    if (!payload) return null;
+    const { payload } = await jwtVerify(token, getSecretKey(), {
+      issuer: 'credit-repair-app',
+      audience: 'credit-repair-users',
+    })
 
-    // Check expiry
-    const exp = payload.exp as number | undefined;
-    if (exp && Date.now() / 1000 > exp) return null;
-
-    return payload;
+    return payload as Record<string, unknown>
   } catch {
-    return null;
+    // Invalid signature, expired, malformed, or wrong issuer/audience.
+    return null
   }
 }
-
 
 // ── In-memory rate limiter (sliding window per IP) ─────────────────────────
 // Limits protect against brute force on auth, payment, and admin routes.
@@ -344,7 +343,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // Validate the JWT token
-    const payload = getValidToken(request);
+    const payload = await getValidToken(request);
 
     if (!payload) {
       // Unauthenticated request
@@ -402,3 +401,4 @@ export const config = {
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 }
+
