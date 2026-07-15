@@ -136,51 +136,56 @@ function getSecretKey(): Uint8Array {
  */
 async function getValidToken(request: NextRequest): Promise<Record<string, unknown> | null> {
   try {
-    let token: string | undefined
+    let token: string | undefined;
 
     // Primary: check the app's own auth-token cookie (set by /api/auth routes)
-    token = request.cookies.get('auth-token')?.value
+    token = request.cookies.get('auth-token')?.value;
+
+    // Fallback: app's accessToken cookie (legacy name used by createTokenCookies)
+    if (!token) {
+      token = request.cookies.get('accessToken')?.value;
+    }
 
     // Fallback: Supabase sb-access-token cookie
     if (!token) {
-      token = request.cookies.get('sb-access-token')?.value
+      token = request.cookies.get('sb-access-token')?.value;
     }
 
     // Fallback: Supabase default session cookie pattern (sb-<project>-auth-token)
     if (!token) {
-      const allCookies = request.cookies.getAll()
+      const allCookies = request.cookies.getAll();
       for (const cookie of allCookies) {
         if (cookie.name.startsWith('sb-') && cookie.name.endsWith('-auth-token')) {
           try {
-            const session = JSON.parse(cookie.value)
-            token = session?.access_token
+            const session = JSON.parse(cookie.value);
+            token = session?.access_token;
           } catch {
-            // not JSON, skip
+            token = cookie.value;
           }
-          if (token) break
+          break;
         }
       }
     }
 
     // Fallback: Authorization header
     if (!token) {
-      const authHeader = request.headers.get('authorization')
+      const authHeader = request.headers.get('authorization');
       if (authHeader?.startsWith('Bearer ')) {
-        token = authHeader.slice(7)
+        token = authHeader.slice(7);
       }
     }
 
-    if (!token) return null
+    if (!token) return null;
 
     const { payload } = await jwtVerify(token, getSecretKey(), {
       issuer: 'credit-repair-app',
       audience: 'credit-repair-users',
-    })
+    });
 
-    return payload as Record<string, unknown>
+    return payload as Record<string, unknown>;
   } catch {
     // Invalid signature, expired, malformed, or wrong issuer/audience.
-    return null
+    return null;
   }
 }
 
