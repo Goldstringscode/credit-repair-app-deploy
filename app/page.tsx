@@ -53,7 +53,7 @@ export default function HomePage() {
             <Button size="lg" asChild>
               <Link href="/dashboard/reports/upload">
                 <Upload className="mr-2 h-5 w-5" />
-                Upload Credit Report
+                Get Your Credit Report
               </Link>
             </Button>
           </div>
