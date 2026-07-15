@@ -59,10 +59,10 @@ export default function LoginPage() {
             <Shield className="w-8 h-8 text-blue-600" />
           </div>
           <CardTitle className="text-2xl font-bold text-gray-900">
-            Beta Access Login
+            Merit Point AI Login
           </CardTitle>
           <p className="text-gray-600">
-            Enter your email to access the Credit Repair App
+            Enter your email to access Merit Point AI
           </p>
         </CardHeader>
         
