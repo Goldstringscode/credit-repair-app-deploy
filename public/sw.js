@@ -1,48 +1,56 @@
 // Service Worker for Push Notifications
-const CACHE_NAME = 'credit-repair-app-v1'
+//
+// v2: This service worker used to pre-cache the homepage and dashboard
+// pages at install time and serve them cache-first forever, which meant
+// visitors kept seeing a stale, install-time snapshot of the app no matter
+// how many new deployments went out — including snapshots referencing
+// old build's hashed JS chunk files that Vercel had already pruned,
+// which is what caused "Application error: a client-side exception has
+// occurred" for returning visitors. This version no longer caches HTML
+// pages at all (this SW only needs to exist for push notifications, not
+// offline page caching) and always fetches navigations fresh from the
+// network. The bumped CACHE_NAME also forces already-installed service
+// workers on users' devices to discard their old, stale cache.
+const CACHE_NAME = 'credit-repair-app-v2'
 
 // Install event
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('Service Worker: Cache opened')
-        const urlsToCache = ['/', '/dashboard', '/dashboard/notifications', '/favicon.ico']
-        return Promise.all(
-          urlsToCache.map((url) =>
-            cache.add(url).catch((err) => {
-              console.warn('Service Worker: failed to cache', url, err)
-            })
-          )
-        )
-      })
-  )
+  // Take over from any previous service worker immediately, instead of
+  // waiting for all tabs on the old version to close.
+  self.skipWaiting()
 })
 
 // Activate event
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Service Worker: Deleting old cache')
-            return caches.delete(cacheName)
-          }
-        })
-      )
-    })
+    Promise.all([
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== CACHE_NAME) {
+              console.log('Service Worker: Deleting old cache', cacheName)
+              return caches.delete(cacheName)
+            }
+          })
+        )
+      }),
+      // Start controlling any already-open tabs immediately.
+      self.clients.claim()
+    ])
   )
 })
 
-// Fetch event
+// Fetch event — always go to the network for page navigations (never serve
+// a cached HTML document), so deployments are reflected immediately. Other
+// requests fall back to the cache only if the network is unavailable.
 self.addEventListener('fetch', (event) => {
+  if (event.request.mode === 'navigate') {
+    event.respondWith(fetch(event.request))
+    return
+  }
+
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Return cached version or fetch from network
-        return response || fetch(event.request)
-      })
+    fetch(event.request).catch(() => caches.match(event.request))
   )
 })
 
@@ -51,7 +59,7 @@ self.addEventListener('push', (event) => {
   console.log('Service Worker: Push received')
 
   let notificationData = {
-    title: 'Credit Repair AI',
+    title: 'Merit Point AI',
     body: 'You have a new notification',
     icon: '/favicon.ico',
     badge: '/favicon.ico',
@@ -127,3 +135,4 @@ async function syncNotifications() {
     console.error('Service Worker: Error syncing notifications', error)
   }
 }
+
