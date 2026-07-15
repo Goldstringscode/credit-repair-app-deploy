@@ -1,11 +1,28 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Check, Star, Shield, Zap } from "lucide-react"
+import { Check, Star, Shield, Zap, Gift } from "lucide-react"
 import Link from "next/link"
+
 
 export default function PricingPage() {
   const plans = [
+    {
+      name: "Free",
+      price: 0,
+      period: "month",
+      description: "Try it out with one dispute letter, on us",
+      features: [
+        "1 AI-powered dispute letter per month",
+        "Manual credit report entry",
+        "Email support",
+        "Credit education resources",
+        "You only pay for certified mail shipping",
+      ],
+      buttonText: "Get Started Free",
+      popular: false,
+      icon: Gift,
+    },
     {
       name: "Basic",
       price: 39,
@@ -63,6 +80,7 @@ export default function PricingPage() {
     },
   ]
 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
       {/* Header */}
@@ -71,7 +89,7 @@ export default function PricingPage() {
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center space-x-2">
               <Shield className="h-8 w-8 text-blue-600" />
-              <span className="text-2xl font-bold text-gray-900">CreditAI Pro</span>
+              <span className="text-2xl font-bold text-gray-900">Merit Point AI</span>
             </Link>
             <Link href="/login">
               <Button variant="outline">Sign In</Button>
@@ -80,24 +98,27 @@ export default function PricingPage() {
         </div>
       </header>
 
+
       <div className="container mx-auto px-4 py-16">
         {/* Hero Section */}
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">Choose Your Credit Repair Plan</h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
-            Start improving your credit score today with our AI-powered platform. All plans include our 120% money-back
-            guarantee.
+            Start improving your credit score today with our AI-powered platform. Try it free, or unlock more with a
+            paid plan backed by our 120% money-back guarantee.
           </p>
+
 
           {/* Money Back Guarantee Badge */}
           <div className="inline-flex items-center space-x-2 bg-green-100 text-green-800 px-4 py-2 rounded-full">
             <Shield className="h-5 w-5" />
-            <span className="font-semibold">120% Money-Back Guarantee</span>
+            <span className="font-semibold">120% Money-Back Guarantee on Paid Plans</span>
           </div>
         </div>
 
+
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
           {plans.map((plan, index) => {
             const Icon = plan.icon
             return (
@@ -115,6 +136,7 @@ export default function PricingPage() {
                   </Badge>
                 )}
 
+
                 <CardHeader className="text-center pb-4">
                   <div className="flex justify-center mb-4">
                     <div className={`p-3 rounded-full ${plan.popular ? "bg-blue-100" : "bg-gray-100"}`}>
@@ -129,6 +151,7 @@ export default function PricingPage() {
                   </div>
                 </CardHeader>
 
+
                 <CardContent className="pt-0">
                   <ul className="space-y-3 mb-8">
                     {plan.features.map((feature, featureIndex) => (
@@ -139,7 +162,8 @@ export default function PricingPage() {
                     ))}
                   </ul>
 
-                  <Link href={`/checkout?plan=${plan.name.toLowerCase()}`}>
+
+                  <Link href={plan.price === 0 ? "/signup" : `/checkout?plan=${plan.name.toLowerCase()}`}>
                     <Button
                       className={`w-full ${
                         plan.popular ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-900 hover:bg-gray-800"
@@ -155,6 +179,7 @@ export default function PricingPage() {
           })}
         </div>
 
+
         {/* FAQ Section */}
         <div className="mt-20 max-w-3xl mx-auto">
           <h2 className="text-3xl font-bold text-center mb-12">Frequently Asked Questions</h2>
@@ -163,7 +188,7 @@ export default function PricingPage() {
               {
                 question: "What's included in the 120% money-back guarantee?",
                 answer:
-                  "If you don't see improvement in your credit score within 90 days, we'll refund 120% of what you paid. No questions asked.",
+                  "If you don't see improvement in your credit score within 90 days, we'll refund 120% of what you paid. No questions asked. This applies to paid plans only, since the Free plan has no charge to refund.",
               },
               {
                 question: "Can I cancel my subscription anytime?",
@@ -180,6 +205,11 @@ export default function PricingPage() {
                 answer:
                   "Absolutely. We use bank-level encryption and security measures to protect your personal and financial information.",
               },
+              {
+                question: "What does the Free plan actually cost?",
+                answer:
+                  "The Free plan itself is $0 — you're never charged for the subscription. The only cost is certified mail shipping when you're ready to send your dispute letter, charged separately at the time you send it.",
+              },
             ].map((faq, index) => (
               <Card key={index}>
                 <CardContent className="p-6">
@@ -194,3 +224,4 @@ export default function PricingPage() {
     </div>
   )
 }
+
