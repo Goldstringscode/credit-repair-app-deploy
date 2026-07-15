@@ -8,6 +8,7 @@ export interface User {
   name: string
   role: 'user' | 'admin'
   subscriptionId?: string
+  subscriptionTier: string
   customerId?: string
   createdAt: string
   updatedAt: string
@@ -88,6 +89,7 @@ export async function getCurrentUser(request: NextRequest): Promise<AuthResult> 
         name: [dbUser.first_name, dbUser.last_name].filter(Boolean).join(' ') || dbUser.email,
         role: (payload.role as 'user' | 'admin') ?? 'user',
         subscriptionId: dbUser.subscription_status ?? undefined,
+        subscriptionTier: dbUser.subscription_tier ?? 'free',
         customerId: dbUser.stripe_customer_id ?? undefined,
         createdAt: dbUser.created_at ?? new Date().toISOString(),
         updatedAt: dbUser.updated_at ?? new Date().toISOString(),
