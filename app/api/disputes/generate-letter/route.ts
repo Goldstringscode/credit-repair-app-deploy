@@ -11,6 +11,38 @@ export const runtime = 'nodejs'
 
 async function handler(request: NextRequest, user: User) {
   try {
+    // Free-tier limit: 1 dispute letter per calendar month. Checked before
+    // parsing/validating the request body so a free-tier user who's already
+    // used their letter this month fails fast without wasting an AI call.
+    // Shipping/mailing costs are charged separately via the existing
+    // certified-mail payment flow for every tier, so no extra handling is
+    // needed here for that part of the free plan.
+    const tier = (user.subscriptionTier || 'free').toLowerCase()
+    if (tier === 'free') {
+      const startOfMonth = new Date()
+      startOfMonth.setDate(1)
+      startOfMonth.setHours(0, 0, 0, 0)
+
+      const supabase = getSupabaseClient()
+      const { count, error: usageError } = await supabase
+        .from('letters')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .gte('generated_at', startOfMonth.toISOString())
+
+      if (usageError) {
+        console.error('[generate-letter] Failed to check free-tier usage:', usageError.message)
+      } else if ((count ?? 0) >= 1) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'The free plan includes 1 dispute letter per month, and you\'ve already used it this month. Upgrade your plan to generate more letters.',
+          },
+          { status: 403 },
+        )
+      }
+    }
+
     const body = await request.json()
 
     const {
