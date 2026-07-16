@@ -169,11 +169,10 @@ function CheckoutFormInner({ plan, onSuccess, onCancel }: CheckoutFormProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: plan.price,
+          planId: plan.id,
           currency: plan.currency,
           customerId,
           description: `Subscription - ${plan.name}`,
-          metadata: { planId: plan.id },
         }),
       })
       const intentJson = await intentRes.json()
@@ -366,7 +365,7 @@ function CheckoutFormInner({ plan, onSuccess, onCancel }: CheckoutFormProps) {
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" /> Processing...
-                  </span>
+                  </span>Page_DownPage_DownPage_DownPage_DownPage_DownPage_DownPage_DownPage_DownPage_DownPage_DownPage_UpPage_UpPage_UpPage_UpPage_UpPage_Up
                 ) : (
                   <span className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4" /> Pay ${plan.price}
