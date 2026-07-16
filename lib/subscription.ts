@@ -1,7 +1,26 @@
+// Single source of truth for the app's subscription plans. Every part of
+// the app that displays, sells, or enforces plan pricing/features should
+// import from here instead of hardcoding its own copy of this data.
+//
+// Before this, plan names/prices/features were duplicated (and had already
+// drifted out of sync) across the pricing page, the checkout page, the
+// billing API, and the payment-intent creation flow — e.g. the checkout
+// page showed "Basic Plan — $29.99" while the (now-removed) legacy payment
+// endpoint actually charged $39.00 for the same plan, and had no
+// "professional" plan at all despite the pricing page linking to it.
+// Centralizing here means changing a price once, here, makes it correct
+// everywhere, and the actual Stripe charge amount is computed server-side
+// from this file rather than trusted from the client.
+
 export interface SubscriptionTier {
   id: string
   name: string
-  price: number
+  price: number // whole dollars
+  period: string
+  description: string
+  buttonText: string
+  popular: boolean
+  icon: "Gift" | "Shield" | "Star" | "Zap"
   features: string[]
   limits: {
     disputeLetters: number | "unlimited"
@@ -13,10 +32,39 @@ export interface SubscriptionTier {
 }
 
 export const subscriptionTiers: Record<string, SubscriptionTier> = {
+  free: {
+    id: "free",
+    name: "Free",
+    price: 0,
+    period: "month",
+    description: "Try it out with one dispute letter, on us",
+    buttonText: "Get Started Free",
+    popular: false,
+    icon: "Gift",
+    features: [
+      "1 AI-powered dispute letter per month",
+      "Manual credit report entry",
+      "Email support",
+      "Credit education resources",
+      "You only pay for certified mail shipping",
+    ],
+    limits: {
+      disputeLetters: 1,
+      aiChat: 0,
+      certifiedMail: false,
+      expertSupport: false,
+      prioritySupport: false,
+    },
+  },
   basic: {
     id: "basic",
     name: "Basic",
     price: 39,
+    period: "month",
+    description: "Perfect for getting started with credit repair",
+    buttonText: "Start Basic Plan",
+    popular: false,
+    icon: "Shield",
     features: [
       "AI-powered dispute letter generation",
       "Basic credit score tracking",
@@ -37,6 +85,11 @@ export const subscriptionTiers: Record<string, SubscriptionTier> = {
     id: "professional",
     name: "Professional",
     price: 79,
+    period: "month",
+    description: "Most popular plan for serious credit repair",
+    buttonText: "Start Professional Plan",
+    popular: true,
+    icon: "Star",
     features: [
       "Everything in Basic",
       "Unlimited dispute letters",
@@ -59,6 +112,11 @@ export const subscriptionTiers: Record<string, SubscriptionTier> = {
     id: "premium",
     name: "Premium",
     price: 129,
+    period: "month",
+    description: "Complete credit repair solution with expert support",
+    buttonText: "Start Premium Plan",
+    popular: false,
+    icon: "Zap",
     features: [
       "Everything in Professional",
       "Certified mail service",
@@ -80,6 +138,28 @@ export const subscriptionTiers: Record<string, SubscriptionTier> = {
   },
 }
 
+// Display order for the pricing page grid, etc.
+export const orderedPlanIds = ["free", "basic", "professional", "premium"] as const
+
+export function getAllPlans(): SubscriptionTier[] {
+  return orderedPlanIds.map((id) => subscriptionTiers[id])
+}
+
+export function getPlan(planId: string | undefined | null): SubscriptionTier | undefined {
+  if (!planId) return undefined
+  return subscriptionTiers[planId.toLowerCase()]
+}
+
+/** Price in whole dollars, for display. Unknown plan ids resolve to 0. */
+export function getPlanPrice(planId: string | undefined | null): number {
+  return getPlan(planId)?.price ?? 0
+}
+
+/** Price in integer cents, for Stripe amounts. */
+export function getPlanPriceCents(planId: string | undefined | null): number {
+  return Math.round(getPlanPrice(planId) * 100)
+}
+
 export interface UserSubscription {
   tier: keyof typeof subscriptionTiers
   status: "active" | "cancelled" | "past_due"
@@ -89,18 +169,6 @@ export interface UserSubscription {
     aiChat: number
     certifiedMail: number
   }
-}
-
-// Mock user subscription - in real app, this would come from your database
-export const mockUserSubscription: UserSubscription = {
-  tier: "professional",
-  status: "active",
-  currentPeriodEnd: new Date("2024-02-15"),
-  usage: {
-    disputeLetters: 12,
-    aiChat: 47,
-    certifiedMail: 0,
-  },
 }
 
 export function hasFeatureAccess(subscription: UserSubscription, feature: keyof SubscriptionTier["limits"]): boolean {
@@ -121,3 +189,4 @@ export function isUsageLimitReached(subscription: UserSubscription, feature: "di
   if (limit === "unlimited") return false
   return subscription.usage[feature] >= limit
 }
+
