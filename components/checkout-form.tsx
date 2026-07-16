@@ -365,7 +365,7 @@ function CheckoutFormInner({ plan, onSuccess, onCancel }: CheckoutFormProps) {
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" /> Processing...
-                  </span>Page_DownPage_DownPage_DownPage_DownPage_DownPage_DownPage_DownPage_DownPage_DownPage_DownPage_UpPage_UpPage_UpPage_UpPage_UpPage_Up
+                  </span>
                 ) : (
                   <span className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4" /> Pay ${plan.price}
