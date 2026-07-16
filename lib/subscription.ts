@@ -171,6 +171,21 @@ export interface UserSubscription {
   }
 }
 
+// Used by a couple of dashboard pages as placeholder/demo data where a real
+// subscription lookup isn't wired up yet. Kept here (not deleted) because
+// removing it previously broke the build — components/subscription-gate.tsx
+// consumers pass it as a fallback currentSubscription prop.
+export const mockUserSubscription: UserSubscription = {
+  tier: "professional",
+  status: "active",
+  currentPeriodEnd: new Date("2024-02-15"),
+  usage: {
+    disputeLetters: 12,
+    aiChat: 47,
+    certifiedMail: 0,
+  },
+}
+
 export function hasFeatureAccess(subscription: UserSubscription, feature: keyof SubscriptionTier["limits"]): boolean {
   const tier = subscriptionTiers[subscription.tier]
   return tier.limits[feature] === true
