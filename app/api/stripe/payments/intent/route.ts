@@ -2,11 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { stripePaymentService } from '@/lib/stripe/payments'
 import { withRateLimit } from '@/lib/rate-limiter'
 import { withValidation } from '@/lib/validation-middleware'
+import { getPlan, getPlanPrice } from '@/lib/subscription'
 import { z } from 'zod'
 
-// Validation schema for payment intent creation
+// Validation schema for payment intent creation.
+//
+// SECURITY: the amount charged is ALWAYS computed server-side from planId
+// via lib/subscription.ts, the app's single source of truth for plan
+// pricing — never from a client-supplied amount. The previous version of
+// this schema accepted an arbitrary client-supplied `amount` (any value
+// from $0.01 to $999,999.99) with no server-side check that it matched a
+// real plan's price, meaning a request could be tampered with client-side
+// to pay $0.01 for any plan. planId is now required and is the only thing
+// that determines what gets charged.
 const createPaymentIntentSchema = z.object({
-  amount: z.number().min(0.01).max(999999.99),
+  planId: z.string(),
   currency: z.string().length(3).default('usd'),
   customerId: z.string().optional(),
   paymentMethodId: z.string().optional(),
@@ -20,15 +30,28 @@ export const POST = withRateLimit(
   })(
     async (request: NextRequest, validatedData: any) => {
       try {
-        console.log('💳 Creating payment intent:', validatedData.body)
+        const { planId, currency, customerId, paymentMethodId, description, metadata } = validatedData.body
+
+        const plan = getPlan(planId)
+        if (!plan) {
+          return NextResponse.json({
+            success: false,
+            error: 'Invalid plan'
+          }, { status: 400 })
+        }
+
+        // Amount comes from the canonical plan price, never from the client.
+        const amount = getPlanPrice(planId)
+
+        console.log('💳 Creating payment intent:', { planId, amount, currency })
 
         const paymentIntent = await stripePaymentService.createPaymentIntent({
-          amount: validatedData.body.amount,
-          currency: validatedData.body.currency,
-          customerId: validatedData.body.customerId,
-          paymentMethodId: validatedData.body.paymentMethodId,
-          description: validatedData.body.description,
-          metadata: validatedData.body.metadata
+          amount,
+          currency,
+          customerId,
+          paymentMethodId,
+          description: description || `Subscription - ${plan.name}`,
+          metadata: { ...metadata, planId }
         })
 
         return NextResponse.json({
@@ -53,3 +76,4 @@ export const POST = withRateLimit(
     }
   )
 )
+
