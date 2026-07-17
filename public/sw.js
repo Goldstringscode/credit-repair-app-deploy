@@ -1,17 +1,17 @@
 // Service Worker for Push Notifications
 //
-// v2: This service worker used to pre-cache the homepage and dashboard
-// pages at install time and serve them cache-first forever, which meant
-// visitors kept seeing a stale, install-time snapshot of the app no matter
-// how many new deployments went out — including snapshots referencing
-// old build's hashed JS chunk files that Vercel had already pruned,
-// which is what caused "Application error: a client-side exception has
-// occurred" for returning visitors. This version no longer caches HTML
-// pages at all (this SW only needs to exist for push notifications, not
-// offline page caching) and always fetches navigations fresh from the
-// network. The bumped CACHE_NAME also forces already-installed service
-// workers on users' devices to discard their old, stale cache.
-const CACHE_NAME = 'credit-repair-app-v2'
+// v3: v2 stopped caching HTML pages, but its fetch handler still applied a
+// cache-fallback (`.catch(() => caches.match(event.request))`) to EVERY
+// request regardless of method. For a POST request (like signup's call to
+// /api/auth/register), if the network fetch failed for any reason, that
+// fallback tried to look up a cached match for a POST request — which is
+// never cacheable, so it resolved to undefined. A service worker whose
+// respondWith() resolves to undefined fails the whole fetch with a generic
+// network error, with no clean request/response to inspect in devtools —
+// exactly matching "Something went wrong" with no visible register request.
+// This version only applies the cache-fallback to GET requests; every other
+// method just goes straight to the network, uninterrupted.
+const CACHE_NAME = 'credit-repair-app-v3'
 
 // Install event
 self.addEventListener('install', (event) => {
@@ -41,12 +41,19 @@ self.addEventListener('activate', (event) => {
 })
 
 // Fetch event — always go to the network for page navigations (never serve
-// a cached HTML document), so deployments are reflected immediately. Other
-// requests fall back to the cache only if the network is unavailable.
+// a cached HTML document), so deployments are reflected immediately.
+// Non-GET requests (form submissions, API calls) always go straight to the
+// network with no cache involvement at all, since they're never cacheable
+// and a failed cache-lookup fallback would break them. Only GET requests
+// fall back to the cache if the network is unavailable.
 self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
     event.respondWith(fetch(event.request))
     return
+  }
+
+  if (event.request.method !== 'GET') {
+    return // let the browser handle it directly, no interception at all
   }
 
   event.respondWith(
