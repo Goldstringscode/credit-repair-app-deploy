@@ -72,6 +72,17 @@ export async function POST(req: NextRequest) {
 
     const newUser = userResult.data
 
+    // Send welcome email now that the account actually exists. Non-blocking
+    // (fire-and-forget with its own .catch) so a slow/failing email provider
+    // never delays or fails the registration response — this used to live
+    // in the catch block below, where it would only ever fire when signup
+    // *failed*, and never on an actual successful signup.
+    sendWelcomeEmail({
+      to: newUser.email,
+      name: firstName || newUser.email.split('@')[0],
+      dashboardLink: (process.env.NEXT_PUBLIC_APP_URL || '') + '/dashboard/overview',
+    }).catch(e => console.error('Welcome email failed:', e.message))
+
     // ── MLM REFERRAL INTEGRATION ──
     let newMlmCode: string = ''
     let mlmUserId: string | null = null
@@ -226,16 +237,10 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error('[Register] Error:', error)
-    // Send welcome email (non-blocking)
-    sendWelcomeEmail({
-      to: email,
-      name: firstName || email.split('@')[0],
-      dashboardLink: (process.env.NEXT_PUBLIC_APP_URL || '') + '/dashboard/overview',
-    }).catch(e => console.error('Welcome email failed:', e.message))
-
     return NextResponse.json({
       success: false,
       error: error?.message ?? 'Registration failed'
     }, { status: 500 })
   }
 }
+
