@@ -113,7 +113,12 @@ function SignupPageInner() {
         setError(data.message || data.error || 'Registration failed. Please try again.')
       }
     } catch (err) {
-      setError('Something went wrong. Please try again.')
+      console.error('[Signup] Request failed:', err)
+      setError(
+        err instanceof TypeError
+          ? 'Could not reach the server. Please check your internet connection and try again. (' + err.message + ')'
+          : 'Something went wrong: ' + (err instanceof Error ? err.message : String(err)) + '. Please try again or contact support.'
+      )
     } finally {
       setIsLoading(false)
     }
