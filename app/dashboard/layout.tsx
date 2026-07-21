@@ -20,7 +20,6 @@ Shield,
 GraduationCap,
 UserCog,
 TrendingUp,
-FileCheck,
 Settings,
 Bookmark,
 Menu,
@@ -36,8 +35,7 @@ const navigation = [
 { name: "Negative Items", href: "/dashboard/credit-reports", icon: CreditCard },
 { name: "Monitoring", href: "/dashboard/monitoring", icon: Shield },
 { name: "Training", href: "/dashboard/training", icon: GraduationCap },
-{ name: "MLM System", href: "/mlm/dashboard", icon: TrendingUp },
-{ name: "Compliance", href: "/admin/compliance", icon: FileCheck },
+{ name: "The Vault", href: "/mlm/dashboard", icon: TrendingUp },
 { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ]
 
@@ -58,19 +56,16 @@ const pathname = usePathname()
 const { user, isLoading, initials } = useCurrentUser()
 
 const tier = (user?.subscriptionTier || "free").toLowerCase()
-const isFreeTier = !isLoading && tier === "free"
+const isAdmin = user?.role === "admin"
 const tierLabel = TIER_LABELS[tier] || "Free"
 
 const displayName = isLoading ? "Loading…" : (user?.name ?? "")
 const displayPlan = isLoading ? "" : `${tierLabel} Plan`
 const avatarInitials = isLoading ? "…" : (initials || "?")
 
-// Only blocks navigation for the specific item that's actually locked
-// (MLM System, on the free tier). Previously this fired on every nav
-// item's click for a free-tier user, since it only checked isFreeTier
-// and never checked whether the clicked item was the locked one —
-// silently swallowing every dashboard nav click on mobile and desktop
-// alike for free-tier users.
+// The Vault (formerly "MLM System") is admin-only for now — not tied to
+// subscription tier. Every non-admin user, free through the highest paid
+// tier, sees it locked until it's rolled out more broadly.
 const handleNavClick = (e: React.MouseEvent, locked: boolean) => {
 if (locked) {
 e.preventDefault()
@@ -103,26 +98,26 @@ return (
 {navigation.map((item) => {
 const Icon = item.icon
 const isActive = pathname === item.href
-const isMlmLocked = item.name === "MLM System" && isFreeTier
+const isVaultLocked = item.name === "The Vault" && !isAdmin
 return (
 <Link
 key={item.name}
-href={isMlmLocked ? pathname : item.href}
+href={isVaultLocked ? pathname : item.href}
 className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
 isActive ? "bg-blue-100 text-blue-900" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
 }`}
 onClick={(e) => {
-handleNavClick(e, isMlmLocked)
+handleNavClick(e, isVaultLocked)
 setSidebarOpen(false)
 }}
 >
 <Icon className="mr-3 h-5 w-5" />
 {item.name}
-{isMlmLocked && <Lock className="ml-auto h-4 w-4 text-gray-400" />}
+{isVaultLocked && <Lock className="ml-auto h-4 w-4 text-gray-400" />}
 </Link>
 )
 })}
-{user?.role === 'admin' && (
+{isAdmin && (
 <Link
 href="/admin"
 className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
@@ -146,29 +141,29 @@ Admin Panel
 <div className="flex flex-col flex-grow bg-white border-r border-gray-200">
 <div className="flex h-16 items-center px-4 border-b">
 <h1 className="text-xl font-bold text-blue-600">Merit Point AI</h1>
-<Badge className={isFreeTier ? "ml-2 bg-gray-100 text-gray-700" : "ml-2 bg-green-100 text-green-800"}>{tierLabel}</Badge>
+<Badge className={tier === "free" ? "ml-2 bg-gray-100 text-gray-700" : "ml-2 bg-green-100 text-green-800"}>{tierLabel}</Badge>
 </div>
 <nav className="flex-1 space-y-1 px-2 py-4">
 {navigation.map((item) => {
 const Icon = item.icon
 const isActive = pathname === item.href
-const isMlmLocked = item.name === "MLM System" && isFreeTier
+const isVaultLocked = item.name === "The Vault" && !isAdmin
 return (
 <Link
 key={item.name}
-href={isMlmLocked ? pathname : item.href}
+href={isVaultLocked ? pathname : item.href}
 className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
 isActive ? "bg-blue-100 text-blue-900" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
 }`}
-onClick={(e) => handleNavClick(e, isMlmLocked)}
+onClick={(e) => handleNavClick(e, isVaultLocked)}
 >
 <Icon className="mr-3 h-5 w-5" />
 {item.name}
-{isMlmLocked && <Lock className="ml-auto h-4 w-4 text-gray-400" />}
+{isVaultLocked && <Lock className="ml-auto h-4 w-4 text-gray-400" />}
 </Link>
 )
 })}
-{user?.role === 'admin' && (
+{isAdmin && (
 <Link
 href="/admin"
 className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
