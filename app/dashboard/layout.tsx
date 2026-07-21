@@ -14,6 +14,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { toast } from "sonner"
 import {
 LayoutDashboard,
+DollarSign,
 FileText,
 CreditCard,
 Shield,
@@ -30,6 +31,7 @@ Lock,
 
 const navigation = [
 { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+{ name: "Billing", href: "/billing", icon: DollarSign },
 { name: "Letters", href: "/dashboard/letters", icon: FileText },
 { name: "My Templates", href: "/dashboard/my-templates", icon: Bookmark },
 { name: "Negative Items", href: "/dashboard/credit-reports", icon: CreditCard },
