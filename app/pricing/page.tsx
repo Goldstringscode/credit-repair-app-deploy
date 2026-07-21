@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Check, Star, Shield, Zap, Gift } from "lucide-react"
 import Link from "next/link"
+import { SiteHeader } from "@/components/site-header"
 
 
 export default function PricingPage() {
@@ -83,20 +84,7 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center space-x-2">
-              <Shield className="h-8 w-8 text-blue-600" />
-              <span className="text-2xl font-bold text-gray-900">Merit Point AI</span>
-            </Link>
-            <Link href="/login">
-              <Button variant="outline">Sign In</Button>
-            </Link>
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
 
 
       <div className="container mx-auto px-4 py-16">
