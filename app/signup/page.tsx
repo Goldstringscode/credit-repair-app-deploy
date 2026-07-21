@@ -99,7 +99,7 @@ function SignupPageInner() {
           name: `${formData.firstName} ${formData.lastName}`.trim(),
           password: formData.password,
           confirmPassword: formData.confirmPassword,
-          referralCode: referralCode || undefinedconfirmPassword,
+          referralCode: referralCode || undefined,
         }),
       })
 
