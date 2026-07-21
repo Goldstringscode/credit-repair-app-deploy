@@ -277,61 +277,7 @@ export default function DashboardPage() {
               )}
             </div>
             <div className="flex items-center space-x-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={testLessonNotification}
-                className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-              >
-                <Bell className="h-4 w-4 mr-2" />
-                Test Lesson
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={testQuizNotification}
-                className="bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100"
-              >
-                <Bell className="h-4 w-4 mr-2" />
-                Test Quiz
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={testMilestoneNotification}
-                className="bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100"
-              >
-                <Bell className="h-4 w-4 mr-2" />
-                Test Milestone
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={testPushNotification}
-                className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-              >
-                <Bell className="h-4 w-4 mr-2" />
-                Test Push
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={testRealtimeConnection}
-                className="bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100"
-              >
-                <Bell className="h-4 w-4 mr-2" />
-                Test Real-time
-              </Button>
-              <Link href="/test-security">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
-                >
-                  <Shield className="h-4 w-4 mr-2" />
-                  Security Tests
-                </Button>
-              </Link>
+
               <Link href="/dashboard/credit-reports/upload">
                 <Button className="bg-blue-600 hover:bg-blue-700">
                   <Upload className="h-4 w-4 mr-2" />
