@@ -9,6 +9,7 @@ export interface CurrentUser {
   name: string
   role: string
   subscriptionId?: string
+  subscriptionTier?: string
   customerId?: string
   createdAt: string
   updatedAt: string
