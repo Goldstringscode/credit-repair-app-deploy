@@ -1,93 +1,14 @@
-"use client"
-
-import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Upload, FileText, Zap, Shield, Users, TrendingUp, Menu, X } from "lucide-react"
+import { Upload, FileText, Zap, Shield, Users, TrendingUp } from "lucide-react"
+import { SiteHeader } from "@/components/site-header"
 
 
 export default function HomePage() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <Link href="/" className="flex items-center">
-              <Shield className="h-8 w-8 text-blue-600 mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900">Merit Point AI</h1>
-            </Link>
-            <nav className="hidden md:flex space-x-8">
-              <Link href="/dashboard" className="text-gray-600 hover:text-gray-900">
-                Dashboard
-              </Link>
-              <Link href="/billing" className="text-gray-600 hover:text-gray-900">
-                Billing
-              </Link>
-              <Link href="/pricing" className="text-gray-600 hover:text-gray-900">
-                Pricing
-              </Link>
-              <Link href="/support" className="text-gray-600 hover:text-gray-900">
-                Support
-              </Link>
-            </nav>
-            <div className="flex items-center space-x-3">
-              {/* Always visible on mobile, no menu tap required — pricing
-                  should be the single easiest thing to reach on this page. */}
-              <Link href="/pricing" className="md:hidden text-sm font-semibold text-blue-600 hover:text-blue-700">
-                Pricing
-              </Link>
-              <Button asChild>
-                <Link href="/login">Sign In</Link>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="md:hidden"
-                onClick={() => setMobileMenuOpen((open) => !open)}
-                aria-label="Toggle menu"
-              >
-                {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-              </Button>
-            </div>
-          </div>
-          {mobileMenuOpen && (
-            <nav className="md:hidden pb-4 space-y-1">
-              <Link
-                href="/dashboard"
-                className="block px-3 py-2 rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Dashboard
-              </Link>
-              <Link
-                href="/billing"
-                className="block px-3 py-2 rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Billing
-              </Link>
-              <Link
-                href="/pricing"
-                className="block px-3 py-2 rounded-md text-blue-600 font-medium hover:bg-blue-50"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Pricing
-              </Link>
-              <Link
-                href="/support"
-                className="block px-3 py-2 rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Support
-              </Link>
-            </nav>
-          )}
-        </div>
-      </header>
+      <SiteHeader />
 
       {/* Hero Section */}
       <section className="py-20">
