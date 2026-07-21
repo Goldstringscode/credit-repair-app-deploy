@@ -65,8 +65,14 @@ const displayName = isLoading ? "Loading…" : (user?.name ?? "")
 const displayPlan = isLoading ? "" : `${tierLabel} Plan`
 const avatarInitials = isLoading ? "…" : (initials || "?")
 
-const handleMlmClick = (e: React.MouseEvent) => {
-if (isFreeTier) {
+// Only blocks navigation for the specific item that's actually locked
+// (MLM System, on the free tier). Previously this fired on every nav
+// item's click for a free-tier user, since it only checked isFreeTier
+// and never checked whether the clicked item was the locked one —
+// silently swallowing every dashboard nav click on mobile and desktop
+// alike for free-tier users.
+const handleNavClick = (e: React.MouseEvent, locked: boolean) => {
+if (locked) {
 e.preventDefault()
 toast.error("You need special credentials to access this page. Eligibility only on higher tiers.")
 }
@@ -106,7 +112,7 @@ className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
 isActive ? "bg-blue-100 text-blue-900" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
 }`}
 onClick={(e) => {
-handleMlmClick(e)
+handleNavClick(e, isMlmLocked)
 setSidebarOpen(false)
 }}
 >
@@ -120,7 +126,7 @@ setSidebarOpen(false)
 <Link
 href="/admin"
 className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-pathname.startsWith('/admin') ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+pathname.startsWith('/admin') ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
 }`}
 onClick={() => setSidebarOpen(false)}
 >
@@ -154,7 +160,7 @@ href={isMlmLocked ? pathname : item.href}
 className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
 isActive ? "bg-blue-100 text-blue-900" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
 }`}
-onClick={handleMlmClick}
+onClick={(e) => handleNavClick(e, isMlmLocked)}
 >
 <Icon className="mr-3 h-5 w-5" />
 {item.name}
@@ -166,7 +172,7 @@ onClick={handleMlmClick}
 <Link
 href="/admin"
 className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-pathname.startsWith('/admin') ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+pathname.startsWith('/admin') ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
 }`}
 >
 <UserCog className={`mr-3 h-5 w-5 flex-shrink-0 ${pathname.startsWith('/admin') ? 'text-white' : 'text-gray-400 group-hover:text-gray-500'}`} />
