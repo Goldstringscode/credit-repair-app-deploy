@@ -1,141 +1,244 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { NextRequest, NextResponse } from "next/server"
+import { extractUserId, getServiceClient } from "@/lib/training/quiz-auth"
+import { getQuiz, gradeQuiz, resolveQuizId } from "@/lib/training/quiz-data"
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { userId, quizId, courseId, lessonId, answers, timeTaken } = body
+export const dynamic = "force-dynamic"
 
-    if (!userId || !quizId || !courseId || !answers) {
-      return NextResponse.json(
-        { error: 'Missing required fields: userId, quizId, courseId, answers' },
-        { status: 400 }
-      )
-    }
-
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
-    // Get quiz details and questions
-    const { data: quiz, error: quizError } = await supabase
-      .from('training_quizzes')
-      .select('*')
-      .eq('id', quizId)
-      .single()
-
-    if (quizError) {
-      console.error('Error fetching quiz:', quizError)
-      return NextResponse.json({ error: 'Failed to fetch quiz' }, { status: 500 })
-    }
-
-    // Get questions with correct answers
-    const { data: questions, error: questionsError } = await supabase
-      .from('quiz_questions')
-      .select('*')
-      .eq('quiz_id', quizId)
-      .order('sort_order')
-
-    if (questionsError) {
-      console.error('Error fetching questions:', questionsError)
-      return NextResponse.json({ error: 'Failed to fetch questions' }, { status: 500 })
-    }
-
-    // Calculate score
-    let score = 0
-    let maxScore = 0
-    let correctAnswers = 0
-    let totalQuestions = questions.length
-
-    for (const question of questions) {
-      maxScore += question.points
-      
-      const userAnswer = answers.find((a: any) => a.questionId === question.id)
-      if (userAnswer) {
-        if (question.question_type === 'multiple_choice' || question.question_type === 'true_false') {
-          // Get correct answer option
-          const { data: correctOption } = await supabase
-            .from('quiz_answer_options')
-            .select('*')
-            .eq('question_id', question.id)
-            .eq('is_correct', true)
-            .single()
-
-          if (correctOption && userAnswer.selectedOptionId === correctOption.id) {
-            score += question.points
-            correctAnswers++
-          }
-        } else if (question.question_type === 'fill_blank') {
-          // Simple text matching for fill in the blank
-          if (userAnswer.text && userAnswer.text.toLowerCase().trim() === question.correct_answer?.toLowerCase().trim()) {
-            score += question.points
-            correctAnswers++
-          }
-        }
-        // Essay questions would need manual grading
+function sanitizeAnswers(raw: unknown): Record<string, number> {
+  const out: Record<string, number> = {}
+  if (raw && typeof raw === "object") {
+    for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+      if (typeof value === "number" && Number.isInteger(value) && value >= 0 && value < 50) {
+        out[String(key).slice(0, 64)] = value
       }
     }
+  }
+  return out
+}
 
-    const passed = score >= (maxScore * (quiz.passing_score / 100))
-    const percentage = Math.round((score / maxScore) * 100)
-
-    // Create quiz attempt record
-    const { data: attempt, error: attemptError } = await supabase
-      .from('user_quiz_attempts')
-      .insert({
-        user_id: userId,
-        quiz_id: quizId,
-        course_id: courseId,
-        lesson_id: lessonId,
-        started_at: new Date().toISOString(),
-        completed_at: new Date().toISOString(),
-        score: score,
-        max_score: maxScore,
-        passed: passed,
-        time_taken_seconds: timeTaken || 0
-      })
-      .select()
-      .single()
-
-    if (attemptError) {
-      console.error('Error creating quiz attempt:', attemptError)
-      return NextResponse.json({ error: 'Failed to save quiz attempt' }, { status: 500 })
+/**
+ * POST /api/training/quiz/attempt
+ *
+ * Body:
+ *   { quizId, action: "save",   answers, currentQuestionIndex, timeTakenSeconds }
+ *   { quizId, action: "submit", answers, timeTakenSeconds }
+ *
+ * "save"   — upserts the user's single in-progress attempt (resume support).
+ * "submit" — grades server-side against lib/training/quiz-data, completes the
+ *            attempt, stores per-question answers, and returns the full result
+ *            (including correct answers + explanations for the review screen).
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const userId = extractUserId(request)
+    if (!userId) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     }
 
-    // Save individual answers
-    for (const answer of answers) {
-      await supabase
-        .from('user_quiz_answers')
+    const body = await request.json()
+    const action = body?.action === "save" ? "save" : "submit"
+    const rawQuizId = body?.quizId
+    if (!rawQuizId || typeof rawQuizId !== "string") {
+      return NextResponse.json({ success: false, error: "quizId is required" }, { status: 400 })
+    }
+
+    const quizId = resolveQuizId(rawQuizId)
+    const quiz = getQuiz(quizId)
+    if (!quiz) {
+      return NextResponse.json({ success: false, error: "Quiz not found" }, { status: 404 })
+    }
+
+    const answers = sanitizeAnswers(body?.answers)
+    const timeTakenSeconds =
+      typeof body?.timeTakenSeconds === "number" && body.timeTakenSeconds >= 0
+        ? Math.min(Math.round(body.timeTakenSeconds), 24 * 60 * 60)
+        : 0
+
+    const supabase = getServiceClient()
+
+    // Find the user's current in-progress attempt for this quiz, if any
+    const { data: existing, error: existingError } = await supabase
+      .from("user_quiz_attempts")
+      .select("id, started_at")
+      .eq("user_id", userId)
+      .eq("quiz_id", quizId)
+      .eq("status", "in_progress")
+      .maybeSingle()
+
+    if (existingError) {
+      console.error("Failed to look up in-progress attempt:", existingError)
+      return NextResponse.json({ success: false, error: "Failed to load attempt" }, { status: 500 })
+    }
+
+    if (action === "save") {
+      const rawIndex = body?.currentQuestionIndex
+      const currentQuestionIndex =
+        typeof rawIndex === "number" && Number.isInteger(rawIndex)
+          ? Math.min(Math.max(rawIndex, 0), quiz.questions.length - 1)
+          : 0
+
+      if (existing) {
+        const { error } = await supabase
+          .from("user_quiz_attempts")
+          .update({
+            answers,
+            current_question_index: currentQuestionIndex,
+            time_taken_seconds: timeTakenSeconds,
+          })
+          .eq("id", existing.id)
+          .eq("user_id", userId)
+
+        if (error) {
+          console.error("Failed to save quiz progress:", error)
+          return NextResponse.json({ success: false, error: "Failed to save progress" }, { status: 500 })
+        }
+        return NextResponse.json({ success: true, attemptId: existing.id })
+      }
+
+      const { data: created, error } = await supabase
+        .from("user_quiz_attempts")
         .insert({
           user_id: userId,
-          quiz_attempt_id: attempt.id,
-          question_id: answer.questionId,
-          selected_option_id: answer.selectedOptionId,
-          text_answer: answer.text,
-          is_correct: questions.find(q => q.id === answer.questionId)?.correct_answer === answer.text
+          quiz_id: quizId,
+          course_id: quiz.courseId,
+          status: "in_progress",
+          answers,
+          current_question_index: currentQuestionIndex,
+          time_taken_seconds: timeTakenSeconds,
+          total_questions: quiz.questions.length,
         })
+        .select("id")
+        .single()
+
+      if (error) {
+        console.error("Failed to create quiz attempt:", error)
+        return NextResponse.json({ success: false, error: "Failed to save progress" }, { status: 500 })
+      }
+      return NextResponse.json({ success: true, attemptId: created.id })
     }
 
-    const result = {
-      attemptId: attempt.id,
-      score,
-      maxScore,
-      passed,
-      percentage,
-      correctAnswers,
-      totalQuestions,
-      timeTaken: timeTaken || 0,
-      passingScore: quiz.passing_score
+    // action === "submit": grade server-side
+    const result = gradeQuiz(quizId, answers)
+    if (!result) {
+      return NextResponse.json({ success: false, error: "Quiz not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ result })
+    const now = new Date().toISOString()
+    const completedFields = {
+      status: "completed" as const,
+      answers,
+      completed_at: now,
+      score: result.score,
+      max_score: result.maxScore,
+      percentage: result.percentage,
+      passed: result.passed,
+      correct_answers: result.correctAnswers,
+      total_questions: result.totalQuestions,
+      time_taken_seconds: timeTakenSeconds,
+    }
 
+    let attemptId: string
+
+    if (existing) {
+      const { error } = await supabase
+        .from("user_quiz_attempts")
+        .update(completedFields)
+        .eq("id", existing.id)
+        .eq("user_id", userId)
+
+      if (error) {
+        console.error("Failed to complete quiz attempt:", error)
+        return NextResponse.json({ success: false, error: "Failed to save quiz attempt" }, { status: 500 })
+      }
+      attemptId = existing.id
+    } else {
+      const { data: created, error } = await supabase
+        .from("user_quiz_attempts")
+        .insert({
+          user_id: userId,
+          quiz_id: quizId,
+          course_id: quiz.courseId,
+          started_at: now,
+          ...completedFields,
+        })
+        .select("id")
+        .single()
+
+      if (error) {
+        console.error("Failed to create completed quiz attempt:", error)
+        return NextResponse.json({ success: false, error: "Failed to save quiz attempt" }, { status: 500 })
+      }
+      attemptId = created.id
+    }
+
+    // Store per-question answers for this attempt
+    const answerRows = result.review.map(r => ({
+      attempt_id: attemptId,
+      user_id: userId,
+      question_id: r.questionId,
+      selected_option_index: r.selectedIndex,
+      is_correct: r.isCorrect,
+      points_earned: r.pointsEarned,
+    }))
+
+    const { error: answersError } = await supabase.from("user_quiz_answers").insert(answerRows)
+    if (answersError) {
+      // The attempt itself is saved; log but don't fail the submission
+      console.error("Failed to save quiz answers:", answersError)
+    }
+
+    return NextResponse.json({
+      success: true,
+      attemptId,
+      result: {
+        ...result,
+        timeTakenSeconds,
+        quizId,
+      },
+    })
   } catch (error) {
-    console.error('Error in quiz attempt API:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error("Error in quiz attempt API:", error)
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
+  }
+}
+
+/**
+ * GET /api/training/quiz/attempt?quizId=<slug>
+ * Returns the authenticated user's completed attempts (all quizzes, or one).
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const userId = extractUserId(request)
+    if (!userId) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const rawQuizId = searchParams.get("quizId")
+
+    const supabase = getServiceClient()
+    let query = supabase
+      .from("user_quiz_attempts")
+      .select(
+        "id, quiz_id, status, started_at, completed_at, score, max_score, percentage, passed, correct_answers, total_questions, time_taken_seconds"
+      )
+      .eq("user_id", userId)
+      .eq("status", "completed")
+      .order("completed_at", { ascending: false })
+
+    if (rawQuizId) {
+      query = query.eq("quiz_id", resolveQuizId(rawQuizId))
+    }
+
+    const { data, error } = await query
+    if (error) {
+      console.error("Failed to fetch quiz attempts:", error)
+      return NextResponse.json({ success: false, error: "Failed to fetch attempts" }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, attempts: data ?? [] })
+  } catch (error) {
+    console.error("Error in quiz attempt GET:", error)
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
   }
 }
