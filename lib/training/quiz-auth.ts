@@ -1,56 +1,39 @@
 import { NextRequest } from "next/server"
 import { createClient, SupabaseClient } from "@supabase/supabase-js"
+import { verifyToken } from "@/lib/jwt"
 
 /**
- * Extract user ID from the JWT token in Authorization header or cookies.
- * Returns null if token is missing or invalid.
+ * Extract the authenticated user's id.
  *
- * Same auth pattern as /api/training/progress, which is proven working in
- * production for lesson/video progress.
+ * This app's real sign-in flow (app/api/auth/login/route.ts) does NOT use
+ * Supabase Auth — it looks up public.users (bcrypt password_hash) and issues
+ * its own JWT (lib/jwt.ts, payload.userId) stored in an HttpOnly `accessToken`
+ * cookie. This must be verified the same way, with the same secret/issuer/
+ * audience, not decoded as an unverified Supabase Auth token.
  */
 export function extractUserId(request: NextRequest): string | null {
   try {
     let token: string | undefined
 
-    // Check Authorization header first
     const authHeader = request.headers.get("authorization")
     if (authHeader?.startsWith("Bearer ")) {
       token = authHeader.slice(7)
     }
 
-    // Fall back to Supabase cookies
     if (!token) {
-      token = request.cookies.get("sb-access-token")?.value
+      token = request.cookies.get("accessToken")?.value
     }
-
     if (!token) {
-      const cookies = request.cookies.getAll()
-      for (const cookie of cookies) {
-        if (cookie.name.startsWith("sb-") && cookie.name.endsWith("-auth-token")) {
-          try {
-            const session = JSON.parse(cookie.value)
-            token = session?.access_token
-          } catch {
-            token = cookie.value
-          }
-          break
-        }
-      }
+      // Legacy/alternate cookie name also set at login
+      token = request.cookies.get("auth-token")?.value
     }
 
     if (!token) return null
 
-    // Decode JWT payload (base64url)
-    const parts = token.split(".")
-    if (parts.length !== 3) return null
-    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/")
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=")
-    const payload = JSON.parse(atob(padded))
+    const payload = verifyToken(token)
+    if (!payload) return null
 
-    // Check expiry
-    if (payload.exp && Date.now() / 1000 > payload.exp) return null
-
-    return (payload.sub as string) || null
+    return payload.userId || null
   } catch {
     return null
   }
