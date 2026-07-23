@@ -38,7 +38,12 @@ export class StripePaymentService {
         description: data.description,
         payment_method: data.paymentMethodId,
         confirmation_method: 'manual',
-        confirm: false
+        confirm: false,
+        // Saves the confirmed card on the customer for future off-session
+        // (automatic recurring) charges — required for subscriptions billed
+        // after this first payment. Without this, a card confirmed here
+        // could not be reliably reused for renewal invoices.
+        setup_future_usage: data.customerId ? 'off_session' : undefined
       })
 
       console.log('✅ Created payment intent:', paymentIntent.id)
@@ -159,7 +164,7 @@ export class StripePaymentService {
    * Update subscription
    */
   async updateSubscription(
-    subscriptionId: string, 
+    subscriptionId: string,
     updates: {
       planId?: string
       paymentMethodId?: string
@@ -211,7 +216,7 @@ export class StripePaymentService {
         throw new Error('Stripe not configured')
       }
 
-      const subscription = immediately 
+      const subscription = immediately
         ? await stripe.subscriptions.cancel(subscriptionId)
         : await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true })
 
