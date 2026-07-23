@@ -2,8 +2,8 @@
 const isDev = process.env.NODE_ENV !== 'production'
 
 const cspConnectSrc = isDev
-  ? "connect-src 'self' https://api.stripe.com https://api.openai.com http://localhost:3000 http://localhost:3001 http://localhost:3002 ws://localhost:3000 ws://localhost:3001 ws://localhost:3002;"
-  : "connect-src 'self' https://api.stripe.com https://m.stripe.com https://m.stripe.network https://r.stripe.com https://api.openai.com https://api.anthropic.com https://api.resend.com;"
+  ? "connect-src 'self' https://api.stripe.com https://js.stripe.com https://api.openai.com http://localhost:3000 http://localhost:3001 http://localhost:3002 ws://localhost:3000 ws://localhost:3001 ws://localhost:3002;"
+  : "connect-src 'self' https://api.stripe.com https://js.stripe.com https://m.stripe.com https://m.stripe.network https://r.stripe.com https://api.openai.com https://api.anthropic.com https://api.resend.com;"
 
 const nextConfig = {
   poweredByHeader: false,
