@@ -6,6 +6,7 @@ import { CheckoutForm } from '@/components/checkout-form'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertCircle, Loader2 } from 'lucide-react'
+import { subscriptionTiers } from '@/lib/subscription'
 
 interface Plan {
   id: string
@@ -22,60 +23,43 @@ export default function CheckoutPage() {
   const [plan, setPlan] = useState<Plan | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [checkingAuth, setCheckingAuth] = useState(true)
 
-  const plans: Plan[] = [
-    {
-      id: 'basic',
-      name: 'Basic Plan',
-      price: 29.99,
-      currency: 'usd',
-      interval: 'month',
-      features: [
-        'Credit report analysis',
-        'Basic dispute letters',
-        'Email support',
-        'Monthly credit monitoring'
-      ]
-    },
-    {
-      id: 'premium',
-      name: 'Premium Plan',
-      price: 59.99,
-      currency: 'usd',
-      interval: 'month',
-      features: [
-        'Everything in Basic',
-        'Advanced dispute strategies',
-        'Priority support',
-        'Weekly credit monitoring',
-        'Custom dispute letters',
-        'Credit score tracking'
-      ]
-    },
-    {
-      id: 'enterprise',
-      name: 'Enterprise Plan',
-      price: 99.99,
-      currency: 'usd',
-      interval: 'month',
-      features: [
-        'Everything in Premium',
-        'Unlimited disputes',
-        '24/7 phone support',
-        'Daily credit monitoring',
-        'AI-powered recommendations',
-        'White-label options',
-        'API access'
-      ]
-    }
-  ]
+  // Checkout is for signing an existing account up for a paid plan — it
+  // isn't a new-account signup flow (no password field). Previously there
+  // was no check at all, so an unauthenticated visitor could reach the
+  // payment form and only find out it doesn't work when the Stripe customer
+  // call 401s after they've already entered their card.
+  useEffect(() => {
+    const planParam = searchParams.get('plan') ?? ''
+    fetch('/api/auth/me')
+      .then(res => {
+        if (!res.ok) {
+          router.replace(`/login?redirect=${encodeURIComponent(`/checkout?plan=${planParam}`)}`)
+          return
+        }
+        setCheckingAuth(false)
+      })
+      .catch(() => {
+        router.replace(`/login?redirect=${encodeURIComponent(`/checkout?plan=${planParam}`)}`)
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
+    if (checkingAuth) return
     const planId = searchParams.get('plan')
     if (planId) {
-      const selectedPlan = plans.find(p => p.id === planId)
-      if (selectedPlan) {
-        setPlan(selectedPlan)
+      const tier = subscriptionTiers[planId]
+      if (tier && tier.price > 0) {
+        setPlan({
+          id: tier.id,
+          name: tier.name,
+          price: tier.price,
+          currency: 'usd',
+          interval: tier.period,
+          features: tier.features,
+        })
       } else {
         setError('Invalid plan selected')
       }
@@ -83,7 +67,7 @@ export default function CheckoutPage() {
       setError('No plan selected')
     }
     setLoading(false)
-  }, [searchParams])
+  }, [searchParams, checkingAuth])
 
   const handleSuccess = (paymentData: any) => {
     // paymentData contains real Stripe identifiers from a completed charge
@@ -101,7 +85,7 @@ export default function CheckoutPage() {
     router.push('/dashboard/billing')
   }
 
-  if (loading) {
+  if (checkingAuth || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -162,11 +146,7 @@ export default function CheckoutPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <CheckoutForm
-        plan={plan}
-        onSuccess={handleSuccess}
-        onCancel={handleCancel}
-      />
+      <CheckoutForm plan={plan} onSuccess={handleSuccess} onCancel={handleCancel} />
     </div>
   )
 }
