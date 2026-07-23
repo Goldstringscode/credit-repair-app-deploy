@@ -161,6 +161,20 @@ export const POST = withRateLimit(
           console.error('Failed to save subscription record:', saveError)
         }
 
+        // Grant the plan's permissions immediately. Everything that gates
+        // access (e.g. the training course paywall) reads users.subscription_tier,
+        // so without this a customer who just paid would still be treated as
+        // free tier until some future reconciliation. Ongoing renewals/
+        // cancellations should also keep this in sync via the Stripe webhook.
+        const { error: tierError } = await supabase
+          .from('users')
+          .update({ subscription_tier: planId, subscription_status: 'active' })
+          .eq('id', authUser.userId)
+
+        if (tierError) {
+          console.error('Failed to update user subscription tier:', tierError)
+        }
+
         return NextResponse.json({
           success: true,
           subscription: {
