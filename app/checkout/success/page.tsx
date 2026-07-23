@@ -1,180 +1,176 @@
-"use client"
+'use client'
 
-import { useEffect, useState } from "react"
-import { useSearchParams } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { CheckCircle, Shield, ArrowRight, Loader2, AlertCircle } from "lucide-react"
-import Link from "next/link"
-import { useNotifications } from "@/lib/notification-context"
+import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 
-type VerificationState = "verifying" | "verified" | "failed"
+interface SubscriptionInfo {
+  id: string
+  planId: string | null
+  status: string
+}
 
+const PLAN_LABELS: Record<string, string> = {
+  free: 'Free',
+  basic: 'Basic',
+  professional: 'Professional',
+  premium: 'Premium',
+  enterprise: 'Enterprise',
+}
+
+/**
+ * Never shows "success" based on the redirect alone — the PaymentIntent id
+ * in the URL is only a hint. This page independently confirms a real active
+ * subscription exists (via /api/billing/subscriptions, which reads live from
+ * Stripe) before celebrating, since the subscription record is written
+ * synchronously during checkout but a brief poll guards against any latency.
+ */
 export default function CheckoutSuccessPage() {
-  const { addNotification } = useNotifications()
   const searchParams = useSearchParams()
-  const [state, setState] = useState<VerificationState>("verifying")
+  const router = useRouter()
+  const paymentIntentId = searchParams.get('paymentIntentId')
+
+  const [status, setStatus] = useState<'checking' | 'confirmed' | 'pending' | 'error'>('checking')
+  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null)
+
+  const verify = useCallback(async (attempt: number) => {
+    try {
+      const res = await fetch('/api/billing/subscriptions')
+      if (res.status === 401) {
+        router.replace('/login')
+        return
+      }
+      const json = await res.json()
+      const active = (json.subscriptions ?? []).find((s: SubscriptionInfo) =>
+        ['active', 'trialing'].includes(s.status)
+      )
+      if (active) {
+        setSubscription(active)
+        setStatus('confirmed')
+        return
+      }
+      if (attempt < 4) {
+        setTimeout(() => verify(attempt + 1), 1500)
+      } else {
+        setStatus('pending')
+      }
+    } catch (err) {
+      console.error('Failed to verify subscription:', err)
+      setStatus('error')
+    }
+  }, [router])
 
   useEffect(() => {
-    // This page must never claim a payment succeeded on its own say-so — it
-    // always asks Stripe (via our server) whether the PaymentIntent actually
-    // succeeded before showing success UI or firing any notification.
-    const paymentIntentId = searchParams.get("paymentIntentId")
+    verify(0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-    if (!paymentIntentId) {
-      setState("failed")
-      return
-    }
-
-    const verify = async () => {
-      try {
-        const res = await fetch(
-          `/api/stripe/payments/verify?paymentIntentId=${encodeURIComponent(paymentIntentId)}`
-        )
-        const json = await res.json()
-
-        if (!res.ok || !json.success || json.paymentIntent?.status !== "succeeded") {
-          setState("failed")
-          return
-        }
-
-        setState("verified")
-
-        await addNotification({
-          title: "Payment Successful! 🎉",
-          message: "Welcome to CreditAI Pro! Your subscription is now active and you have access to all premium features.",
-          type: "success",
-          priority: "high",
-          read: false,
-          actions: [
-            {
-              label: "Go to Dashboard",
-              action: "navigate_dashboard",
-              variant: "default"
-            },
-            {
-              label: "Start AI Chat",
-              action: "navigate_ai_chat",
-              variant: "outline"
-            }
-          ]
-        })
-      } catch (error) {
-        console.error("Payment verification failed:", error)
-        setState("failed")
-      }
-    }
-
-    verify()
-  }, [searchParams, addNotification])
-
-  if (state === "verifying") {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-500" />
-          <p className="text-gray-600">Confirming your payment...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (state === "failed") {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="flex justify-center mb-4">
-              <div className="bg-red-100 rounded-full p-3">
-                <AlertCircle className="h-10 w-10 text-red-600" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl text-red-700">We couldn't confirm this payment</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-center">
-            <p className="text-gray-600">
-              We weren't able to verify a successful payment for this session. If you were charged,
-              no further action is needed — please contact support and we'll sort it out. If you
-              haven't completed checkout yet, you can try again below.
-            </p>
-            <div className="space-y-3">
-              <Link href="/pricing">
-                <Button className="w-full" size="lg">
-                  Back to Plans
-                </Button>
-              </Link>
-              <Link href="/dashboard/billing">
-                <Button variant="outline" className="w-full bg-transparent">
-                  Go to Billing
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+  const planLabel = subscription?.planId ? (PLAN_LABELS[subscription.planId] ?? subscription.planId) : null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex items-center justify-center p-4">
-      <Card className="w-full max-w-2xl">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="bg-green-100 rounded-full p-3">
-              <CheckCircle className="h-12 w-12 text-green-600" />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-slate-100 p-8 text-center">
+        {status === 'checking' && (
+          <>
+            <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-5">
+              <svg className="animate-spin h-7 w-7 text-blue-600" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
             </div>
-          </div>
-          <CardTitle className="text-3xl text-green-800">Payment Successful!</CardTitle>
-          <p className="text-gray-600 mt-2">Welcome to CreditAI Pro</p>
-        </CardHeader>
+            <h1 className="text-xl font-bold text-slate-900 mb-1">Confirming your payment…</h1>
+            <p className="text-sm text-slate-500">This only takes a moment.</p>
+          </>
+        )}
 
-        <CardContent className="space-y-6">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <h3 className="font-semibold text-green-800 mb-2">What happens next?</h3>
-            <ul className="space-y-2 text-sm text-green-700">
-              <li className="flex items-center space-x-2">
-                <CheckCircle className="h-4 w-4" />
-                <span>Confirmation email sent to your inbox</span>
-              </li>
-              <li className="flex items-center space-x-2">
-                <CheckCircle className="h-4 w-4" />
-                <span>Account activated and ready to use</span>
-              </li>
-              <li className="flex items-center space-x-2">
-                <CheckCircle className="h-4 w-4" />
-                <span>AI assistant is ready to help you</span>
-              </li>
-            </ul>
-          </div>
+        {status === 'confirmed' && (
+          <>
+            <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-5">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-slate-900 mb-2">Payment successful</h1>
+            <p className="text-sm text-slate-600 mb-6">
+              {planLabel ? (
+                <>You're subscribed to the <span className="font-semibold text-slate-900">{planLabel}</span> plan.</>
+              ) : (
+                <>Your subscription is active.</>
+              )}
+            </p>
 
-          <div className="text-center space-y-4">
-            <div className="flex items-center justify-center space-x-2 text-blue-600">
-              <Shield className="h-5 w-5" />
-              <span className="font-semibold">Protected by 120% Money-Back Guarantee</span>
+            <div className="rounded-lg bg-slate-50 border border-slate-100 p-4 mb-6 text-left">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-500">Status</span>
+                <span className="inline-flex items-center gap-1.5 font-medium text-green-700">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                  Active
+                </span>
+              </div>
+              {paymentIntentId && (
+                <div className="flex items-center justify-between text-sm mt-2">
+                  <span className="text-slate-500">Confirmation</span>
+                  <span className="font-mono text-xs text-slate-500">{paymentIntentId.slice(-12)}</span>
+                </div>
+              )}
             </div>
 
-            <div className="space-y-3">
-              <Link href="/dashboard">
-                <Button className="w-full bg-blue-600 hover:bg-blue-700" size="lg">
-                  Go to Dashboard
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              </Link>
+            <Link
+              href="/dashboard"
+              className="w-full inline-flex items-center justify-center h-12 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Go to your dashboard
+            </Link>
+            <Link href="/dashboard/billing" className="block mt-3 text-sm text-slate-500 hover:text-slate-700">
+              View billing details
+            </Link>
+          </>
+        )}
 
-              <Link href="/support/ai-chat">
-                <Button variant="outline" className="w-full bg-transparent">
-                  Start Chat with AI Assistant
-                </Button>
-              </Link>
+        {status === 'pending' && (
+          <>
+            <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-5">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 8v4l3 3" />
+              </svg>
             </div>
-          </div>
+            <h1 className="text-xl font-bold text-slate-900 mb-2">Still finalizing your subscription</h1>
+            <p className="text-sm text-slate-600 mb-6">
+              Your payment went through, but it's taking a little longer than usual to activate. Your dashboard
+              will update automatically once it's ready — no need to pay again.
+            </p>
+            <Link
+              href="/dashboard"
+              className="w-full inline-flex items-center justify-center h-12 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Go to your dashboard
+            </Link>
+          </>
+        )}
 
-          <div className="border-t pt-4 text-center text-sm text-gray-600">
-            <p>Need help getting started? Contact our support team at</p>
-            <p className="font-semibold">support@creditaipro.com</p>
-          </div>
-        </CardContent>
-      </Card>
+        {status === 'error' && (
+          <>
+            <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-5">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 8v5M12 16h.01" />
+              </svg>
+            </div>
+            <h1 className="text-xl font-bold text-slate-900 mb-2">Couldn't confirm your subscription</h1>
+            <p className="text-sm text-slate-600 mb-6">
+              Check your billing page for the latest status, or contact support if you were charged but don't see
+              an active plan.
+            </p>
+            <Link
+              href="/dashboard/billing"
+              className="w-full inline-flex items-center justify-center h-12 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+            >
+              View billing
+            </Link>
+          </>
+        )}
+      </div>
     </div>
   )
 }
