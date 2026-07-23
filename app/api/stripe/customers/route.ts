@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { stripePaymentService } from '@/lib/stripe/payments'
+import { getStripeClient } from '@/lib/stripe-client'
+import { getAuthenticatedUser } from '@/lib/auth-helpers'
+import { getSupabaseClient } from '@/lib/supabase-client'
 import { withRateLimit } from '@/lib/rate-limiter'
 import { withValidation } from '@/lib/validation-middleware'
 import { z } from 'zod'
@@ -20,21 +22,84 @@ const createCustomerSchema = z.object({
   metadata: z.record(z.string()).optional()
 })
 
+/**
+ * POST /api/billing/../stripe/customers
+ *
+ * Creates the Stripe customer for the authenticated user's billing profile,
+ * or reuses their existing one. Previously this endpoint had no auth check
+ * at all and never saved the resulting Stripe customer id anywhere, which
+ * meant every other billing endpoint (subscription lookup, billing portal)
+ * had no reliable way to find "this user's" Stripe customer afterward.
+ */
 export const POST = withRateLimit(
   withValidation({
     body: createCustomerSchema
   })(
     async (request: NextRequest, validatedData: any) => {
       try {
-        console.log('👤 Creating customer:', validatedData.body.email)
+        const authUser = getAuthenticatedUser(request)
+        if (!authUser) {
+          return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+        }
 
-        const customer = await stripePaymentService.createCustomer({
-          email: validatedData.body.email,
-          name: validatedData.body.name,
-          phone: validatedData.body.phone,
-          address: validatedData.body.address,
-          metadata: validatedData.body.metadata
+        const supabase = getSupabaseClient()
+        const stripe = getStripeClient()
+        const body = validatedData.body
+
+        const { data: userRow } = await supabase
+          .from('users')
+          .select('stripe_customer_id')
+          .eq('id', authUser.userId)
+          .maybeSingle()
+
+        // Reuse the existing Stripe customer if this user already has one —
+        // keeps billing history, cards, and subscriptions on a single
+        // customer instead of fragmenting across duplicates on every checkout.
+        if (userRow?.stripe_customer_id) {
+          try {
+            const existing = await stripe.customers.retrieve(userRow.stripe_customer_id)
+            if (!('deleted' in existing && existing.deleted)) {
+              const updated = await stripe.customers.update(userRow.stripe_customer_id, {
+                email: body.email,
+                name: body.name,
+                phone: body.phone,
+                address: body.address,
+                metadata: { ...body.metadata, userId: authUser.userId },
+              })
+              return NextResponse.json({
+                success: true,
+                customer: {
+                  id: updated.id,
+                  email: updated.email,
+                  name: updated.name,
+                  phone: updated.phone,
+                  address: updated.address,
+                  created: updated.created,
+                },
+              })
+            }
+          } catch {
+            // Stored customer id is stale/invalid (e.g. deleted in Stripe) —
+            // fall through and create a fresh one below.
+          }
+        }
+
+        const customer = await stripe.customers.create({
+          email: body.email,
+          name: body.name,
+          phone: body.phone,
+          address: body.address,
+          metadata: { ...body.metadata, userId: authUser.userId },
         })
+
+        const { error: saveError } = await supabase
+          .from('users')
+          .update({ stripe_customer_id: customer.id })
+          .eq('id', authUser.userId)
+
+        if (saveError) {
+          console.error('Failed to save stripe_customer_id:', saveError)
+        }
 
         return NextResponse.json({
           success: true,
@@ -44,10 +109,9 @@ export const POST = withRateLimit(
             name: customer.name,
             phone: customer.phone,
             address: customer.address,
-            created: customer.created
-          }
+            created: customer.created,
+          },
         })
-
       } catch (error: any) {
         console.error('❌ Customer creation failed:', error)
         return NextResponse.json({
