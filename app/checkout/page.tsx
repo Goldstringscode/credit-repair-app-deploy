@@ -70,13 +70,14 @@ export default function CheckoutPage() {
   }, [searchParams, checkingAuth])
 
   const handleSuccess = (paymentData: any) => {
-    // paymentData contains real Stripe identifiers from a completed charge
-    // (see components/checkout-form.tsx). We never show "success" ourselves —
-    // the success page independently re-verifies the PaymentIntent with
-    // Stripe before displaying anything or firing notifications.
+    // paymentData contains real Stripe identifiers from a completed
+    // subscription (see components/checkout-form.tsx). We never show
+    // "success" ourselves — the success page independently re-verifies the
+    // subscription with Stripe before displaying anything or firing
+    // notifications.
     const params = new URLSearchParams()
-    if (paymentData?.paymentIntentId) {
-      params.set('paymentIntentId', paymentData.paymentIntentId)
+    if (paymentData?.subscriptionId) {
+      params.set('subscriptionId', paymentData.subscriptionId)
     }
     router.push(`/checkout/success?${params.toString()}`)
   }
