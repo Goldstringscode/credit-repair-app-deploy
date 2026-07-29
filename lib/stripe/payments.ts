@@ -37,8 +37,13 @@ export class StripePaymentService {
         metadata: data.metadata || {},
         description: data.description,
         payment_method: data.paymentMethodId,
-        confirmation_method: 'manual',
         confirm: false,
+        // 'manual' would require confirming server-side with the secret
+        // key, but the checkout flow confirms client-side via
+        // stripe.confirmCardPayment() using the publishable key — that
+        // call is rejected outright for a manual-confirmation PaymentIntent
+        // ("cannot be confirmed using your publishable key"). Automatic
+        // (the default) is what client-side confirmation actually requires.
         // Saves the confirmed card on the customer for future off-session
         // (automatic recurring) charges — required for subscriptions billed
         // after this first payment. Without this, a card confirmed here
