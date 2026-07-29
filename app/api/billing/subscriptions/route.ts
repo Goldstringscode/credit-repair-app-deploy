@@ -16,21 +16,59 @@ const createSubscriptionSchema = z.object({
 })
 
 /**
+ * Newer Stripe API versions moved current_period_start/current_period_end
+ * off the top-level Subscription object onto each subscription item
+ * (subscriptions can now have items with independently different billing
+ * periods). Reading the old top-level fields directly returns undefined,
+ * and calling .toISOString() on `new Date(undefined * 1000)` throws —
+ * this was crashing subscription creation with a 500 after the real
+ * subscription (and its real first charge) had already gone through on
+ * Stripe's side. Falls back to the first item's period if the top-level
+ * fields aren't present, and to now/now+30d as a last resort so this can
+ * never throw regardless of API version.
+ */
+function getSubscriptionPeriod(subscription: any): { start: string; end: string } {
+  const topStart = subscription.current_period_start
+  const topEnd = subscription.current_period_end
+  if (typeof topStart === 'number' && typeof topEnd === 'number') {
+    return {
+      start: new Date(topStart * 1000).toISOString(),
+      end: new Date(topEnd * 1000).toISOString(),
+    }
+  }
+
+  const item = subscription.items?.data?.[0]
+  if (item && typeof item.current_period_start === 'number' && typeof item.current_period_end === 'number') {
+    return {
+      start: new Date(item.current_period_start * 1000).toISOString(),
+      end: new Date(item.current_period_end * 1000).toISOString(),
+    }
+  }
+
+  const now = new Date()
+  const fallbackEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+  return { start: now.toISOString(), end: fallbackEnd.toISOString() }
+}
+
+/**
  * POST /api/billing/subscriptions
  *
- * Creates the recurring Stripe subscription after a successful first
- * payment (see components/checkout-form.tsx). The route requires the
- * confirmed PaymentIntent's id in metadata.paymentIntentId, retrieves the
- * payment method that was used, attaches it to the customer as the default
- * for future invoices, and creates a real Stripe Subscription — using an
- * inline recurring price (price_data) built from lib/subscription.ts, the
- * app's single source of truth for plan pricing, so no Stripe Dashboard
- * product/price setup is required.
+ * Creates the recurring Stripe subscription after the card has been saved
+ * via a SetupIntent (see components/checkout-form.tsx and
+ * /api/stripe/setup-intent). The route requires the confirmed SetupIntent's
+ * id in metadata.setupIntentId, retrieves the payment method that was
+ * saved, attaches it to the customer as the default for future invoices,
+ * and creates a real Stripe Subscription referencing the plan's real,
+ * persistent Stripe Price (see lib/subscription.ts).
  *
- * Previously this called subscriptionManager.createSubscription() without
- * `useStripe: true`, which silently fell through to a local-only fake
- * subscription record — meaning a customer could pay once for real via
- * Stripe but never actually be enrolled in recurring billing.
+ * This used to confirm a one-time PaymentIntent for the first payment and
+ * then separately create the subscription — but creating a Stripe
+ * subscription with a default payment method already attached
+ * automatically generates and charges an invoice for the first billing
+ * period on its own, so that combination charged the customer twice for
+ * the same first payment. Using a SetupIntent (saves the card, charges
+ * nothing) means the subscription's own automatic first invoice is the
+ * only charge.
  */
 export const POST = withRateLimit(
   withValidation({ body: createSubscriptionSchema })(
@@ -48,10 +86,10 @@ export const POST = withRateLimit(
           return NextResponse.json({ success: false, error: 'Invalid plan' }, { status: 400 })
         }
 
-        const paymentIntentId = metadata?.paymentIntentId
-        if (!paymentIntentId) {
+        const setupIntentId = metadata?.setupIntentId
+        if (!setupIntentId) {
           return NextResponse.json(
-            { success: false, error: 'paymentIntentId is required in metadata' },
+            { success: false, error: 'setupIntentId is required in metadata' },
             { status: 400 }
           )
         }
@@ -75,25 +113,25 @@ export const POST = withRateLimit(
 
         const stripe = getStripeClient()
 
-        // Confirm the payment actually succeeded and belongs to this customer.
-        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
-        if (paymentIntent.customer !== customerId) {
-          return NextResponse.json({ success: false, error: 'Payment does not match customer' }, { status: 400 })
+        // Confirm the card was actually saved and belongs to this customer.
+        const setupIntent = await stripe.setupIntents.retrieve(setupIntentId)
+        if (setupIntent.customer !== customerId) {
+          return NextResponse.json({ success: false, error: 'Setup does not match customer' }, { status: 400 })
         }
-        if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'processing') {
+        if (setupIntent.status !== 'succeeded') {
           return NextResponse.json(
-            { success: false, error: 'Payment not completed: ' + paymentIntent.status },
+            { success: false, error: 'Card setup not completed: ' + setupIntent.status },
             { status: 402 }
           )
         }
 
         const paymentMethodId =
-          typeof paymentIntent.payment_method === 'string'
-            ? paymentIntent.payment_method
-            : paymentIntent.payment_method?.id
+          typeof setupIntent.payment_method === 'string'
+            ? setupIntent.payment_method
+            : setupIntent.payment_method?.id
 
         if (!paymentMethodId) {
-          return NextResponse.json({ success: false, error: 'No payment method on this payment' }, { status: 400 })
+          return NextResponse.json({ success: false, error: 'No payment method on this setup' }, { status: 400 })
         }
 
         // Save the card for recurring billing: attach it to the customer and
@@ -121,12 +159,17 @@ export const POST = withRateLimit(
           )
         }
 
+        // This is the only charge for the first billing period — Stripe
+        // automatically generates and charges an invoice for it as part of
+        // creating the subscription, since default_payment_method is set.
         const stripeSubscription = await stripe.subscriptions.create({
           customer: customerId,
           items: [{ price: stripePriceId }],
           default_payment_method: paymentMethodId,
           metadata: { planId, userId: authUser.userId },
         })
+
+        const period = getSubscriptionPeriod(stripeSubscription)
 
         const record = {
           user_id: authUser.userId,
@@ -135,17 +178,17 @@ export const POST = withRateLimit(
           plan_id: planId,
           plan_name: plan.name,
           status: stripeSubscription.status,
-          current_period_start: new Date(stripeSubscription.current_period_start * 1000).toISOString(),
-          current_period_end: new Date(stripeSubscription.current_period_end * 1000).toISOString(),
+          current_period_start: period.start,
+          current_period_end: period.end,
           cancel_at_period_end: stripeSubscription.cancel_at_period_end,
           amount: unitAmount / 100,
           currency: 'usd',
-          next_billing_date: new Date(stripeSubscription.current_period_end * 1000).toISOString(),
+          next_billing_date: period.end,
           stripe_subscription_id: stripeSubscription.id,
           stripe_customer_id: customerId,
           payment_method: 'card',
           billing_cycle: interval,
-          metadata: { paymentIntentId },
+          metadata: { setupIntentId },
         }
 
         const { data: saved, error: saveError } = await supabase
@@ -230,16 +273,19 @@ export const GET = withRateLimit(
 
       return NextResponse.json({
         success: true,
-        subscriptions: subs.data.map(sub => ({
-          id: sub.id,
-          customerId: typeof sub.customer === 'string' ? sub.customer : sub.customer.id,
-          planId: sub.metadata?.planId ?? null,
-          status: sub.status,
-          currentPeriodStart: new Date(sub.current_period_start * 1000).toISOString(),
-          currentPeriodEnd: new Date(sub.current_period_end * 1000).toISOString(),
-          cancelAtPeriodEnd: sub.cancel_at_period_end,
-          createdAt: new Date(sub.created * 1000).toISOString(),
-        })),
+        subscriptions: subs.data.map(sub => {
+          const period = getSubscriptionPeriod(sub)
+          return {
+            id: sub.id,
+            customerId: typeof sub.customer === 'string' ? sub.customer : sub.customer.id,
+            planId: sub.metadata?.planId ?? null,
+            status: sub.status,
+            currentPeriodStart: period.start,
+            currentPeriodEnd: period.end,
+            cancelAtPeriodEnd: sub.cancel_at_period_end,
+            createdAt: new Date(sub.created * 1000).toISOString(),
+          }
+        }),
       })
     } catch (error: any) {
       console.error('❌ Failed to fetch subscriptions:', error)
