@@ -1,17 +1,19 @@
 // Service Worker for Push Notifications
 //
-// v3: v2 stopped caching HTML pages, but its fetch handler still applied a
-// cache-fallback (`.catch(() => caches.match(event.request))`) to EVERY
-// request regardless of method. For a POST request (like signup's call to
-// /api/auth/register), if the network fetch failed for any reason, that
-// fallback tried to look up a cached match for a POST request — which is
-// never cacheable, so it resolved to undefined. A service worker whose
-// respondWith() resolves to undefined fails the whole fetch with a generic
-// network error, with no clean request/response to inspect in devtools —
-// exactly matching "Something went wrong" with no visible register request.
-// This version only applies the cache-fallback to GET requests; every other
-// method just goes straight to the network, uninterrupted.
-const CACHE_NAME = 'credit-repair-app-v3'
+// v4: v3 fixed the cache-fallback bug for POST requests (a fetch failure
+// falling back to caches.match(), which returns undefined for anything
+// never cached, and a service worker whose respondWith() resolves to
+// undefined fails the whole request with a generic network error). The
+// same bug still applied to cross-origin GET requests — Stripe.js's script
+// load (https://js.stripe.com/v3) is a GET request, so it was still being
+// intercepted by this service worker and silently broken by the exact same
+// pattern, surfacing as "Failed to load Stripe.js" with a grayed-out,
+// non-interactive card field on the checkout page. This version only
+// applies the cache-fallback to same-origin GET requests; everything
+// cross-origin (Stripe.js, Google Fonts, any other third-party resource)
+// now bypasses this service worker entirely and goes straight to the
+// network, exactly as it would with no service worker registered at all.
+const CACHE_NAME = 'credit-repair-app-v4'
 
 // Install event
 self.addEventListener('install', (event) => {
@@ -42,10 +44,11 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event — always go to the network for page navigations (never serve
 // a cached HTML document), so deployments are reflected immediately.
-// Non-GET requests (form submissions, API calls) always go straight to the
-// network with no cache involvement at all, since they're never cacheable
-// and a failed cache-lookup fallback would break them. Only GET requests
-// fall back to the cache if the network is unavailable.
+// Non-GET requests (form submissions, API calls) and every cross-origin
+// request always go straight to the network with no cache involvement at
+// all, since a failed cache-lookup fallback would break them (see the note
+// above). Only same-origin GET requests fall back to the cache if the
+// network is unavailable.
 self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
     event.respondWith(fetch(event.request))
@@ -54,6 +57,10 @@ self.addEventListener('fetch', (event) => {
 
   if (event.request.method !== 'GET') {
     return // let the browser handle it directly, no interception at all
+  }
+
+  if (new URL(event.request.url).origin !== self.location.origin) {
+    return // cross-origin request — never intercept, let the browser handle it directly
   }
 
   event.respondWith(
@@ -142,4 +149,3 @@ async function syncNotifications() {
     console.error('Service Worker: Error syncing notifications', error)
   }
 }
-
