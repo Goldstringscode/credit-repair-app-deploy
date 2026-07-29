@@ -166,23 +166,23 @@ function CheckoutFormInner({ plan, onSuccess, onCancel }: CheckoutFormProps) {
       }
       const customerId = customerData.customer.id
 
-      const intentRes = await fetch('/api/stripe/payments/intent', {
+      const intentRes = await fetch('/api/stripe/setup-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          planId: plan.id,
-          currency: plan.currency,
-          customerId,
-          description: `Subscription - ${plan.name}`,
-        }),
+        body: JSON.stringify({ customerId }),
       })
       const intentData = await intentRes.json()
       if (!intentRes.ok || !intentData.success) {
         throw new Error(intentData.error || intentData.message || 'Could not start payment')
       }
-      const clientSecret = intentData.paymentIntent.client_secret
+      const clientSecret = intentData.setupIntent.client_secret
 
-      const { paymentIntent, error: confirmError } = await stripe.confirmCardPayment(clientSecret, {
+      // Saves the card without charging anything — the subscription created
+      // just below automatically generates and charges an invoice for the
+      // first billing period on its own. Confirming a separate PaymentIntent
+      // here as well, on top of that automatic first invoice, would charge
+      // the customer twice for the same first payment.
+      const { setupIntent, error: confirmError } = await stripe.confirmCardSetup(clientSecret, {
         payment_method: {
           card: cardElement,
           billing_details: {
@@ -194,10 +194,10 @@ function CheckoutFormInner({ plan, onSuccess, onCancel }: CheckoutFormProps) {
       })
 
       if (confirmError) {
-        throw new Error(confirmError.message || 'Your card could not be charged')
+        throw new Error(confirmError.message || 'Your card could not be saved')
       }
-      if (!paymentIntent || paymentIntent.status !== 'succeeded') {
-        throw new Error('Payment was not completed')
+      if (!setupIntent || setupIntent.status !== 'succeeded') {
+        throw new Error('Card setup was not completed')
       }
 
       const subRes = await fetch('/api/billing/subscriptions', {
@@ -206,7 +206,7 @@ function CheckoutFormInner({ plan, onSuccess, onCancel }: CheckoutFormProps) {
         body: JSON.stringify({
           customerId,
           planId: plan.id,
-          metadata: { paymentIntentId: paymentIntent.id },
+          metadata: { setupIntentId: setupIntent.id },
         }),
       })
       const subData = await subRes.json()
@@ -219,7 +219,7 @@ function CheckoutFormInner({ plan, onSuccess, onCancel }: CheckoutFormProps) {
         )
       }
 
-      onSuccess({ paymentIntentId: paymentIntent.id })
+      onSuccess({ subscriptionId: subData.subscription?.id })
     } catch (err: any) {
       console.error('Checkout failed:', err)
       setSubmitError(err.message || 'Something went wrong. Please try again.')
