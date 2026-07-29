@@ -28,7 +28,7 @@ const PLAN_LABELS: Record<string, string> = {
 export default function CheckoutSuccessPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const paymentIntentId = searchParams.get('paymentIntentId')
+  const subscriptionId = searchParams.get('subscriptionId')
 
   const [status, setStatus] = useState<'checking' | 'confirmed' | 'pending' | 'error'>('checking')
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null)
@@ -107,10 +107,10 @@ export default function CheckoutSuccessPage() {
                   Active
                 </span>
               </div>
-              {paymentIntentId && (
+              {subscriptionId && (
                 <div className="flex items-center justify-between text-sm mt-2">
                   <span className="text-slate-500">Confirmation</span>
-                  <span className="font-mono text-xs text-slate-500">{paymentIntentId.slice(-12)}</span>
+                  <span className="font-mono text-xs text-slate-500">{subscriptionId.slice(-12)}</span>
                 </div>
               )}
             </div>
