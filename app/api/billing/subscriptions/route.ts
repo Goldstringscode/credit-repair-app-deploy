@@ -100,7 +100,7 @@ export const POST = withRateLimit(
         // the authenticated user, never trust the client-supplied id alone.
         const { data: userRow } = await supabase
           .from('users')
-          .select('stripe_customer_id, email')
+          .select('stripe_customer_id, email, first_name, last_name')
           .eq('id', authUser.userId)
           .maybeSingle()
 
@@ -170,20 +170,32 @@ export const POST = withRateLimit(
         })
 
         const period = getSubscriptionPeriod(stripeSubscription)
+        // current_period_start/end and next_billing_date are `date` columns,
+        // not timestamps — a full ISO datetime string was silently failing
+        // this insert on every checkout (caught by the try/catch below and
+        // only logged, so the subscription itself still succeeded, but the
+        // mirror table never actually got a row). customer_name is also a
+        // required column this insert was missing entirely, which alone
+        // would have failed it with a not-null violation.
+        const periodStartDate = period.start.slice(0, 10)
+        const periodEndDate = period.end.slice(0, 10)
+        const customerName =
+          [userRow.first_name, userRow.last_name].filter(Boolean).join(' ').trim() || userRow.email
 
         const record = {
           user_id: authUser.userId,
           customer_id: customerId,
+          customer_name: customerName,
           customer_email: userRow.email,
           plan_id: planId,
           plan_name: plan.name,
           status: stripeSubscription.status,
-          current_period_start: period.start,
-          current_period_end: period.end,
+          current_period_start: periodStartDate,
+          current_period_end: periodEndDate,
           cancel_at_period_end: stripeSubscription.cancel_at_period_end,
           amount: unitAmount / 100,
           currency: 'usd',
-          next_billing_date: period.end,
+          next_billing_date: periodEndDate,
           stripe_subscription_id: stripeSubscription.id,
           stripe_customer_id: customerId,
           payment_method: 'card',
@@ -224,8 +236,8 @@ export const POST = withRateLimit(
             customerId,
             planId,
             status: stripeSubscription.status,
-            currentPeriodStart: record.current_period_start,
-            currentPeriodEnd: record.current_period_end,
+            currentPeriodStart: period.start,
+            currentPeriodEnd: period.end,
             cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
             createdAt: new Date(stripeSubscription.created * 1000).toISOString(),
           },
