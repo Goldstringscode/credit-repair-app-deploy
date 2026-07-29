@@ -11,6 +11,15 @@
 // Centralizing here means changing a price once, here, makes it correct
 // everywhere, and the actual Stripe charge amount is computed server-side
 // from this file rather than trusted from the client.
+//
+// stripePriceId references real, persistent Stripe Price objects (created
+// once, see the Products tab in the Stripe Dashboard) instead of the
+// subscription-creation code building an ad-hoc price_data object inline on
+// every checkout. That previous approach meant every single subscription
+// spun up its own one-off Product in Stripe (cluttering the catalog) and,
+// more importantly, gave the Stripe Customer Portal nothing to offer for
+// self-serve plan switching, since that feature requires real Prices to
+// choose between.
 
 export interface SubscriptionTier {
   id: string
@@ -21,6 +30,8 @@ export interface SubscriptionTier {
   buttonText: string
   popular: boolean
   icon: "Gift" | "Shield" | "Star" | "Zap"
+  /** Real Stripe Price id (price_...). Free tier has none — no subscription is created for it. */
+  stripePriceId: string | null
   features: string[]
   limits: {
     disputeLetters: number | "unlimited"
@@ -41,6 +52,7 @@ export const subscriptionTiers: Record<string, SubscriptionTier> = {
     buttonText: "Get Started Free",
     popular: false,
     icon: "Gift",
+    stripePriceId: null,
     features: [
       "1 AI-powered dispute letter per month",
       "Manual credit report entry",
@@ -65,6 +77,7 @@ export const subscriptionTiers: Record<string, SubscriptionTier> = {
     buttonText: "Start Basic Plan",
     popular: false,
     icon: "Shield",
+    stripePriceId: "price_1TyMVhIMIfrr9NQncTOcKXlb",
     features: [
       "AI-powered dispute letter generation",
       "Basic credit score tracking",
@@ -90,6 +103,7 @@ export const subscriptionTiers: Record<string, SubscriptionTier> = {
     buttonText: "Start Professional Plan",
     popular: true,
     icon: "Star",
+    stripePriceId: "price_1TyMVoIMIfrr9NQnKugekxA0",
     features: [
       "Everything in Basic",
       "Unlimited dispute letters",
@@ -117,6 +131,7 @@ export const subscriptionTiers: Record<string, SubscriptionTier> = {
     buttonText: "Start Premium Plan",
     popular: false,
     icon: "Zap",
+    stripePriceId: "price_1TyMVuIMIfrr9NQnyZTnUhbI",
     features: [
       "Everything in Professional",
       "Certified mail service",
@@ -158,6 +173,11 @@ export function getPlanPrice(planId: string | undefined | null): number {
 /** Price in integer cents, for Stripe amounts. */
 export function getPlanPriceCents(planId: string | undefined | null): number {
   return Math.round(getPlanPrice(planId) * 100)
+}
+
+/** Real Stripe Price id for a plan, or null for the free tier / unknown plan. */
+export function getStripePriceId(planId: string | undefined | null): string | null {
+  return getPlan(planId)?.stripePriceId ?? null
 }
 
 export interface UserSubscription {
@@ -204,4 +224,3 @@ export function isUsageLimitReached(subscription: UserSubscription, feature: "di
   if (limit === "unlimited") return false
   return subscription.usage[feature] >= limit
 }
-
