@@ -39,9 +39,21 @@ export const POST = withRateLimit(
       }
 
       const stripe = getStripeClient()
+      // Derived from the actual incoming request rather than
+      // NEXT_PUBLIC_APP_URL: that variable is used all over this app for
+      // similar purposes, and the repo's own PRODUCTION_ENVIRONMENT_SETUP.md
+      // checklist flags it as "Development" — if it's still pointing at a
+      // dev URL in production, Stripe still creates the session fine (it
+      // doesn't validate the return_url is reachable at creation time), but
+      // the hosted portal page's own client-side init can fail trying to
+      // work with an unreachable return_url, which is consistent with the
+      // client_init_timeout_report / connection reset reported on that
+      // page. request.nextUrl.origin always reflects the real host the
+      // request actually came in on.
+      const returnUrl = `${request.nextUrl.origin}/dashboard/billing`
       const session = await stripe.billingPortal.sessions.create({
         customer: userRow.stripe_customer_id,
-        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/billing`,
+        return_url: returnUrl,
       })
 
       return NextResponse.json({ success: true, url: session.url })
