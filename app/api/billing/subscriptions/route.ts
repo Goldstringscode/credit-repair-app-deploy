@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/auth-helpers'
 import { getStripeClient } from '@/lib/stripe-client'
 import { getSupabaseClient } from '@/lib/supabase-client'
-import { getPlan, getPlanPriceCents } from '@/lib/subscription'
+import { getPlan, getPlanPriceCents, getStripePriceId } from '@/lib/subscription'
 import { withRateLimit } from '@/lib/rate-limiter'
 import { withValidation } from '@/lib/validation-middleware'
 import { z } from 'zod'
@@ -112,19 +112,18 @@ export const POST = withRateLimit(
 
         const interval = plan.period === 'year' ? 'year' : 'month'
         const unitAmount = getPlanPriceCents(planId)
+        const stripePriceId = getStripePriceId(planId)
+
+        if (!stripePriceId) {
+          return NextResponse.json(
+            { success: false, error: 'This plan is not available for subscription' },
+            { status: 400 }
+          )
+        }
 
         const stripeSubscription = await stripe.subscriptions.create({
           customer: customerId,
-          items: [
-            {
-              price_data: {
-                currency: 'usd',
-                unit_amount: unitAmount,
-                recurring: { interval },
-                product_data: { name: plan.name },
-              },
-            },
-          ],
+          items: [{ price: stripePriceId }],
           default_payment_method: paymentMethodId,
           metadata: { planId, userId: authUser.userId },
         })
