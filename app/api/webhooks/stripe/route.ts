@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
-import { createClient } from "@supabase/supabase-js"
-import { sanitizeError } from '@/lib/api-error'
+import { createClient, SupabaseClient } from "@supabase/supabase-js"
 
 export const dynamic = 'force-dynamic'
 
@@ -42,7 +41,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
     }
 
-    // Handle the event
     switch (event.type) {
       case "payment_intent.succeeded":
         await handlePaymentSuccess(event.data.object as Stripe.PaymentIntent)
@@ -83,33 +81,87 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * Single source of truth for keeping a user's permissions in sync with the
+ * real state of their Stripe subscription. Called from every subscription
+ * lifecycle event below, so renewals, plan changes, failed payments, and
+ * cancellations all converge on the same logic instead of each handler
+ * updating (or forgetting to update) users.subscription_tier differently.
+ *
+ * planId is read from subscription.metadata.planId, which is set when the
+ * subscription is created (see app/api/billing/subscriptions/route.ts) —
+ * not from price.metadata, since subscriptions are created with an inline
+ * price_data object that has no persistent Price record to attach metadata
+ * to.
+ */
+async function syncUserAccessFromSubscription(supabase: SupabaseClient, subscription: Stripe.Subscription) {
+  const customerId = subscription.customer as string
+  const planId = subscription.metadata?.planId
+
+  const { data: user, error: userError } = await supabase
+    .from("users")
+    .select("id")
+    .eq("stripe_customer_id", customerId)
+    .maybeSingle()
+
+  if (userError || !user) {
+    console.error("No user found for Stripe customer:", customerId)
+    return null
+  }
+
+  const updates: Record<string, any> = { updated_at: new Date().toISOString() }
+
+  if (subscription.status === "active" || subscription.status === "trialing") {
+    updates.subscription_status = "active"
+    if (planId) updates.subscription_tier = planId
+  } else if (subscription.status === "past_due" || subscription.status === "unpaid") {
+    // Grace period: reflect the real status but leave the tier intact so
+    // access isn't immediately cut off on a single failed charge. Full
+    // dunning/lockout behavior, if wanted, would need the paywall checks
+    // themselves to also look at subscription_status, not just tier.
+    updates.subscription_status = subscription.status
+  } else {
+    // canceled, incomplete_expired, or any other terminal state — no longer
+    // a paying customer, so permissions must actually be revoked here.
+    updates.subscription_status = subscription.status === "canceled" ? "canceled" : "inactive"
+    updates.subscription_tier = "free"
+  }
+
+  const { error: updateError } = await supabase.from("users").update(updates).eq("id", user.id)
+  if (updateError) {
+    console.error("Failed to sync user subscription tier:", updateError)
+  }
+
+  return user.id as string
+}
+
 async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
   try {
     const userId = paymentIntent.metadata.userId
     const planType = paymentIntent.metadata.planType
 
     if (!userId || !planType) {
-      console.error("Missing metadata in payment intent:", paymentIntent.id)
+      // Not every PaymentIntent is a subscription payment (e.g. certified
+      // mail postage never sets this metadata) — this is expected to no-op
+      // for those, not an error condition.
       return
     }
 
-    // Record payment in database
     const supabase = getSupabaseClient()
     await supabase.from("payments").insert({
       user_id: userId,
       stripe_payment_intent_id: paymentIntent.id,
-      amount: paymentIntent.amount / 100, // Convert from cents
+      amount: paymentIntent.amount / 100,
       currency: paymentIntent.currency,
       status: "succeeded",
       plan_type: planType,
     })
 
-    // Update user subscription status
     await supabase
       .from("users")
       .update({
         subscription_status: "active",
-        subscription_plan: planType,
+        subscription_tier: planType,
         updated_at: new Date().toISOString(),
       })
       .eq("id", userId)
@@ -123,13 +175,8 @@ async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
 async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
   try {
     const userId = paymentIntent.metadata.userId
+    if (!userId) return
 
-    if (!userId) {
-      console.error("Missing userId in payment intent metadata:", paymentIntent.id)
-      return
-    }
-
-    // Record failed payment
     const supabase = getSupabaseClient()
     await supabase.from("payments").insert({
       user_id: userId,
@@ -148,29 +195,42 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
 
 async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
   try {
-    const customerId = subscription.customer as string
-
-    // Get user by Stripe customer ID
     const supabase = getSupabaseClient()
-    const { data: user } = await supabase.from("users").select("id").eq("stripe_customer_id", customerId).single()
+    const customerId = subscription.customer as string
+    const planId = subscription.metadata?.planId ?? null
 
-    if (!user) {
-      console.error("User not found for customer:", customerId)
-      return
+    const userId = await syncUserAccessFromSubscription(supabase, subscription)
+    if (!userId) return
+
+    // Mirror row for billing history/admin views. onConflict guards against
+    // this ever double-inserting if /api/billing/subscriptions already
+    // created it synchronously during checkout and this event arrives after.
+    const { error } = await supabase
+      .from("subscriptions")
+      .upsert(
+        {
+          user_id: userId,
+          customer_id: customerId,
+          stripe_customer_id: customerId,
+          stripe_subscription_id: subscription.id,
+          plan_id: planId,
+          status: subscription.status,
+          current_period_start: (subscription as any).current_period_start
+            ? new Date((subscription as any).current_period_start * 1000).toISOString()
+            : null,
+          current_period_end: (subscription as any).current_period_end
+            ? new Date((subscription as any).current_period_end * 1000).toISOString()
+            : null,
+          cancel_at_period_end: subscription.cancel_at_period_end,
+        },
+        { onConflict: "stripe_subscription_id" }
+      )
+
+    if (error) {
+      console.error("Failed to upsert subscription record:", error)
     }
 
-    // Create subscription record
-    await supabase.from("subscriptions").insert({
-      user_id: user.id,
-      stripe_subscription_id: subscription.id,
-      status: subscription.status,
-      plan_type: subscription.items.data[0]?.price?.metadata?.planType || "basic",
-      current_period_start: (subscription as any).current_period_start ? new Date((subscription as any).current_period_start * 1000).toISOString() : null,
-      current_period_end: (subscription as any).current_period_end ? new Date((subscription as any).current_period_end * 1000).toISOString() : null,
-      cancel_at_period_end: subscription.cancel_at_period_end,
-    })
-
-    console.log(`Subscription created for user ${user.id}`)
+    console.log(`Subscription created for user ${userId}`)
   } catch (error) {
     console.error("Error handling subscription creation:", error)
   }
@@ -178,18 +238,34 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   try {
-    // Update subscription record
     const supabase = getSupabaseClient()
-    await supabase
+
+    // This is the event Stripe sends for plan changes and renewals made
+    // through the Billing Portal — previously this handler only touched the
+    // subscriptions mirror table and never called through to users, so a
+    // customer who changed plans (or whose subscription lapsed) kept
+    // whatever tier they had at signup indefinitely.
+    await syncUserAccessFromSubscription(supabase, subscription)
+
+    const { error } = await supabase
       .from("subscriptions")
       .update({
         status: subscription.status,
-        current_period_start: (subscription as any).current_period_start ? new Date((subscription as any).current_period_start * 1000).toISOString() : null,
-        current_period_end: (subscription as any).current_period_end ? new Date((subscription as any).current_period_end * 1000).toISOString() : null,
+        plan_id: subscription.metadata?.planId ?? undefined,
+        current_period_start: (subscription as any).current_period_start
+          ? new Date((subscription as any).current_period_start * 1000).toISOString()
+          : null,
+        current_period_end: (subscription as any).current_period_end
+          ? new Date((subscription as any).current_period_end * 1000).toISOString()
+          : null,
         cancel_at_period_end: subscription.cancel_at_period_end,
         updated_at: new Date().toISOString(),
       })
       .eq("stripe_subscription_id", subscription.id)
+
+    if (error) {
+      console.error("Failed to update subscription record:", error)
+    }
 
     console.log(`Subscription updated: ${subscription.id}`)
   } catch (error) {
@@ -199,36 +275,26 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   try {
-    const customerId = subscription.customer as string
-
-    // Get user by Stripe customer ID
     const supabase = getSupabaseClient()
-    const { data: user } = await supabase.from("users").select("id").eq("stripe_customer_id", customerId).single()
 
-    if (!user) {
-      console.error("User not found for customer:", customerId)
-      return
-    }
+    // The critical fix: previously this only set subscription_status to
+    // "canceled" and left subscription_tier untouched, so a cancelled
+    // customer kept their paid tier's permissions indefinitely.
+    // syncUserAccessFromSubscription resets tier to "free" for a canceled
+    // status.
+    const userId = await syncUserAccessFromSubscription(supabase, subscription)
+    if (!userId) return
 
-    // Update subscription status
-    await supabase
+    const { error } = await supabase
       .from("subscriptions")
-      .update({
-        status: "canceled",
-        updated_at: new Date().toISOString(),
-      })
+      .update({ status: "canceled", updated_at: new Date().toISOString() })
       .eq("stripe_subscription_id", subscription.id)
 
-    // Update user subscription status
-    await supabase
-      .from("users")
-      .update({
-        subscription_status: "canceled",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id)
+    if (error) {
+      console.error("Failed to update subscription record:", error)
+    }
 
-    console.log(`Subscription canceled for user ${user.id}`)
+    console.log(`Subscription canceled for user ${userId}`)
   } catch (error) {
     console.error("Error handling subscription deletion:", error)
   }
@@ -236,9 +302,20 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   try {
+    const subscriptionId =
+      typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id
+    if (!subscriptionId) return
+
+    // A renewal charge succeeding (including after a prior past_due retry)
+    // should bring the account back to fully active — re-fetch the
+    // subscription rather than trust the invoice alone, since it reflects
+    // Stripe's authoritative current state.
+    const stripe = getStripeClient()
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+    const supabase = getSupabaseClient()
+    await syncUserAccessFromSubscription(supabase, subscription)
+
     console.log(`Invoice payment succeeded: ${invoice.id}`)
-    // Handle successful recurring payment
-    // You might want to extend subscription, send confirmation email, etc.
   } catch (error) {
     console.error("Error handling invoice payment success:", error)
   }
@@ -246,9 +323,18 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
 
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   try {
+    const subscriptionId =
+      typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id
+    if (!subscriptionId) return
+
+    const stripe = getStripeClient()
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+    const supabase = getSupabaseClient()
+    // Records the past_due status; see syncUserAccessFromSubscription for
+    // why tier isn't immediately revoked on a single failed charge.
+    await syncUserAccessFromSubscription(supabase, subscription)
+
     console.log(`Invoice payment failed: ${invoice.id}`)
-    // Handle failed recurring payment
-    // You might want to send dunning emails, suspend account, etc.
   } catch (error) {
     console.error("Error handling invoice payment failure:", error)
   }
