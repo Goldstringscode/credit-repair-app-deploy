@@ -3,7 +3,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { loadStripe } from '@stripe/stripe-js'
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import {
+  Elements,
+  CardNumberElement,
+  CardExpiryElement,
+  CardCvcElement,
+  useStripe,
+  useElements,
+} from '@stripe/react-stripe-js'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -41,7 +48,7 @@ const PLANS = [
   { id: 'premium', name: 'Premium', price: 129 },
 ]
 
-const cardElementOptions = {
+const elementStyle = {
   style: {
     base: {
       fontSize: '15px',
@@ -71,41 +78,98 @@ function CardBrandIcon({ brand }: { brand: string }) {
   )
 }
 
-/** Card entry form, rendered inside an <Elements> provider only while the add-card modal is open. */
-function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) {
+/**
+ * Full card entry: separate number/expiry/CVC fields plus a cardholder
+ * name field, instead of a single combined field — a more complete-feeling
+ * form. Used both by the standalone "Add card" modal and embedded inside
+ * the Change Plan modal when the customer picks "use a new card" there.
+ */
+function CardFields({
+  cardholderName,
+  onCardholderNameChange,
+  onFieldChange,
+}: {
+  cardholderName: string
+  onCardholderNameChange: (v: string) => void
+  onFieldChange: (field: string, error: string | null) => void
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1.5">Cardholder name</label>
+        <input
+          type="text"
+          value={cardholderName}
+          onChange={e => onCardholderNameChange(e.target.value)}
+          placeholder="Jordan Reyes"
+          className="w-full h-11 px-3.5 rounded-lg border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1.5">Card number</label>
+        <div className="h-11 px-3.5 flex items-center rounded-lg border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
+          <div className="w-full">
+            <CardNumberElement options={elementStyle} onChange={e => onFieldChange('number', e.error?.message ?? null)} />
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">Expiry date</label>
+          <div className="h-11 px-3.5 flex items-center rounded-lg border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
+            <div className="w-full">
+              <CardExpiryElement options={elementStyle} onChange={e => onFieldChange('expiry', e.error?.message ?? null)} />
+            </div>
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">CVC</label>
+          <div className="h-11 px-3.5 flex items-center rounded-lg border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
+            <div className="w-full">
+              <CardCvcElement options={elementStyle} onChange={e => onFieldChange('cvc', e.error?.message ?? null)} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Saves a card via SetupIntent + confirmCardSetup (charges nothing), then
+ * registers it with /api/billing/payment-methods. onSaved receives the new
+ * payment method's id so callers (standalone add-card, or the change-plan
+ * modal) can use it immediately.
+ */
+function useSaveCard() {
   const stripe = useStripe()
   const elements = useElements()
-  const [makeDefault, setMakeDefault] = useState(true)
-  const [cardError, setCardError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!stripe || !elements) return
-    const cardElement = elements.getElement(CardElement)
-    if (!cardElement) return
+  return useCallback(
+    async (cardholderName: string, makeDefault: boolean): Promise<string> => {
+      if (!stripe || !elements) throw new Error('Payment form is still loading')
+      const cardNumberElement = elements.getElement(CardNumberElement)
+      if (!cardNumberElement) throw new Error('Card details are incomplete')
 
-    setLoading(true)
-    setSubmitError(null)
-    try {
-      const intentRes = await fetch('/api/stripe/setup-intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
+      const intentRes = await fetch('/api/stripe/setup-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
       const intentData = await intentRes.json()
       if (!intentRes.ok || !intentData.success) {
         throw new Error(intentData.error || 'Could not start card setup')
       }
 
-      const { setupIntent, error: confirmError } = await stripe.confirmCardSetup(
-        intentData.setupIntent.client_secret,
-        { payment_method: { card: cardElement } }
-      )
+      const { setupIntent, error: confirmError } = await stripe.confirmCardSetup(intentData.setupIntent.client_secret, {
+        payment_method: {
+          card: cardNumberElement,
+          billing_details: { name: cardholderName || undefined },
+        },
+      })
 
-      if (confirmError) {
-        throw new Error(confirmError.message || 'Your card could not be saved')
-      }
-      if (!setupIntent || setupIntent.status !== 'succeeded') {
-        throw new Error('Card setup was not completed')
-      }
+      if (confirmError) throw new Error(confirmError.message || 'Your card could not be saved')
+      if (!setupIntent || setupIntent.status !== 'succeeded') throw new Error('Card setup was not completed')
 
       const saveRes = await fetch('/api/billing/payment-methods', {
         method: 'POST',
@@ -117,6 +181,27 @@ function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel:
         throw new Error(saveData.error || 'Card was saved but could not be added to your account')
       }
 
+      return saveData.paymentMethod.id as string
+    },
+    [stripe, elements]
+  )
+}
+
+function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) {
+  const stripe = useStripe()
+  const saveCard = useSaveCard()
+  const [cardholderName, setCardholderName] = useState('')
+  const [makeDefault, setMakeDefault] = useState(true)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({})
+  const [loading, setLoading] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setSubmitError(null)
+    try {
+      await saveCard(cardholderName, makeDefault)
       onSuccess()
     } catch (err: any) {
       setSubmitError(err.message || 'Something went wrong. Please try again.')
@@ -125,20 +210,16 @@ function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel:
     }
   }
 
+  const errorMessage = Object.values(fieldErrors).find(Boolean)
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1.5">Card details</label>
-        <div className="h-11 px-3.5 flex items-center rounded-lg border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
-          <div className="w-full">
-            <CardElement
-              options={cardElementOptions}
-              onChange={e => setCardError(e.error?.message ?? null)}
-            />
-          </div>
-        </div>
-        {cardError && <p className="text-xs text-red-600 mt-1">{cardError}</p>}
-      </div>
+      <CardFields
+        cardholderName={cardholderName}
+        onCardholderNameChange={setCardholderName}
+        onFieldChange={(field, error) => setFieldErrors(prev => ({ ...prev, [field]: error }))}
+      />
+      {errorMessage && <p className="text-xs text-red-600">{errorMessage}</p>}
 
       <label className="flex items-center gap-2.5">
         <input
@@ -174,10 +255,216 @@ function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel:
   )
 }
 
+interface ChangePlanModalProps {
+  currentPlanName: string
+  targetPlan: { id: string; name: string; price: number }
+  paymentMethods: PaymentMethodInfo[]
+  onClose: () => void
+  onConfirmed: () => void
+  subscriptionId: string
+}
+
+/** Inner content of the change-plan modal — needs Stripe context only for the inline "new card" option. */
+function ChangePlanModalContent({
+  currentPlanName,
+  targetPlan,
+  paymentMethods,
+  onClose,
+  onConfirmed,
+  subscriptionId,
+}: ChangePlanModalProps) {
+  const saveCard = useSaveCard()
+  const [preview, setPreview] = useState<{ isUpgrade: boolean; amountDueToday: number; effectiveDate: string } | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(true)
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(
+    paymentMethods.find(pm => pm.isDefault)?.id ?? paymentMethods[0]?.id ?? null
+  )
+  const [usingNewCard, setUsingNewCard] = useState(paymentMethods.length === 0)
+  const [cardholderName, setCardholderName] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({})
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/billing/subscriptions/preview-plan-change', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscriptionId, planId: targetPlan.id }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (cancelled) return
+        if (data.success) {
+          setPreview(data)
+        } else {
+          setError(data.error || 'Could not calculate the price change')
+        }
+      })
+      .catch(() => !cancelled && setError('Could not calculate the price change'))
+      .finally(() => !cancelled && setPreviewLoading(false))
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleConfirm = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      let paymentMethodId = selectedPaymentMethodId || undefined
+
+      if (preview?.isUpgrade && usingNewCard) {
+        paymentMethodId = await saveCard(cardholderName, true)
+      }
+
+      const res = await fetch('/api/billing/subscriptions/change-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscriptionId, planId: targetPlan.id, paymentMethodId }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to change plan')
+      onConfirmed()
+    } catch (err: any) {
+      setError(err.message || 'Failed to change plan')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (previewLoading) {
+    return (
+      <div className="flex items-center justify-center py-10">
+        <svg className="animate-spin h-6 w-6 text-blue-600" viewBox="0 0 24 24" fill="none">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+        </svg>
+      </div>
+    )
+  }
+
+  // Downgrade: no charge, no payment method needed — just confirm.
+  if (preview && !preview.isUpgrade) {
+    return (
+      <div className="space-y-5">
+        <p className="text-sm text-slate-600">
+          You'll keep full access to <span className="font-semibold text-slate-900">{currentPlanName}</span> through{' '}
+          <span className="font-semibold text-slate-900">{new Date(preview.effectiveDate).toLocaleDateString()}</span> — you've
+          already paid for this billing period. After that, you'll automatically switch to{' '}
+          <span className="font-semibold text-slate-900">{targetPlan.name}</span> at ${targetPlan.price}/month.
+        </p>
+        <p className="text-xs text-slate-400">Nothing is charged today.</p>
+        {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>}
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 h-11 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={loading}
+            className="flex-1 h-11 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-60"
+          >
+            {loading ? 'Scheduling…' : 'Confirm switch'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Upgrade: charge today — pick a card.
+  const errorMessage = Object.values(fieldErrors).find(Boolean)
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-lg bg-blue-50 border border-blue-100 p-3.5">
+        <p className="text-sm text-slate-700">
+          Switching to <span className="font-semibold">{targetPlan.name}</span> today.
+        </p>
+        <p className="text-2xl font-bold text-slate-900 mt-1">${(preview?.amountDueToday ?? 0).toFixed(2)}</p>
+        <p className="text-xs text-slate-500">Prorated charge due today, then ${targetPlan.price}.00/month going forward.</p>
+      </div>
+
+      <div>
+        <p className="text-sm font-medium text-slate-700 mb-2">Pay with</p>
+        <div className="space-y-2">
+          {paymentMethods.map(pm => (
+            <label
+              key={pm.id}
+              className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer ${
+                !usingNewCard && selectedPaymentMethodId === pm.id ? 'border-blue-600 bg-blue-50/40' : 'border-slate-200'
+              }`}
+            >
+              <input
+                type="radio"
+                name="payment-method"
+                checked={!usingNewCard && selectedPaymentMethodId === pm.id}
+                onChange={() => {
+                  setSelectedPaymentMethodId(pm.id)
+                  setUsingNewCard(false)
+                }}
+                className="text-blue-600 focus:ring-blue-500/30"
+              />
+              <CardBrandIcon brand={pm.brand} />
+              <span className="text-sm text-slate-900 capitalize">
+                {pm.brand} •••• {pm.last4}
+              </span>
+              {pm.isDefault && <span className="ml-auto text-xs text-slate-400">Default</span>}
+            </label>
+          ))}
+          <label
+            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer ${
+              usingNewCard ? 'border-blue-600 bg-blue-50/40' : 'border-slate-200'
+            }`}
+          >
+            <input
+              type="radio"
+              name="payment-method"
+              checked={usingNewCard}
+              onChange={() => setUsingNewCard(true)}
+              className="text-blue-600 focus:ring-blue-500/30"
+            />
+            <span className="text-sm text-slate-900">Use a new card</span>
+          </label>
+        </div>
+      </div>
+
+      {usingNewCard && (
+        <div className="pt-1 border-t border-slate-100">
+          <div className="pt-4">
+            <CardFields
+              cardholderName={cardholderName}
+              onCardholderNameChange={setCardholderName}
+              onFieldChange={(field, err) => setFieldErrors(prev => ({ ...prev, [field]: err }))}
+            />
+          </div>
+        </div>
+      )}
+      {errorMessage && <p className="text-xs text-red-600">{errorMessage}</p>}
+
+      {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>}
+
+      <div className="flex gap-3">
+        <button onClick={onClose} className="flex-1 h-11 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
+          Cancel
+        </button>
+        <button
+          onClick={handleConfirm}
+          disabled={loading || (!usingNewCard && !selectedPaymentMethodId)}
+          className="flex-1 h-11 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-60"
+        >
+          {loading ? 'Processing…' : `Confirm & pay $${(preview?.amountDueToday ?? 0).toFixed(2)}`}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-lg font-bold text-slate-900">{title}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
@@ -200,7 +487,7 @@ export default function BillingPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
-  const [showChangePlanConfirm, setShowChangePlanConfirm] = useState<string | null>(null)
+  const [changePlanTarget, setChangePlanTarget] = useState<{ id: string; name: string; price: number } | null>(null)
   const [showAddCard, setShowAddCard] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
@@ -273,27 +560,6 @@ export default function BillingPage() {
       await loadAll()
     } catch (err: any) {
       setActionError(err.message || 'Failed to reactivate subscription')
-    } finally {
-      setActionLoading(null)
-    }
-  }
-
-  const handleChangePlanConfirmed = async (planId: string) => {
-    if (!activeSubscription) return
-    setActionLoading('change-plan')
-    setActionError(null)
-    try {
-      const res = await fetch('/api/billing/subscriptions/change-plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscriptionId: activeSubscription.id, planId }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to change plan')
-      setShowChangePlanConfirm(null)
-      await loadAll()
-    } catch (err: any) {
-      setActionError(err.message || 'Failed to change plan')
     } finally {
       setActionLoading(null)
     }
@@ -445,7 +711,7 @@ export default function BillingPage() {
                   </p>
                   <button
                     disabled={isCurrent}
-                    onClick={() => setShowChangePlanConfirm(plan.id)}
+                    onClick={() => setChangePlanTarget(plan)}
                     className={`w-full mt-4 h-9 rounded-lg text-sm font-medium transition-colors ${
                       isCurrent
                         ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
@@ -460,7 +726,9 @@ export default function BillingPage() {
               )
             })}
           </div>
-          <p className="text-xs text-slate-400 mt-4">Plan changes are prorated automatically — you'll only pay the difference.</p>
+          <p className="text-xs text-slate-400 mt-4">
+            Upgrades are charged immediately for the prorated difference. Downgrades take effect at the end of your current billing period — you keep your current plan's access until then.
+          </p>
         </div>
       )}
 
@@ -574,26 +842,22 @@ export default function BillingPage() {
         </Modal>
       )}
 
-      {/* Change plan confirmation */}
-      {showChangePlanConfirm && (
-        <Modal title="Confirm plan change" onClose={() => setShowChangePlanConfirm(null)}>
-          <p className="text-sm text-slate-600 mb-6">
-            Switch from {currentPlanMeta?.name} to {PLANS.find(p => p.id === showChangePlanConfirm)?.name}? Stripe will automatically prorate the
-            difference on your next invoice.
-          </p>
-          {actionError && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 mb-4">{actionError}</div>}
-          <div className="flex gap-3">
-            <button onClick={() => setShowChangePlanConfirm(null)} className="flex-1 h-11 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
-              Cancel
-            </button>
-            <button
-              onClick={() => handleChangePlanConfirmed(showChangePlanConfirm)}
-              disabled={actionLoading === 'change-plan'}
-              className="flex-1 h-11 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-60"
-            >
-              {actionLoading === 'change-plan' ? 'Switching…' : 'Confirm switch'}
-            </button>
-          </div>
+      {/* Change plan */}
+      {changePlanTarget && activeSubscription && (
+        <Modal title="Confirm plan change" onClose={() => setChangePlanTarget(null)}>
+          <Elements stripe={stripePromise}>
+            <ChangePlanModalContent
+              currentPlanName={currentPlanMeta?.name ?? 'your current plan'}
+              targetPlan={changePlanTarget}
+              paymentMethods={paymentMethods}
+              subscriptionId={activeSubscription.id}
+              onClose={() => setChangePlanTarget(null)}
+              onConfirmed={() => {
+                setChangePlanTarget(null)
+                loadAll()
+              }}
+            />
+          </Elements>
         </Modal>
       )}
 
