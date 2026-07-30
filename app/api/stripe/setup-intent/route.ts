@@ -7,7 +7,7 @@ import { withValidation } from '@/lib/validation-middleware'
 import { z } from 'zod'
 
 const createSetupIntentSchema = z.object({
-  customerId: z.string().min(1),
+  customerId: z.string().min(1).optional(),
 })
 
 /**
@@ -20,6 +20,11 @@ const createSetupIntentSchema = z.object({
  * period, so also confirming a separate PaymentIntent for that same first
  * payment charged the customer twice. A SetupIntent saves the card; the
  * subscription's own automatic first invoice is the only charge.
+ *
+ * Also used by /dashboard/billing's "add card" flow, which doesn't already
+ * have a customerId on hand the way checkout does — customerId is now
+ * optional and derived from the authenticated user's stored Stripe customer
+ * id when omitted, still verified to match when the caller does supply one.
  */
 export const POST = withRateLimit(
   withValidation({ body: createSetupIntentSchema })(
@@ -30,10 +35,8 @@ export const POST = withRateLimit(
           return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
         }
 
-        const { customerId } = validatedData.body
+        const { customerId: requestedCustomerId } = validatedData.body
 
-        // Defense in depth, same as /api/billing/subscriptions: the
-        // customer must belong to the authenticated user.
         const supabase = getSupabaseClient()
         const { data: userRow } = await supabase
           .from('users')
@@ -41,12 +44,20 @@ export const POST = withRateLimit(
           .eq('id', authUser.userId)
           .maybeSingle()
 
-        if (!userRow?.stripe_customer_id || userRow.stripe_customer_id !== customerId) {
+        if (!userRow?.stripe_customer_id) {
+          return NextResponse.json({ success: false, error: 'No billing account found' }, { status: 404 })
+        }
+
+        // Defense in depth: if the caller did supply a customerId (as
+        // checkout does), it must match the authenticated user's own.
+        if (requestedCustomerId && requestedCustomerId !== userRow.stripe_customer_id) {
           return NextResponse.json(
             { success: false, error: 'Customer does not belong to the authenticated user' },
             { status: 403 }
           )
         }
+
+        const customerId = userRow.stripe_customer_id
 
         const stripe = getStripeClient()
         const setupIntent = await stripe.setupIntents.create({
