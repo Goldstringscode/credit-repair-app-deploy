@@ -11,682 +11,684 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import {
-  User,
-  Shield,
-  Bell,
-  Eye,
-  CreditCard,
-  Download,
-  Trash2,
-  Save,
-  Edit,
-  Lock,
-  Smartphone,
-  Mail,
-  Phone,
-  AlertTriangle,
-  Key,
-  Monitor,
-  FileText,
-  Database,
+ User,
+ Shield,
+ Bell,
+ Eye,
+ CreditCard,
+ Download,
+ Trash2,
+ Save,
+ Edit,
+ Lock,
+ Smartphone,
+ Mail,
+ Phone,
+ AlertTriangle,
+ Key,
+ Monitor,
+ FileText,
+ Database,
 } from "lucide-react"
 import { NotificationSettings } from "@/components/notification-settings"
 
 function SettingsPageInner() {
-  const searchParams = useSearchParams()
-  const defaultTab = searchParams.get('tab') || 'profile'
-  const [activeTab, setActiveTab] = useState(defaultTab)
-  const [isEditing, setIsEditing] = useState(false)
-  const [pageLoading, setPageLoading] = useState(true)
-  const [saveSuccess, setSaveSuccess] = useState('')
-  const [saveError, setSaveError] = useState('')
-  // Password change form state
-  const [currentPw, setCurrentPw] = useState('')
-  const [newPw, setNewPw] = useState('')
-  const [confirmPw, setConfirmPw] = useState('')
-  const [pwLoading, setPwLoading] = useState(false)
-  const [pwSuccess, setPwSuccess] = useState('')
-  const [pwError, setPwError] = useState('')
-  // Delete account state
-  const [deleteConfirm, setDeleteConfirm] = useState('')
-  const [deleteLoading, setDeleteLoading] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [billingData, setBillingData] = useState<any>(null)
-  const [profileData, setProfileData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    bio: "",
-    company: "",
-    website: "",
-    timezone: "America/New_York",
-  })
+ const searchParams = useSearchParams()
+ const defaultTab = searchParams.get('tab') || 'profile'
+ const [activeTab, setActiveTab] = useState(defaultTab)
+ const [isEditing, setIsEditing] = useState(false)
+ const [pageLoading, setPageLoading] = useState(true)
+ const [saveSuccess, setSaveSuccess] = useState('')
+ const [saveError, setSaveError] = useState('')
+ // Password change form state
+ const [currentPw, setCurrentPw] = useState('')
+ const [newPw, setNewPw] = useState('')
+ const [confirmPw, setConfirmPw] = useState('')
+ const [pwLoading, setPwLoading] = useState(false)
+ const [pwSuccess, setPwSuccess] = useState('')
+ const [pwError, setPwError] = useState('')
+ // Delete account state
+ const [deleteConfirm, setDeleteConfirm] = useState('')
+ const [deleteLoading, setDeleteLoading] = useState(false)
+ const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+ const [billingData, setBillingData] = useState<any>(null)
+ const [currentUser, setCurrentUser] = useState<any>(null)
+ const [profileData, setProfileData] = useState({
+ firstName: "",
+ lastName: "",
+ email: "",
+ phone: "",
+ bio: "",
+ company: "",
+ website: "",
+ timezone: "America/New_York",
+ })
 
-  const [notifications, setNotifications] = useState({
-    email: {
-      creditUpdates: true,
-      disputeStatus: true,
-      marketingEmails: false,
-      weeklyReports: true,
-      securityAlerts: true,
-    },
-    push: {
-      creditChanges: true,
-      disputeUpdates: true,
-      reminders: false,
-      promotions: false,
-    },
-    sms: {
-      criticalAlerts: true,
-      disputeStatus: false,
-      reminders: false,
-    },
-  })
+ const [notifications, setNotifications] = useState({
+ email: {
+ creditUpdates: true,
+ disputeStatus: true,
+ marketingEmails: false,
+ weeklyReports: true,
+ securityAlerts: true,
+ },
+ push: {
+ creditChanges: true,
+ disputeUpdates: true,
+ reminders: false,
+ promotions: false,
+ },
+ sms: {
+ criticalAlerts: true,
+ disputeStatus: false,
+ reminders: false,
+ },
+ })
 
-  const [privacy, setPrivacy] = useState({
-    profileVisibility: "private",
-    dataSharing: false,
-    analyticsTracking: true,
-    thirdPartyIntegrations: false,
-  })
+ const [privacy, setPrivacy] = useState({
+ profileVisibility: "private",
+ dataSharing: false,
+ analyticsTracking: true,
+ thirdPartyIntegrations: false,
+ })
 
-  const [security, setSecurity] = useState({
-    twoFactorEnabled: true,
-    sessionTimeout: "30",
-    loginNotifications: true,
-    deviceTracking: true,
-  })
-
-
-  // Load real user + billing data on mount
-  useEffect(() => {
-    Promise.all([
-      fetch('/api/auth/me', { credentials: 'include' }).then(r=>r.json()).catch(()=>null),
-      fetch('/api/billing', { credentials: 'include' }).then(r=>r.json()).catch(()=>null),
-    ]).then(([me, billing]) => {
-      if (me?.user) {
-        const u = me.user
-        setProfileData(prev => ({
-          ...prev,
-          firstName: u.first_name || u.firstName || '',
-          lastName: u.last_name || u.lastName || '',
-          email: u.email || '',
-          phone: u.phone || u.phone_number || prev.phone,
-          bio: u.bio || prev.bio,
-          company: u.company || prev.company,
-          website: u.website || prev.website,
-          timezone: u.timezone || prev.timezone,
-        }))
-      }
-      if (billing?.success) setBillingData(billing)
-      setPageLoading(false)
-    })
-  }, [])
-
-  // Handle profile save
-  const handleSaveProfile = async () => {
-    setSaveSuccess('')
-    setSaveError('')
-    try {
-      const res = await fetch('/api/auth/update-profile', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          first_name: profileData.firstName,
-          last_name: profileData.lastName,
-          phone: profileData.phone,
-          bio: profileData.bio,
-          company: profileData.company,
-          website: profileData.website,
-          timezone: profileData.timezone,
-        }),
-      })
-      const data = await res.json()
-      if (data.success) { setSaveSuccess('Profile updated successfully!'); setIsEditing(false) }
-      else setSaveError(data.error || 'Failed to save profile')
-    } catch { setSaveError('Network error — please try again') }
-  }
-
-  // Handle password change
-  const handleChangePassword = async () => {
-    setPwError('')
-    setPwSuccess('')
-    if (!currentPw || !newPw || !confirmPw) { setPwError('All fields are required'); return }
-    if (newPw !== confirmPw) { setPwError('New passwords do not match'); return }
-    if (newPw.length < 8) { setPwError('Password must be at least 8 characters'); return }
-    setPwLoading(true)
-    try {
-      const res = await fetch('/api/auth/change-password', {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw }),
-      })
-      const data = await res.json()
-      if (data.success) { setPwSuccess('Password changed successfully!'); setCurrentPw(''); setNewPw(''); setConfirmPw('') }
-      else setPwError(data.error || 'Failed to change password')
-    } catch { setPwError('Network error — please try again') }
-    finally { setPwLoading(false) }
-  }
+ const [security, setSecurity] = useState({
+ twoFactorEnabled: true,
+ sessionTimeout: "30",
+ loginNotifications: true,
+ deviceTracking: true,
+ })
 
 
-  const handleDeleteAccount = async () => {
-    if (deleteConfirm !== 'DELETE') { setPwError('Type DELETE to confirm'); return }
-    setDeleteLoading(true)
-    try {
-      const res = await fetch('/api/auth/delete-account', {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirmation: deleteConfirm }),
-      })
-      const data = await res.json()
-      if (data.success) { window.location.href = '/' }
-      else setPwError(data.error || 'Failed to delete account')
-    } catch { setPwError('Network error — please try again') }
-    finally { setDeleteLoading(false) }
-  }
+ // Load real user + billing data on mount
+ useEffect(() => {
+ Promise.all([
+ fetch('/api/auth/me', { credentials: 'include' }).then(r=>r.json()).catch(()=>null),
+ fetch('/api/billing', { credentials: 'include' }).then(r=>r.json()).catch(()=>null),
+ ]).then(([me, billing]) => {
+ if (me?.user) {
+ const u = me.user
+ setCurrentUser(u)
+ setProfileData(prev => ({
+ ...prev,
+ firstName: u.first_name || u.firstName || '',
+ lastName: u.last_name || u.lastName || '',
+ email: u.email || '',
+ phone: u.phone || u.phone_number || prev.phone,
+ bio: u.bio || prev.bio,
+ company: u.company || prev.company,
+ website: u.website || prev.website,
+ timezone: u.timezone || prev.timezone,
+ }))
+ }
+ if (billing?.success) setBillingData(billing)
+ setPageLoading(false)
+ })
+ }, [])
 
-  const handleRevokeSession = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
-      window.location.href = '/login'
-    } catch { console.error('Revoke failed') }
-  }
+ // Handle profile save
+ const handleSaveProfile = async () => {
+ setSaveSuccess('')
+ setSaveError('')
+ try {
+ const res = await fetch('/api/auth/update-profile', {
+ method: 'POST',
+ credentials: 'include',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({
+ first_name: profileData.firstName,
+ last_name: profileData.lastName,
+ phone: profileData.phone,
+ bio: profileData.bio,
+ company: profileData.company,
+ website: profileData.website,
+ timezone: profileData.timezone,
+ }),
+ })
+ const data = await res.json()
+ if (data.success) { setSaveSuccess('Profile updated successfully!'); setIsEditing(false) }
+ else setSaveError(data.error || 'Failed to save profile')
+ } catch { setSaveError('Network error — please try again') }
+ }
 
-    const handleExportData = async () => {
-    try {
-      const [meRes, creditRes] = await Promise.all([
-        fetch('/api/auth/me', { credentials: 'include' }).then(r => r.json()).catch(() => null),
-        fetch('/api/dashboard/stats', { credentials: 'include' }).then(r => r.json()).catch(() => null),
-      ])
-      const data = {
-        profile: meRes?.user || profileData,
-        creditData: creditRes?.data || {},
-        settings: { notifications, privacy },
-        exportDate: new Date().toISOString(),
-      }
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'credit-repair-data.json'
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch (err) {
-      console.error('Export failed:', err)
-    }
-  }
+ // Handle password change
+ const handleChangePassword = async () => {
+ setPwError('')
+ setPwSuccess('')
+ if (!currentPw || !newPw || !confirmPw) { setPwError('All fields are required'); return }
+ if (newPw !== confirmPw) { setPwError('New passwords do not match'); return }
+ if (newPw.length < 8) { setPwError('Password must be at least 8 characters'); return }
+ setPwLoading(true)
+ try {
+ const res = await fetch('/api/auth/change-password', {
+ method: 'POST', credentials: 'include',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw }),
+ })
+ const data = await res.json()
+ if (data.success) { setPwSuccess('Password changed successfully!'); setCurrentPw(''); setNewPw(''); setConfirmPw('') }
+ else setPwError(data.error || 'Failed to change password')
+ } catch { setPwError('Network error — please try again') }
+ finally { setPwLoading(false) }
+ }
 
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Account Settings</h1>
-        <p className="text-gray-600">Manage your account preferences and security settings</p>
-      </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          {saveSuccess && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm flex items-center gap-2">
-              <span>✓</span> {saveSuccess}
-            </div>
-          )}
-          {saveError && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm flex items-center gap-2">
-              <span>⚠</span> {saveError}
-            </div>
-          )}
+ const handleDeleteAccount = async () => {
+ if (deleteConfirm !== 'DELETE') { setPwError('Type DELETE to confirm'); return }
+ setDeleteLoading(true)
+ try {
+ const res = await fetch('/api/auth/delete-account', {
+ method: 'DELETE',
+ credentials: 'include',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({ confirmation: deleteConfirm }),
+ })
+ const data = await res.json()
+ if (data.success) { window.location.href = '/' }
+ else setPwError(data.error || 'Failed to delete account')
+ } catch { setPwError('Network error — please try again') }
+ finally { setDeleteLoading(false) }
+ }
 
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="profile" className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            Profile
-          </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center gap-2">
-            <Shield className="h-4 w-4" />
-            Security
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
-            <Bell className="h-4 w-4" />
-            Notifications
-          </TabsTrigger>
-          <TabsTrigger value="privacy" className="flex items-center gap-2">
-            <Eye className="h-4 w-4" />
-            Privacy
-          </TabsTrigger>
-          <TabsTrigger value="billing" className="flex items-center gap-2">
-            <CreditCard className="h-4 w-4" />
-            Billing
-          </TabsTrigger>
-          <TabsTrigger value="data" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            Data
-          </TabsTrigger>
-        </TabsList>
+ const handleRevokeSession = async () => {
+ try {
+ await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+ window.location.href = '/login'
+ } catch { console.error('Revoke failed') }
+ }
 
-        {/* Profile Tab */}
-        <TabsContent value="profile" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Personal Information
-                </CardTitle>
-                <Button variant="outline" size="sm" onClick={() => setIsEditing(!isEditing)}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  {isEditing ? "Cancel" : "Edit"}
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input
-                    id="firstName"
-                    value={profileData.firstName}
-                    onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
-                    disabled={!isEditing}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input
-                    id="lastName"
-                    value={profileData.lastName}
-                    onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
-                    disabled={!isEditing}
-                  />
-                </div>
-              </div>
+ const handleExportData = async () => {
+ try {
+ const [meRes, creditRes] = await Promise.all([
+ fetch('/api/auth/me', { credentials: 'include' }).then(r => r.json()).catch(() => null),
+ fetch('/api/dashboard/stats', { credentials: 'include' }).then(r => r.json()).catch(() => null),
+ ])
+ const data = {
+ profile: meRes?.user || profileData,
+ creditData: creditRes?.data || {},
+ settings: { notifications, privacy },
+ exportDate: new Date().toISOString(),
+ }
+ const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+ const url = URL.createObjectURL(blob)
+ const a = document.createElement('a')
+ a.href = url
+ a.download = 'credit-repair-data.json'
+ document.body.appendChild(a)
+ a.click()
+ document.body.removeChild(a)
+ URL.revokeObjectURL(url)
+ } catch (err) {
+ console.error('Export failed:', err)
+ }
+ }
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={profileData.email}
-                  onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
+ return (
+ <div className="container mx-auto px-4 py-8">
+ <div className="mb-8">
+ <h1 className="text-3xl font-bold text-gray-900 mb-2">Account Settings</h1>
+ <p className="text-gray-600">Manage your account preferences and security settings</p>
+ </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  value={profileData.phone}
-                  onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
+ <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+ {saveSuccess && (
+ <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm flex items-center gap-2">
+ <span>✓</span> {saveSuccess}
+ </div>
+ )}
+ {saveError && (
+ <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm flex items-center gap-2">
+ <span>⚠</span> {saveError}
+ </div>
+ )}
 
-              <div className="space-y-2">
-                <Label htmlFor="bio">Bio</Label>
-                <Textarea
-                  id="bio"
-                  value={profileData.bio}
-                  onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
-                  disabled={!isEditing}
-                  rows={3}
-                />
-              </div>
+ <TabsList className="grid w-full grid-cols-6">
+ <TabsTrigger value="profile" className="flex items-center gap-2">
+ <User className="h-4 w-4" />
+ Profile
+ </TabsTrigger>
+ <TabsTrigger value="security" className="flex items-center gap-2">
+ <Shield className="h-4 w-4" />
+ Security
+ </TabsTrigger>
+ <TabsTrigger value="notifications" className="flex items-center gap-2">
+ <Bell className="h-4 w-4" />
+ Notifications
+ </TabsTrigger>
+ <TabsTrigger value="privacy" className="flex items-center gap-2">
+ <Eye className="h-4 w-4" />
+ Privacy
+ </TabsTrigger>
+ <TabsTrigger value="billing" className="flex items-center gap-2">
+ <CreditCard className="h-4 w-4" />
+ Billing
+ </TabsTrigger>
+ <TabsTrigger value="data" className="flex items-center gap-2">
+ <Database className="h-4 w-4" />
+ Data
+ </TabsTrigger>
+ </TabsList>
 
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="company">Company</Label>
-                  <Input
-                    id="company"
-                    value={profileData.company}
-                    onChange={(e) => setProfileData({ ...profileData, company: e.target.value })}
-                    disabled={!isEditing}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="website">Website</Label>
-                  <Input
-                    id="website"
-                    value={profileData.website}
-                    onChange={(e) => setProfileData({ ...profileData, website: e.target.value })}
-                    disabled={!isEditing}
-                  />
-                </div>
-              </div>
+ {/* Profile Tab */}
+ <TabsContent value="profile" className="space-y-6">
+ <Card>
+ <CardHeader>
+ <div className="flex items-center justify-between">
+ <CardTitle className="flex items-center gap-2">
+ <User className="h-5 w-5" />
+ Personal Information
+ </CardTitle>
+ <Button variant="outline" size="sm" onClick={() => setIsEditing(!isEditing)}>
+ <Edit className="h-4 w-4 mr-2" />
+ {isEditing ? "Cancel" : "Edit"}
+ </Button>
+ </div>
+ </CardHeader>
+ <CardContent className="space-y-6">
+ <div className="grid md:grid-cols-2 gap-6">
+ <div className="space-y-2">
+ <Label htmlFor="firstName">First Name</Label>
+ <Input
+ id="firstName"
+ value={profileData.firstName}
+ onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
+ disabled={!isEditing}
+ />
+ </div>
+ <div className="space-y-2">
+ <Label htmlFor="lastName">Last Name</Label>
+ <Input
+ id="lastName"
+ value={profileData.lastName}
+ onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
+ disabled={!isEditing}
+ />
+ </div>
+ </div>
 
-              {isEditing && (
-                <div className="flex gap-4">
-                  <Button onClick={handleSaveProfile}>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Changes
-                  </Button>
-                  <Button variant="outline" onClick={() => setIsEditing(false)}>
-                    Cancel
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+ <div className="space-y-2">
+ <Label htmlFor="email">Email Address</Label>
+ <Input
+ id="email"
+ type="email"
+ value={profileData.email}
+ onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+ disabled={!isEditing}
+ />
+ </div>
 
-        {/* Security Tab */}
-        <TabsContent value="security" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Lock className="h-5 w-5" />
-                Password & Authentication
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <Button variant="outline">
-                  <Key className="h-4 w-4 mr-2" />
-                  Change Password
-                </Button>
+ <div className="space-y-2">
+ <Label htmlFor="phone">Phone Number</Label>
+ <Input
+ id="phone"
+ value={profileData.phone}
+ onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+ disabled={!isEditing}
+ />
+ </div>
 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Two-Factor Authentication</h4>
-                    <p className="text-sm text-gray-600">Add an extra layer of security to your account</p>
-                  </div>
-                  <Switch
-                    checked={security.twoFactorEnabled}
-                    onCheckedChange={(checked) => setSecurity({ ...security, twoFactorEnabled: checked })}
-                  />
-                </div>
+ <div className="space-y-2">
+ <Label htmlFor="bio">Bio</Label>
+ <Textarea
+ id="bio"
+ value={profileData.bio}
+ onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
+ disabled={!isEditing}
+ rows={3}
+ />
+ </div>
 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Login Notifications</h4>
-                    <p className="text-sm text-gray-600">Get notified when someone logs into your account</p>
-                  </div>
-                  <Switch
-                    checked={security.loginNotifications}
-                    onCheckedChange={(checked) => setSecurity({ ...security, loginNotifications: checked })}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+ <div className="grid md:grid-cols-2 gap-6">
+ <div className="space-y-2">
+ <Label htmlFor="company">Company</Label>
+ <Input
+ id="company"
+ value={profileData.company}
+ onChange={(e) => setProfileData({ ...profileData, company: e.target.value })}
+ disabled={!isEditing}
+ />
+ </div>
+ <div className="space-y-2">
+ <Label htmlFor="website">Website</Label>
+ <Input
+ id="website"
+ value={profileData.website}
+ onChange={(e) => setProfileData({ ...profileData, website: e.target.value })}
+ disabled={!isEditing}
+ />
+ </div>
+ </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Monitor className="h-5 w-5" />
-                Active Sessions
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-green-100 p-2 rounded-lg">
-                      <Monitor className="h-4 w-4 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Current Session</p>
-                      <p className="text-sm text-gray-600">Chrome on Windows • New York, NY</p>
-                    </div>
-                  </div>
-                  <Badge className="bg-green-100 text-green-800">Active</Badge>
-                </div>
+ {isEditing && (
+ <div className="flex gap-4">
+ <Button onClick={handleSaveProfile}>
+ <Save className="h-4 w-4 mr-2" />
+ Save Changes
+ </Button>
+ <Button variant="outline" onClick={() => setIsEditing(false)}>
+ Cancel
+ </Button>
+ </div>
+ )}
+ </CardContent>
+ </Card>
+ </TabsContent>
 
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-gray-100 p-2 rounded-lg">
-                      <Smartphone className="h-4 w-4 text-gray-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Mobile App</p>
-                      <p className="text-sm text-gray-600">iPhone • Last active 2 hours ago</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    Revoke
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+ {/* Security Tab */}
+ <TabsContent value="security" className="space-y-6">
+ <Card>
+ <CardHeader>
+ <CardTitle className="flex items-center gap-2">
+ <Lock className="h-5 w-5" />
+ Password & Authentication
+ </CardTitle>
+ </CardHeader>
+ <CardContent className="space-y-6">
+ <div className="space-y-4">
+ <Button variant="outline">
+ <Key className="h-4 w-4 mr-2" />
+ Change Password
+ </Button>
 
-        {/* Notifications Tab */}
-        <TabsContent value="notifications" className="space-y-6">
-          <NotificationSettings />
-        </TabsContent>
+ <div className="flex items-center justify-between">
+ <div>
+ <h4 className="font-medium">Two-Factor Authentication</h4>
+ <p className="text-sm text-gray-600">Add an extra layer of security to your account</p>
+ </div>
+ <Switch
+ checked={security.twoFactorEnabled}
+ onCheckedChange={(checked) => setSecurity({ ...security, twoFactorEnabled: checked })}
+ />
+ </div>
 
-        {/* Privacy Tab */}
-        <TabsContent value="privacy" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Eye className="h-5 w-5" />
-                Privacy Controls
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Profile Visibility</Label>
-                <select
-                  value={privacy.profileVisibility}
-                  onChange={(e) => setPrivacy({ ...privacy, profileVisibility: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2"
-                >
-                  <option value="public">Public</option>
-                  <option value="private">Private</option>
-                  <option value="contacts">Contacts Only</option>
-                </select>
-              </div>
+ <div className="flex items-center justify-between">
+ <div>
+ <h4 className="font-medium">Login Notifications</h4>
+ <p className="text-sm text-gray-600">Get notified when someone logs into your account</p>
+ </div>
+ <Switch
+ checked={security.loginNotifications}
+ onCheckedChange={(checked) => setSecurity({ ...security, loginNotifications: checked })}
+ />
+ </div>
+ </div>
+ </CardContent>
+ </Card>
 
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium">Data Sharing</h4>
-                  <p className="text-sm text-gray-600">Allow sharing anonymized data for research</p>
-                </div>
-                <Switch
-                  checked={privacy.dataSharing}
-                  onCheckedChange={(checked) => setPrivacy({ ...privacy, dataSharing: checked })}
-                />
-              </div>
+ <Card>
+ <CardHeader>
+ <CardTitle className="flex items-center gap-2">
+ <Monitor className="h-5 w-5" />
+ Active Sessions
+ </CardTitle>
+ </CardHeader>
+ <CardContent>
+ <div className="space-y-4">
+ <div className="flex items-center justify-between p-4 border rounded-lg">
+ <div className="flex items-center gap-3">
+ <div className="bg-green-100 p-2 rounded-lg">
+ <Monitor className="h-4 w-4 text-green-600" />
+ </div>
+ <div>
+ <p className="font-medium">Current Session</p>
+ <p className="text-sm text-gray-600">Chrome on Windows • New York, NY</p>
+ </div>
+ </div>
+ <Badge className="bg-green-100 text-green-800">Active</Badge>
+ </div>
 
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium">Analytics Tracking</h4>
-                  <p className="text-sm text-gray-600">Help us improve by sharing usage analytics</p>
-                </div>
-                <Switch
-                  checked={privacy.analyticsTracking}
-                  onCheckedChange={(checked) => setPrivacy({ ...privacy, analyticsTracking: checked })}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+ <div className="flex items-center justify-between p-4 border rounded-lg">
+ <div className="flex items-center gap-3">
+ <div className="bg-gray-100 p-2 rounded-lg">
+ <Smartphone className="h-4 w-4 text-gray-600" />
+ </div>
+ <div>
+ <p className="font-medium">Mobile App</p>
+ <p className="text-sm text-gray-600">iPhone • Last active 2 hours ago</p>
+ </div>
+ </div>
+ <Button variant="outline" size="sm">
+ Revoke
+ </Button>
+ </div>
+ </div>
+ </CardContent>
+ </Card>
+ </TabsContent>
 
-        {/* Billing Tab */}
-        <TabsContent value="billing" className="space-y-6">
-          {/* Current Plan Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                Current Subscription
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {billingData ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div>
-                      <p className="font-semibold text-gray-900 text-lg capitalize">{billingData.planName || billingData.currentPlan || 'Free'} Plan</p>
-                      <p className="text-sm text-gray-500">${billingData.planPrice || 0}/month</p>
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${billingData.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {billingData.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                  {billingData.subscription?.currentPeriodEnd && (
-                    <p className="text-sm text-gray-500">
-                      Next billing date: {new Date(billingData.subscription.currentPeriodEnd).toLocaleDateString()}
-                    </p>
-                  )}
-                  <div className="flex gap-2 mt-3">
-                    <a href="/pricing" className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
-                      Upgrade Plan
-                    </a>
-                    {billingData.isActive && (
-                      <button className="inline-flex items-center px-4 py-2 border border-gray-200 text-sm rounded-lg hover:bg-gray-50 transition-colors">
-                        Cancel Subscription
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-6 text-gray-400">
-                  <CreditCard className="h-10 w-10 mx-auto mb-2 opacity-40" />
-                  <p className="text-sm">No active subscription</p>
-                  <a href="/pricing" className="inline-flex mt-3 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">View Plans</a>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                Payment Methods
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="border rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-blue-100 p-2 rounded-lg">
-                      <CreditCard className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium">•••• •••• •••• 4242</p>
-                      <p className="text-sm text-gray-600">Expires 12/25</p>
-                    </div>
-                  </div>
-                  <Badge>Primary</Badge>
-                </div>
-              </div>
-              <Button variant="outline">Add Payment Method</Button>
-            </CardContent>
-          </Card>
+ {/* Notifications Tab */}
+ <TabsContent value="notifications" className="space-y-6">
+ <NotificationSettings />
+ </TabsContent>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Billing History
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <p className="font-medium">Professional Plan</p>
-                    <p className="text-sm text-gray-600">December 2024</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">$29.99</p>
-                    <Button variant="ghost" size="sm">
-                      Download
-                    </Button>
-                  </div>
-                </div>
+ {/* Privacy Tab */}
+ <TabsContent value="privacy" className="space-y-6">
+ <Card>
+ <CardHeader>
+ <CardTitle className="flex items-center gap-2">
+ <Eye className="h-5 w-5" />
+ Privacy Controls
+ </CardTitle>
+ </CardHeader>
+ <CardContent className="space-y-4">
+ <div className="space-y-2">
+ <Label>Profile Visibility</Label>
+ <select
+ value={privacy.profileVisibility}
+ onChange={(e) => setPrivacy({ ...privacy, profileVisibility: e.target.value })}
+ className="w-full border border-gray-300 rounded-md px-3 py-2"
+ >
+ <option value="public">Public</option>
+ <option value="private">Private</option>
+ <option value="contacts">Contacts Only</option>
+ </select>
+ </div>
 
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <p className="font-medium">Professional Plan</p>
-                    <p className="text-sm text-gray-600">November 2024</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">$29.99</p>
-                    <Button variant="ghost" size="sm">
-                      Download
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+ <div className="flex items-center justify-between">
+ <div>
+ <h4 className="font-medium">Data Sharing</h4>
+ <p className="text-sm text-gray-600">Allow sharing anonymized data for research</p>
+ </div>
+ <Switch
+ checked={privacy.dataSharing}
+ onCheckedChange={(checked) => setPrivacy({ ...privacy, dataSharing: checked })}
+ />
+ </div>
 
-        {/* Data Tab */}
-        <TabsContent value="data" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Download className="h-5 w-5" />
-                Data Export
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-gray-600">
-                Download a copy of all your data including profile information, credit reports, and dispute history.
-              </p>
-              <Button onClick={handleExportData}>
-                <Download className="h-4 w-4 mr-2" />
-                Export My Data
-              </Button>
-            </CardContent>
-          </Card>
+ <div className="flex items-center justify-between">
+ <div>
+ <h4 className="font-medium">Analytics Tracking</h4>
+ <p className="text-sm text-gray-600">Help us improve by sharing usage analytics</p>
+ </div>
+ <Switch
+ checked={privacy.analyticsTracking}
+ onCheckedChange={(checked) => setPrivacy({ ...privacy, analyticsTracking: checked })}
+ />
+ </div>
+ </CardContent>
+ </Card>
+ </TabsContent>
 
-          <Card className="border-red-200">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-red-600">
-                <AlertTriangle className="h-5 w-5" />
-                Danger Zone
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h4 className="font-medium text-red-600">Delete Account</h4>
-                <p className="text-sm text-gray-600 mb-4">
-                  Permanently delete your account and all associated data. This action cannot be undone.
-                </p>
-                {user?.role === 'admin' ? (
-                  <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 p-3 rounded-lg">Admin accounts cannot be deleted.</p>
-                ) : showDeleteConfirm ? (
-                  <div className="space-y-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-sm text-red-700 font-medium">This action is permanent and cannot be undone.</p>
-                    <p className="text-sm text-red-600">Type <strong>DELETE</strong> to confirm:</p>
-                    <input value={deleteConfirm} onChange={e=>setDeleteConfirm(e.target.value)}
-                      className="w-full px-3 py-2 border border-red-300 rounded-lg text-sm focus:outline-none"
-                      placeholder="Type DELETE"/>
-                    <div className="flex gap-2">
-                      <Button variant="destructive" onClick={handleDeleteAccount} disabled={deleteLoading || deleteConfirm !== 'DELETE'} className="flex-1">
-                        {deleteLoading ? 'Deleting...' : 'Confirm Delete'}
-                      </Button>
-                      <Button variant="outline" onClick={()=>{setShowDeleteConfirm(false);setDeleteConfirm('')}} className="flex-1">Cancel</Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button variant="destructive" onClick={()=>setShowDeleteConfirm(true)}>
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete Account
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
-  )
+ {/* Billing Tab */}
+ <TabsContent value="billing" className="space-y-6">
+ {/* Current Plan Card */}
+ <Card>
+ <CardHeader>
+ <CardTitle className="flex items-center gap-2">
+ <CreditCard className="h-5 w-5" />
+ Current Subscription
+ </CardTitle>
+ </CardHeader>
+ <CardContent>
+ {billingData ? (
+ <div className="space-y-3">
+ <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+ <div>
+ <p className="font-semibold text-gray-900 text-lg capitalize">{billingData.planName || billingData.currentPlan || 'Free'} Plan</p>
+ <p className="text-sm text-gray-500">${billingData.planPrice || 0}/month</p>
+ </div>
+ <span className={`px-3 py-1 rounded-full text-sm font-medium ${billingData.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+ {billingData.isActive ? 'Active' : 'Inactive'}
+ </span>
+ </div>
+ {billingData.subscription?.currentPeriodEnd && (
+ <p className="text-sm text-gray-500">
+ Next billing date: {new Date(billingData.subscription.currentPeriodEnd).toLocaleDateString()}
+ </p>
+ )}
+ <div className="flex gap-2 mt-3">
+ <a href="/pricing" className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
+ Upgrade Plan
+ </a>
+ {billingData.isActive && (
+ <button className="inline-flex items-center px-4 py-2 border border-gray-200 text-sm rounded-lg hover:bg-gray-50 transition-colors">
+ Cancel Subscription
+ </button>
+ )}
+ </div>
+ </div>
+ ) : (
+ <div className="text-center py-6 text-gray-400">
+ <CreditCard className="h-10 w-10 mx-auto mb-2 opacity-40" />
+ <p className="text-sm">No active subscription</p>
+ <a href="/pricing" className="inline-flex mt-3 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">View Plans</a>
+ </div>
+ )}
+ </CardContent>
+ </Card>
+ <Card>
+ <CardHeader>
+ <CardTitle className="flex items-center gap-2">
+ <CreditCard className="h-5 w-5" />
+ Payment Methods
+ </CardTitle>
+ </CardHeader>
+ <CardContent className="space-y-4">
+ <div className="border rounded-lg p-4">
+ <div className="flex items-center justify-between">
+ <div className="flex items-center gap-3">
+ <div className="bg-blue-100 p-2 rounded-lg">
+ <CreditCard className="h-4 w-4 text-blue-600" />
+ </div>
+ <div>
+ <p className="font-medium">•••• •••• •••• 4242</p>
+ <p className="text-sm text-gray-600">Expires 12/25</p>
+ </div>
+ </div>
+ <Badge>Primary</Badge>
+ </div>
+ </div>
+ <Button variant="outline">Add Payment Method</Button>
+ </CardContent>
+ </Card>
+
+ <Card>
+ <CardHeader>
+ <CardTitle className="flex items-center gap-2">
+ <FileText className="h-5 w-5" />
+ Billing History
+ </CardTitle>
+ </CardHeader>
+ <CardContent>
+ <div className="space-y-4">
+ <div className="flex items-center justify-between p-4 border rounded-lg">
+ <div>
+ <p className="font-medium">Professional Plan</p>
+ <p className="text-sm text-gray-600">December 2024</p>
+ </div>
+ <div className="text-right">
+ <p className="font-medium">$29.99</p>
+ <Button variant="ghost" size="sm">
+ Download
+ </Button>
+ </div>
+ </div>
+
+ <div className="flex items-center justify-between p-4 border rounded-lg">
+ <div>
+ <p className="font-medium">Professional Plan</p>
+ <p className="text-sm text-gray-600">November 2024</p>
+ </div>
+ <div className="text-right">
+ <p className="font-medium">$29.99</p>
+ <Button variant="ghost" size="sm">
+ Download
+ </Button>
+ </div>
+ </div>
+ </div>
+ </CardContent>
+ </Card>
+ </TabsContent>
+
+ {/* Data Tab */}
+ <TabsContent value="data" className="space-y-6">
+ <Card>
+ <CardHeader>
+ <CardTitle className="flex items-center gap-2">
+ <Download className="h-5 w-5" />
+ Data Export
+ </CardTitle>
+ </CardHeader>
+ <CardContent className="space-y-4">
+ <p className="text-gray-600">
+ Download a copy of all your data including profile information, credit reports, and dispute history.
+ </p>
+ <Button onClick={handleExportData}>
+ <Download className="h-4 w-4 mr-2" />
+ Export My Data
+ </Button>
+ </CardContent>
+ </Card>
+
+ <Card className="border-red-200">
+ <CardHeader>
+ <CardTitle className="flex items-center gap-2 text-red-600">
+ <AlertTriangle className="h-5 w-5" />
+ Danger Zone
+ </CardTitle>
+ </CardHeader>
+ <CardContent className="space-y-4">
+ <div>
+ <h4 className="font-medium text-red-600">Delete Account</h4>
+ <p className="text-sm text-gray-600 mb-4">
+ Permanently delete your account and all associated data. This action cannot be undone.
+ </p>
+ {currentUser?.role === 'admin' ? (
+ <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 p-3 rounded-lg">Admin accounts cannot be deleted.</p>
+ ) : showDeleteConfirm ? (
+ <div className="space-y-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+ <p className="text-sm text-red-700 font-medium">This action is permanent and cannot be undone.</p>
+ <p className="text-sm text-red-600">Type <strong>DELETE</strong> to confirm:</p>
+ <input value={deleteConfirm} onChange={e=>setDeleteConfirm(e.target.value)}
+ className="w-full px-3 py-2 border border-red-300 rounded-lg text-sm focus:outline-none"
+ placeholder="Type DELETE"/>
+ <div className="flex gap-2">
+ <Button variant="destructive" onClick={handleDeleteAccount} disabled={deleteLoading || deleteConfirm !== 'DELETE'} className="flex-1">
+ {deleteLoading ? 'Deleting...' : 'Confirm Delete'}
+ </Button>
+ <Button variant="outline" onClick={()=>{setShowDeleteConfirm(false);setDeleteConfirm('')}} className="flex-1">Cancel</Button>
+ </div>
+ </div>
+ ) : (
+ <Button variant="destructive" onClick={()=>setShowDeleteConfirm(true)}>
+ <Trash2 className="h-4 w-4 mr-2" />
+ Delete Account
+ </Button>
+ )}
+ </div>
+ </CardContent>
+ </Card>
+ </TabsContent>
+ </Tabs>
+ </div>
+ )
 }
 
 export default function SettingsPage() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"/></div>}>
-      <SettingsPageInner />
-    </Suspense>
-  )
+ return (
+ <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"/></div>}>
+ <SettingsPageInner />
+ </Suspense>
+ )
 }
